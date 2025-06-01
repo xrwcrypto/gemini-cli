@@ -11,6 +11,10 @@ import { schema } from './index.js';
 import { A2ARequestHandler } from './request_handler/a2a_request_handler.js';
 import { JsonRpcTransportHandler } from './transports/jsonrpc_transport_handler.js';
 
+/**
+ * Express app for handling A2A (Agent-to-Agent) communication.
+ * Sets up routes for agent discovery and JSON-RPC request handling.
+ */
 export class A2AExpressApp {
   private requestHandler: A2ARequestHandler; // Kept for getAgentCard
   private jsonRpcTransportHandler: JsonRpcTransportHandler;
