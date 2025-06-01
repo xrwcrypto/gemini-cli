@@ -25,7 +25,7 @@ import {
   TaskPushNotificationConfig, // Renamed from PushNotificationConfigParams for direct schema alignment
   SetTaskPushNotificationConfigResponse,
   GetTaskPushNotificationConfigResponse,
-  A2AError,
+  A2AErrorData, // Renamed from A2AError to A2AErrorData
 } from '../schema.js'; // Assuming schema.ts is in the same directory or appropriately pathed
 
 // Helper type for the data yielded by streaming methods
@@ -72,7 +72,7 @@ export class A2AClient {
           `Failed to fetch Agent Card from ${agentCardUrl}: ${response.status} ${response.statusText}`,
         );
       }
-      const agentCard: AgentCard = await response.json();
+      const agentCard = (await response.json()) as AgentCard;
       if (!agentCard.url) {
         throw new Error(
           "Fetched Agent Card does not contain a valid 'url' for the service endpoint.",
@@ -146,10 +146,10 @@ export class A2AClient {
   >(method: string, params: TParams): Promise<TResponse> {
     const endpoint = await this._getServiceEndpoint();
     const requestId = this.requestIdCounter++;
-    const rpcRequest: JSONRPCRequest = {
+    const rpcRequest: JSONRPCRequest<TParams> = {
       jsonrpc: '2.0',
       method,
-      params: params as { [key: string]: unknown }, // Cast because TParams structure varies per method
+      params: params,
       id: requestId,
     };
 
@@ -194,7 +194,9 @@ export class A2AClient {
       }
     }
 
-    const rpcResponse = await httpResponse.json();
+    const rpcResponse = (await httpResponse.json()) as
+      | JSONRPCResult<unknown>
+      | JSONRPCErrorResponse;
 
     if (rpcResponse.id !== requestId) {
       // This is a significant issue for request-response matching.
@@ -244,11 +246,11 @@ export class A2AClient {
 
     const endpoint = await this._getServiceEndpoint();
     const clientRequestId = this.requestIdCounter++; // Use a unique ID for this stream request
-    const rpcRequest: JSONRPCRequest = {
+    const rpcRequest: JSONRPCRequest<MessageSendParams> = {
       // This is the initial JSON-RPC request to establish the stream
       jsonrpc: '2.0',
       method: 'message/stream',
-      params: params as { [key: string]: unknown },
+      params: params,
       id: clientRequestId,
     };
 
@@ -381,11 +383,11 @@ export class A2AClient {
 
     const endpoint = await this._getServiceEndpoint();
     const clientRequestId = this.requestIdCounter++; // Unique ID for this resubscribe request
-    const rpcRequest: JSONRPCRequest = {
+    const rpcRequest: JSONRPCRequest<TaskIdParams> = {
       // Initial JSON-RPC request to establish the stream
       jsonrpc: '2.0',
       method: 'tasks/resubscribe',
-      params: params as { [key: string]: unknown },
+      params: params,
       id: clientRequestId,
     };
 
@@ -544,7 +546,7 @@ export class A2AClient {
       }
 
       if (a2aStreamResponse.error) {
-        const err = a2aStreamResponse.error as JSONRPCError | A2AError;
+        const err = a2aStreamResponse.error as JSONRPCError | A2AErrorData;
         throw new Error(
           `SSE event contained an error: ${err.message} (Code: ${err.code}) Data: ${JSON.stringify(err.data)}`,
         );

@@ -13,6 +13,13 @@ import {
   TaskPushNotificationConfig,
   JSONRPCResult,
   A2AResponse,
+  A2ARequest,
+  SendStreamingMessageSuccessResponse,
+  SendMessageSuccessResponse, // Added import
+  GetTaskSuccessResponse, // Added import
+  CancelTaskSuccessResponse, // Added import
+  SetTaskPushNotificationConfigSuccessResponse, // Added import
+  GetTaskPushNotificationConfigSuccessResponse, // Added import
 } from '../../schema.js';
 import { A2AError } from '../error.js';
 import { A2ARequestHandler } from '../request_handler/a2a_request_handler.js';
@@ -35,24 +42,29 @@ export class JsonRpcTransportHandler {
   async handle(
     requestBody: unknown,
   ): Promise<A2AResponse | AsyncGenerator<A2AResponse, void, undefined>> {
-    let rpcRequest: JSONRPCRequest;
+    let rpcRequest: A2ARequest | undefined = undefined;
 
     try {
       if (typeof requestBody === 'string') {
-        rpcRequest = JSON.parse(requestBody);
+        // Attempt to parse, then cast. Further validation will confirm.
+        rpcRequest = JSON.parse(requestBody) as A2ARequest;
       } else if (typeof requestBody === 'object' && requestBody !== null) {
-        rpcRequest = requestBody as JSONRPCRequest;
+        // Cast. Further validation will confirm.
+        rpcRequest = requestBody as A2ARequest;
       } else {
         throw A2AError.parseError('Invalid request body type.');
       }
 
       if (
         rpcRequest.jsonrpc !== '2.0' ||
-        !rpcRequest.method ||
+        !rpcRequest.method || // method is part of A2ARequest, so this check is fine
         typeof rpcRequest.method !== 'string'
       ) {
         throw A2AError.invalidRequest('Invalid JSON-RPC request structure.');
       }
+      // At this point, rpcRequest is asserted to be A2ARequest and has basic structure.
+      // Specific params validation happens in the A2ARequestHandler implementations implicitly
+      // or explicitly if needed.
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown parsing error';
@@ -62,17 +74,29 @@ export class JsonRpcTransportHandler {
           : A2AError.parseError(
               errorMessage || 'Failed to parse JSON request.',
             );
+      // Try to get ID from the original requestBody or parsed rpcRequest
+      let parsedId: string | number | null = null;
+      if (rpcRequest && typeof rpcRequest.id !== 'undefined') {
+        // If rpcRequest was assigned (even if it failed validation later)
+        parsedId = rpcRequest.id;
+      } else if (typeof requestBody === 'object' && requestBody !== null && 'id' in requestBody) {
+        // Fallback to raw requestBody if rpcRequest is not yet assigned or has no id
+        const rawId = (requestBody as { id?: string | number | null }).id;
+        // Ensure rawId is of a valid type for JSON-RPC id
+        if (typeof rawId === 'string' || typeof rawId === 'number' || rawId === null) {
+          parsedId = rawId;
+        }
+      }
+
       return {
         jsonrpc: '2.0',
-        id:
-          typeof (requestBody as JSONRPCRequest)?.id !== 'undefined'
-            ? (requestBody as JSONRPCRequest).id
-            : null,
+        id: parsedId,
         error: a2aError.toJSONRPCError(),
       } as JSONRPCErrorResponse;
     }
 
-    const { method, params = {}, id: requestId = null } = rpcRequest;
+    // Now rpcRequest is of type A2ARequest. Typescript will narrow it in the switch.
+    const { method, params, id: requestId = null } = rpcRequest;
 
     try {
       if (method === 'message/stream' || method === 'tasks/resubscribe') {
@@ -84,12 +108,12 @@ export class JsonRpcTransportHandler {
         }
         const agentEventStream =
           method === 'message/stream'
-            ? this.requestHandler.sendMessageStream(params as MessageSendParams)
-            : this.requestHandler.resubscribe(params as TaskIdParams);
+            ? this.requestHandler.sendMessageStream(params)
+            : this.requestHandler.resubscribe(params);
 
         // Wrap the agent event stream into a JSON-RPC result stream
         return (async function* jsonRpcEventStream(): AsyncGenerator<
-          JSONRPCResult,
+          SendStreamingMessageSuccessResponse,
           void,
           undefined
         > {
@@ -122,32 +146,22 @@ export class JsonRpcTransportHandler {
         })();
       } else {
         // Handle non-streaming methods
-        let result: unknown;
+        let result: SendMessageSuccessResponse['result'] | GetTaskSuccessResponse['result'] | CancelTaskSuccessResponse['result'] | SetTaskPushNotificationConfigSuccessResponse['result'] | GetTaskPushNotificationConfigSuccessResponse['result'];
         switch (method) {
           case 'message/send':
-            result = await this.requestHandler.sendMessage(
-              params as MessageSendParams,
-            );
+            result = await this.requestHandler.sendMessage(params);
             break;
           case 'tasks/get':
-            result = await this.requestHandler.getTask(
-              params as TaskQueryParams,
-            );
+            result = await this.requestHandler.getTask(params);
             break;
           case 'tasks/cancel':
-            result = await this.requestHandler.cancelTask(
-              params as TaskIdParams,
-            );
+            result = await this.requestHandler.cancelTask(params);
             break;
           case 'tasks/pushNotificationConfig/set':
-            result = await this.requestHandler.setTaskPushNotificationConfig(
-              params as TaskPushNotificationConfig,
-            );
+            result = await this.requestHandler.setTaskPushNotificationConfig(params);
             break;
           case 'tasks/pushNotificationConfig/get':
-            result = await this.requestHandler.getTaskPushNotificationConfig(
-              params as TaskIdParams,
-            );
+            result = await this.requestHandler.getTaskPushNotificationConfig(params);
             break;
           default:
             throw A2AError.methodNotFound(method);
@@ -156,7 +170,7 @@ export class JsonRpcTransportHandler {
           jsonrpc: '2.0',
           id: requestId,
           result,
-        } as JSONRPCResult;
+        };
       }
     } catch (error) {
       const errorMessage =

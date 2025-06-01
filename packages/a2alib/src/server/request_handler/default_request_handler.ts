@@ -347,7 +347,11 @@ export class DefaultRequestHandler implements A2ARequestHandler {
         timestamp: new Date().toISOString(),
       };
       // Add cancellation message to history
-      task.history = [...(task.history || []), task.status.message];
+      const newHistory = [...(task.history || [])];
+      if (task.status.message) {
+        newHistory.push(task.status.message);
+      }
+      task.history = newHistory;
 
       await this.taskStore.save({ task, history: task.history || [] });
 

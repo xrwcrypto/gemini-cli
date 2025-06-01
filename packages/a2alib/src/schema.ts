@@ -17,9 +17,9 @@ export interface JSONRPCMessage {
 /**
  * Represents a JSON-RPC request object base structure.
  */
-export interface JSONRPCRequest extends JSONRPCMessage {
+export interface JSONRPCRequest<TParams = { [key: string]: unknown }> extends JSONRPCMessage {
   method: string;
-  params?: { [key: string]: unknown };
+  params?: TParams;
 }
 
 /**
@@ -45,7 +45,7 @@ export interface JSONRPCResult<R = unknown> extends JSONRPCMessage {
  */
 export interface JSONRPCErrorResponse extends JSONRPCMessage {
   result?: never;
-  error: JSONRPCError | A2AError; // Uses non-generic JSONRPCError and A2AError
+  error: JSONRPCError | A2AErrorData; // Uses non-generic JSONRPCError and A2AErrorData
 }
 
 // === Core A2A Data Structures ===
@@ -314,7 +314,7 @@ export interface InvalidAgentResponseError extends JSONRPCError {
 /**
  * Union of all A2A specific and standard JSON-RPC errors.
  */
-export type A2AError =
+export type A2AErrorData =
   | JSONParseError
   | InvalidRequestError
   | MethodNotFoundError
@@ -372,37 +372,37 @@ export interface MessageSendParams {
 
 // === A2A Request Interfaces ===
 
-export interface SendMessageRequest extends JSONRPCRequest {
+export interface SendMessageRequest extends JSONRPCRequest<MessageSendParams> {
   method: 'message/send';
   params: MessageSendParams;
 }
 
-export interface SendStreamingMessageRequest extends JSONRPCRequest {
+export interface SendStreamingMessageRequest extends JSONRPCRequest<MessageSendParams> {
   method: 'message/stream';
   params: MessageSendParams;
 }
 
-export interface GetTaskRequest extends JSONRPCRequest {
+export interface GetTaskRequest extends JSONRPCRequest<TaskQueryParams> {
   method: 'tasks/get';
   params: TaskQueryParams;
 }
 
-export interface CancelTaskRequest extends JSONRPCRequest {
+export interface CancelTaskRequest extends JSONRPCRequest<TaskIdParams> {
   method: 'tasks/cancel';
   params: TaskIdParams;
 }
 
-export interface SetTaskPushNotificationConfigRequest extends JSONRPCRequest {
+export interface SetTaskPushNotificationConfigRequest extends JSONRPCRequest<TaskPushNotificationConfig> {
   method: 'tasks/pushNotificationConfig/set';
   params: TaskPushNotificationConfig;
 }
 
-export interface GetTaskPushNotificationConfigRequest extends JSONRPCRequest {
+export interface GetTaskPushNotificationConfigRequest extends JSONRPCRequest<TaskIdParams> {
   method: 'tasks/pushNotificationConfig/get';
   params: TaskIdParams;
 }
 
-export interface TaskResubscriptionRequest extends JSONRPCRequest {
+export interface TaskResubscriptionRequest extends JSONRPCRequest<TaskIdParams> {
   method: 'tasks/resubscribe';
   params: TaskIdParams;
 }
