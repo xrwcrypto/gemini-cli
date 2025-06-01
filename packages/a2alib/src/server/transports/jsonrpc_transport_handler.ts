@@ -51,7 +51,7 @@ export class JsonRpcTransportHandler {
 
       if (
         rpcRequest.jsonrpc !== '2.0' ||
-        !rpcRequest.method || // method is part of A2ARequest, so this check is fine
+        !rpcRequest.method ||
         typeof rpcRequest.method !== 'string'
       ) {
         throw A2AError.invalidRequest('Invalid JSON-RPC request structure.');
