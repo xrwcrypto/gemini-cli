@@ -11,7 +11,7 @@
  */
 export interface JSONRPCMessage {
   id?: number | string | null;
-  readonly jsonrpc: "2.0";
+  readonly jsonrpc: '2.0';
 }
 
 /**
@@ -51,15 +51,15 @@ export interface JSONRPCErrorResponse extends JSONRPCMessage {
 // === Core A2A Data Structures ===
 
 export enum TaskState {
-  Submitted = "submitted",
-  Working = "working",
-  InputRequired = "input-required",
-  Completed = "completed",
-  Canceled = "canceled",
-  Failed = "failed",
-  Rejected = "rejected",
-  AuthRequired = "auth-required",
-  Unknown = "unknown",
+  Submitted = 'submitted',
+  Working = 'working',
+  InputRequired = 'input-required',
+  Completed = 'completed',
+  Canceled = 'canceled',
+  Failed = 'failed',
+  Rejected = 'rejected',
+  AuthRequired = 'auth-required',
+  Unknown = 'unknown',
 }
 
 export interface AgentCapabilities {
@@ -89,13 +89,13 @@ export interface SecuritySchemeBase {
 }
 
 export interface APIKeySecurityScheme extends SecuritySchemeBase {
-  type: "apiKey";
-  in: "query" | "header" | "cookie";
+  type: 'apiKey';
+  in: 'query' | 'header' | 'cookie';
   name: string;
 }
 
 export interface HTTPAuthSecurityScheme extends SecuritySchemeBase {
-  type: "http";
+  type: 'http';
   scheme: string;
   bearerFormat?: string;
 }
@@ -133,12 +133,12 @@ export interface PasswordOAuthFlow {
 }
 
 export interface OAuth2SecurityScheme extends SecuritySchemeBase {
-  type: "oauth2";
+  type: 'oauth2';
   flows: OAuthFlows;
 }
 
 export interface OpenIdConnectSecurityScheme extends SecuritySchemeBase {
-  type: "openIdConnect";
+  type: 'openIdConnect';
   openIdConnectUrl: string;
 }
 
@@ -169,7 +169,7 @@ export interface PartBase {
 }
 
 export interface TextPart extends PartBase {
-  kind: "text";
+  kind: 'text';
   text: string;
 }
 
@@ -189,12 +189,12 @@ export interface FileWithUri extends FileBase {
 }
 
 export interface FilePart extends PartBase {
-  kind: "file";
+  kind: 'file';
   file: FileWithBytes | FileWithUri;
 }
 
 export interface DataPart extends PartBase {
-  kind: "data";
+  kind: 'data';
   data: { [key: string]: unknown };
 }
 
@@ -209,14 +209,14 @@ export interface Artifact {
 }
 
 export interface Message {
-  role: "user" | "agent";
+  role: 'user' | 'agent';
   parts: Part[];
   metadata?: { [key: string]: unknown };
   referenceTaskIds?: string[];
   messageId: string;
   taskId?: string;
   contextId?: string;
-  kind: "message";
+  kind: 'message';
 }
 
 export interface TaskStatus {
@@ -232,13 +232,13 @@ export interface Task {
   history?: Message[];
   artifacts?: Artifact[];
   metadata?: { [key: string]: unknown };
-  kind: "task";
+  kind: 'task';
 }
 
 export interface TaskStatusUpdateEvent {
   taskId: string;
   contextId: string;
-  kind: "status-update";
+  kind: 'status-update';
   status: TaskStatus;
   final: boolean;
   metadata?: { [key: string]: unknown };
@@ -247,13 +247,12 @@ export interface TaskStatusUpdateEvent {
 export interface TaskArtifactUpdateEvent {
   taskId: string;
   contextId: string;
-  kind: "artifact-update";
+  kind: 'artifact-update';
   artifact: Artifact;
   append?: boolean;
   lastChunk?: boolean;
   metadata?: { [key: string]: unknown };
 }
-
 
 // === Error Types (Standard and A2A from types.ts) ===
 
@@ -371,74 +370,79 @@ export interface MessageSendParams {
   metadata?: { [key: string]: unknown };
 }
 
-
 // === A2A Request Interfaces ===
 
 export interface SendMessageRequest extends JSONRPCRequest {
-  method: "message/send";
+  method: 'message/send';
   params: MessageSendParams;
 }
 
 export interface SendStreamingMessageRequest extends JSONRPCRequest {
-  method: "message/stream";
+  method: 'message/stream';
   params: MessageSendParams;
 }
 
 export interface GetTaskRequest extends JSONRPCRequest {
-  method: "tasks/get";
+  method: 'tasks/get';
   params: TaskQueryParams;
 }
 
 export interface CancelTaskRequest extends JSONRPCRequest {
-  method: "tasks/cancel";
+  method: 'tasks/cancel';
   params: TaskIdParams;
 }
 
 export interface SetTaskPushNotificationConfigRequest extends JSONRPCRequest {
-  method: "tasks/pushNotificationConfig/set";
+  method: 'tasks/pushNotificationConfig/set';
   params: TaskPushNotificationConfig;
 }
 
 export interface GetTaskPushNotificationConfigRequest extends JSONRPCRequest {
-  method: "tasks/pushNotificationConfig/get";
+  method: 'tasks/pushNotificationConfig/get';
   params: TaskIdParams;
 }
 
 export interface TaskResubscriptionRequest extends JSONRPCRequest {
-  method: "tasks/resubscribe";
+  method: 'tasks/resubscribe';
   params: TaskIdParams;
 }
-
 
 // === A2A Response Interfaces ===
 
 // --- SendMessage ---
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface SendMessageSuccessResponse extends JSONRPCResult<Message | Task> { }
-export type SendMessageResponse = SendMessageSuccessResponse | JSONRPCErrorResponse;
+export interface SendMessageSuccessResponse
+  extends JSONRPCResult<Message | Task> {}
+export type SendMessageResponse =
+  | SendMessageSuccessResponse
+  | JSONRPCErrorResponse;
 
 // --- SendStreamingMessage ---
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SendStreamingMessageSuccessResponse
-  extends JSONRPCResult<Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent> { }
+  extends JSONRPCResult<
+    Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
+  > {}
 export type SendStreamingMessageResponse =
   | SendStreamingMessageSuccessResponse
   | JSONRPCErrorResponse;
 
 // --- GetTask ---
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface GetTaskSuccessResponse extends JSONRPCResult<Task> { }
+export interface GetTaskSuccessResponse extends JSONRPCResult<Task> {}
 export type GetTaskResponse = GetTaskSuccessResponse | JSONRPCErrorResponse;
 
 // --- CancelTask ---
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface CancelTaskSuccessResponse extends JSONRPCResult<Task> { }
-export type CancelTaskResponse = CancelTaskSuccessResponse | JSONRPCErrorResponse;
+export interface CancelTaskSuccessResponse extends JSONRPCResult<Task> {}
+export type CancelTaskResponse =
+  | CancelTaskSuccessResponse
+  | JSONRPCErrorResponse;
 
 // --- SetTaskPushNotificationConfig ---
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SetTaskPushNotificationConfigSuccessResponse
-  extends JSONRPCResult<TaskPushNotificationConfig> { }
+  extends JSONRPCResult<TaskPushNotificationConfig> {}
 export type SetTaskPushNotificationConfigResponse =
   | SetTaskPushNotificationConfigSuccessResponse
   | JSONRPCErrorResponse;
@@ -446,11 +450,10 @@ export type SetTaskPushNotificationConfigResponse =
 // --- GetTaskPushNotificationConfig ---
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface GetTaskPushNotificationConfigSuccessResponse
-  extends JSONRPCResult<TaskPushNotificationConfig> { }
+  extends JSONRPCResult<TaskPushNotificationConfig> {}
 export type GetTaskPushNotificationConfigResponse =
   | GetTaskPushNotificationConfigSuccessResponse
   | JSONRPCErrorResponse;
-
 
 // === Union Types for A2A Requests/Responses ===
 

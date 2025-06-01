@@ -4,44 +4,47 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Message, AgentCard, MessageSendParams, Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, TaskQueryParams, TaskIdParams, TaskPushNotificationConfig } from "../../schema.js";
+import {
+  Message,
+  AgentCard,
+  MessageSendParams,
+  Task,
+  TaskStatusUpdateEvent,
+  TaskArtifactUpdateEvent,
+  TaskQueryParams,
+  TaskIdParams,
+  TaskPushNotificationConfig,
+} from '../../schema.js';
 
 export interface A2ARequestHandler {
-    getAgentCard(): Promise<AgentCard>;
+  getAgentCard(): Promise<AgentCard>;
 
-    sendMessage(
-        params: MessageSendParams
-    ): Promise<Message | Task>;
+  sendMessage(params: MessageSendParams): Promise<Message | Task>;
 
-    sendMessageStream(
-        params: MessageSendParams
-    ): AsyncGenerator<
-        | Message
-        | Task
-        | TaskStatusUpdateEvent
-        | TaskArtifactUpdateEvent,
-        void,
-        undefined
-    >;
+  sendMessageStream(
+    params: MessageSendParams,
+  ): AsyncGenerator<
+    Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
+    void,
+    undefined
+  >;
 
-    getTask(params: TaskQueryParams): Promise<Task>;
-    cancelTask(params: TaskIdParams): Promise<Task>;
+  getTask(params: TaskQueryParams): Promise<Task>;
+  cancelTask(params: TaskIdParams): Promise<Task>;
 
-    setTaskPushNotificationConfig(
-        params: TaskPushNotificationConfig
-    ): Promise<TaskPushNotificationConfig>;
+  setTaskPushNotificationConfig(
+    params: TaskPushNotificationConfig,
+  ): Promise<TaskPushNotificationConfig>;
 
-    getTaskPushNotificationConfig(
-        params: TaskIdParams
-    ): Promise<TaskPushNotificationConfig>;
+  getTaskPushNotificationConfig(
+    params: TaskIdParams,
+  ): Promise<TaskPushNotificationConfig>;
 
-    resubscribe(
-        params: TaskIdParams
-    ): AsyncGenerator<
-        | Task
-        | TaskStatusUpdateEvent
-        | TaskArtifactUpdateEvent,
-        void,
-        undefined
-    >;
+  resubscribe(
+    params: TaskIdParams,
+  ): AsyncGenerator<
+    Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
+    void,
+    undefined
+  >;
 }

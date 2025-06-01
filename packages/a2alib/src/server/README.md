@@ -13,22 +13,23 @@ import {
   RequestContext,
   IExecutionEventBus,
   DefaultRequestHandler,
-} from "./index"; // Assuming imports from the server package
+} from './index'; // Assuming imports from the server package
 
 // 1. Define your agent's logic as a TaskHandler
 class MyAgentExecutor implements AgentExecutor {
   async execute(
     requestContext: RequestContext,
-    eventBus: IExecutionEventBus
+    eventBus: IExecutionEventBus,
   ): Promise<void> {
     const userMessage = requestContext.userMessage;
     const existingTask = requestContext.task;
 
     const taskId = existingTask?.id || uuidv4();
-    const contextId = userMessage.contextId || existingTask?.contextId || uuidv4();
+    const contextId =
+      userMessage.contextId || existingTask?.contextId || uuidv4();
 
     console.log(
-      `[MyAgentExecutor] Processing message ${userMessage.messageId} for task ${taskId} (context: ${contextId})`
+      `[MyAgentExecutor] Processing message ${userMessage.messageId} for task ${taskId} (context: ${contextId})`,
     );
 
     // 1. Publish initial Task event if it's a new task
@@ -95,8 +96,8 @@ class MyAgentExecutor implements AgentExecutor {
       taskId: taskId,
       contextId: contextId,
       artifact: {
-        artifactId: "artifact-1",
-        name: "artifact-1",
+        artifactId: 'artifact-1',
+        name: 'artifact-1',
         parts: [{ text: `Task ${context.task.id} completed.` }],
       },
       append: false, // Each emission is a complete file snapshot
@@ -133,7 +134,7 @@ const agentExecutor: AgentExecutor = new MyAgentExecutor();
 const requestHandler = new DefaultRequestHandler(
   coderAgentCard,
   taskStore,
-  agentExecutor
+  agentExecutor,
 );
 
 const appBuilder = new A2AExpressApp(requestHandler);
@@ -141,8 +142,12 @@ const expressApp = appBuilder.setupRoutes(express(), '');
 
 const PORT = process.env.CODER_AGENT_PORT || 41242; // Different port for coder agent
 expressApp.listen(PORT, () => {
-  console.log(`[MyAgent] Server using new framework started on http://localhost:${PORT}`);
-  console.log(`[MyAgent] Agent Card: http://localhost:${PORT}/.well-known/agent.json`);
+  console.log(
+    `[MyAgent] Server using new framework started on http://localhost:${PORT}`,
+  );
+  console.log(
+    `[MyAgent] Agent Card: http://localhost:${PORT}/.well-known/agent.json`,
+  );
   console.log('[MyAgent] Press Ctrl+C to stop the server');
 });
 ```

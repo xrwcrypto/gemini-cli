@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as schema from "../schema.js";
+import * as schema from '../schema.js';
 
 /**
  * Context object provided to the TaskHandler.
@@ -50,7 +50,7 @@ export interface TaskContext {
  * or a complete Artifact object.
  */
 export type TaskYieldUpdate =
-  | Omit<schema.TaskStatus, "timestamp">
+  | Omit<schema.TaskStatus, 'timestamp'>
   | schema.Artifact;
 
 /**
@@ -68,5 +68,5 @@ export type TaskYieldUpdate =
  *   last known state from the store after processing all yields.
  */
 export type TaskHandler = (
-  context: TaskContext
+  context: TaskContext,
 ) => AsyncGenerator<TaskYieldUpdate, schema.Task | void, unknown>;
