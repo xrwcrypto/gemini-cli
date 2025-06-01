@@ -34,9 +34,10 @@ export class A2AExpressApp {
                 // getAgentCard is on A2ARequestHandler, which DefaultRequestHandler implements
                 const agentCard = await this.requestHandler.getAgentCard();
                 res.json(agentCard);
-            } catch (error: any) {
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                 console.error("Error fetching agent card:", error);
-                res.status(500).json({ error: "Failed to retrieve agent card" });
+                res.status(500).json({ error: "Failed to retrieve agent card", details: errorMessage });
             }
         });
 
@@ -45,7 +46,7 @@ export class A2AExpressApp {
                 const rpcResponseOrStream = await this.jsonRpcTransportHandler.handle(req.body);
 
                 // Check if it's an AsyncGenerator (stream)
-                if (typeof (rpcResponseOrStream as any)?.[Symbol.asyncIterator] === 'function') {
+                if (typeof (rpcResponseOrStream as AsyncGenerator<schema.JSONRPCResult, void, undefined>)?.[Symbol.asyncIterator] === 'function') {
                     const stream = rpcResponseOrStream as AsyncGenerator<schema.JSONRPCResult, void, undefined>;
 
                     res.setHeader('Content-Type', 'text/event-stream');
@@ -59,10 +60,11 @@ export class A2AExpressApp {
                             res.write(`id: ${new Date().getTime()}\n`);
                             res.write(`data: ${JSON.stringify(event)}\n\n`);
                         }
-                    } catch (streamError: any) {
+                    } catch (streamError) {
+                        const streamErrorMessage = streamError instanceof Error ? streamError.message : 'Unknown streaming error';
                         console.error(`Error during SSE streaming (request ${req.body?.id}):`, streamError);
                         // If the stream itself throws an error, send a final JSONRPCErrorResponse
-                        const a2aError = streamError instanceof A2AError ? streamError : A2AError.internalError(streamError.message || 'Streaming error.');
+                        const a2aError = streamError instanceof A2AError ? streamError : A2AError.internalError(streamErrorMessage || 'Streaming error.');
                         const errorResponse: schema.JSONRPCErrorResponse = {
                             jsonrpc: '2.0',
                             id: req.body?.id || null, // Use original request ID if available
@@ -85,9 +87,10 @@ export class A2AExpressApp {
                     const rpcResponse = rpcResponseOrStream as schema.A2AResponse;
                     res.status(200).json(rpcResponse);
                 }
-            } catch (error: any) { // Catch errors from jsonRpcTransportHandler.handle itself (e.g., initial parse error)
+            } catch (error) { // Catch errors from jsonRpcTransportHandler.handle itself (e.g., initial parse error)
+                const generalErrorMessage = error instanceof Error ? error.message : 'Unknown general error';
                 console.error("Unhandled error in A2AExpressApp POST handler:", error);
-                const a2aError = error instanceof A2AError ? error : A2AError.internalError('General processing error.');
+                const a2aError = error instanceof A2AError ? error : A2AError.internalError(generalErrorMessage || 'General processing error.');
                 const errorResponse: schema.JSONRPCErrorResponse = {
                     jsonrpc: '2.0',
                     id: req.body?.id || null,

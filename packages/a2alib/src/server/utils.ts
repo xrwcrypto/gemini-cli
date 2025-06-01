@@ -19,7 +19,7 @@ export function getCurrentTimestamp(): string {
  * @param value The value to check.
  * @returns True if the value is a plain object, false otherwise.
  */
-export function isObject(value: unknown): value is Record<string, any> {
+export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -28,7 +28,7 @@ export function isObject(value: unknown): value is Record<string, any> {
  * Used to differentiate yielded updates from the handler.
  */
 export function isTaskStatusUpdate(
-  update: any // eslint-disable-line @typescript-eslint/no-explicit-any
+  update: unknown
 ): update is Omit<TaskStatus, "timestamp"> {
   // Check if it has 'state' and NOT 'parts' (which Artifacts have)
   return isObject(update) && "state" in update && !("parts" in update);
@@ -39,7 +39,7 @@ export function isTaskStatusUpdate(
  * Used to differentiate yielded updates from the handler.
  */
 export function isArtifactUpdate(
-  update: any // eslint-disable-line @typescript-eslint/no-explicit-any
+  update: unknown
 ): update is Artifact {
   // Check if it has 'parts'
   return isObject(update) && "parts" in update;

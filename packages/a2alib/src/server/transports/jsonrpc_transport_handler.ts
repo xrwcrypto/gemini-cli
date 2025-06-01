@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { JSONRPCMessage, JSONRPCRequest, JSONRPCErrorResponse, MessageSendParams, TaskQueryParams, TaskIdParams, TaskPushNotificationConfig, JSONRPCResult, A2AResponse } from "../../schema.js";
+import { JSONRPCRequest, JSONRPCErrorResponse, MessageSendParams, TaskQueryParams, TaskIdParams, TaskPushNotificationConfig, JSONRPCResult, A2AResponse } from "../../schema.js";
 import { A2AError } from "../error.js";
 import { A2ARequestHandler } from "../request_handler/a2a_request_handler.js";
 
@@ -24,7 +24,7 @@ export class JsonRpcTransportHandler {
      * For non-streaming methods, it returns a Promise of a single JSONRPCMessage (Result or ErrorResponse).
      */
     async handle(
-        requestBody: any
+        requestBody: unknown
     ): Promise<A2AResponse | AsyncGenerator<A2AResponse, void, undefined>> {
         let rpcRequest: JSONRPCRequest;
 
@@ -46,11 +46,12 @@ export class JsonRpcTransportHandler {
                     'Invalid JSON-RPC request structure.'
                 );
             }
-        } catch (error: any) {
-            const a2aError = error instanceof A2AError ? error : A2AError.parseError(error.message || 'Failed to parse JSON request.');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
+            const a2aError = error instanceof A2AError ? error : A2AError.parseError(errorMessage || 'Failed to parse JSON request.');
             return {
                 jsonrpc: '2.0',
-                id: (typeof rpcRequest?.id !== 'undefined' ? rpcRequest!.id : null),
+                id: (typeof (requestBody as JSONRPCRequest)?.id !== 'undefined' ? (requestBody as JSONRPCRequest).id : null),
                 error: a2aError.toJSONRPCError(),
             } as JSONRPCErrorResponse;
         }
@@ -77,21 +78,22 @@ export class JsonRpcTransportHandler {
                                 result: event,
                             };
                         }
-                    } catch (streamError: any) {
+                    } catch (streamError) {
                         // If the underlying agent stream throws an error, we need to yield a JSONRPCErrorResponse.
                         // However, an AsyncGenerator is expected to yield JSONRPCResult.
                         // This indicates an issue with how errors from the agent's stream are propagated.
                         // For now, log it. The Express layer will handle the generator ending.
+                        const streamErrorMessage = streamError instanceof Error ? streamError.message : 'Unknown streaming error';
                         console.error(`Error in agent event stream for ${method} (request ${requestId}):`, streamError);
                         // Ideally, the Express layer should catch this and send a final error to the client if the stream breaks.
                         // Or, the agentEventStream itself should yield a final error event that gets wrapped.
                         // For now, we re-throw so it can be caught by A2AExpressApp's stream handling.
-                        throw streamError;
+                        throw A2AError.internalError(streamErrorMessage);
                     }
                 })();
             } else {
                 // Handle non-streaming methods
-                let result: any;
+                let result: unknown;
                 switch (method) {
                     case 'message/send':
                         result = await this.requestHandler.sendMessage(params as MessageSendParams);
@@ -121,8 +123,9 @@ export class JsonRpcTransportHandler {
                     result,
                 } as JSONRPCResult;
             }
-        } catch (error: any) {
-            const a2aError = error instanceof A2AError ? error : A2AError.internalError(error.message || 'An unexpected error occurred.');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            const a2aError = error instanceof A2AError ? error : A2AError.internalError(errorMessage || 'An unexpected error occurred.');
             return {
                 jsonrpc: '2.0',
                 id: requestId,

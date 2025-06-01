@@ -19,7 +19,7 @@ export interface JSONRPCMessage {
  */
 export interface JSONRPCRequest extends JSONRPCMessage {
   method: string;
-  params?: { [key: string]: any };
+  params?: { [key: string]: unknown };
 }
 
 /**
@@ -28,14 +28,14 @@ export interface JSONRPCRequest extends JSONRPCMessage {
 export interface JSONRPCError {
   code: number;
   message: string;
-  data?: any; // Reverted from generic D to any
+  data?: unknown;
 }
 
 /**
  * Represents a JSON-RPC 2.0 Result object (for successful responses).
  * @template R Type of the result field.
  */
-export interface JSONRPCResult<R = any> extends JSONRPCMessage {
+export interface JSONRPCResult<R = unknown> extends JSONRPCMessage {
   result: R;
   error?: never;
 }
@@ -165,7 +165,7 @@ export interface AgentCard {
 }
 
 export interface PartBase {
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
 }
 
 export interface TextPart extends PartBase {
@@ -195,7 +195,7 @@ export interface FilePart extends PartBase {
 
 export interface DataPart extends PartBase {
   kind: "data";
-  data: { [key: string]: any };
+  data: { [key: string]: unknown };
 }
 
 export type Part = TextPart | FilePart | DataPart;
@@ -205,13 +205,13 @@ export interface Artifact {
   name?: string;
   description?: string;
   parts: Part[];
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
 }
 
 export interface Message {
   role: "user" | "agent";
   parts: Part[];
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
   referenceTaskIds?: string[];
   messageId: string;
   taskId?: string;
@@ -231,7 +231,7 @@ export interface Task {
   status: TaskStatus;
   history?: Message[];
   artifacts?: Artifact[];
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
   kind: "task";
 }
 
@@ -241,7 +241,7 @@ export interface TaskStatusUpdateEvent {
   kind: "status-update";
   status: TaskStatus;
   final: boolean;
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
 }
 
 export interface TaskArtifactUpdateEvent {
@@ -251,7 +251,7 @@ export interface TaskArtifactUpdateEvent {
   artifact: Artifact;
   append?: boolean;
   lastChunk?: boolean;
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
 }
 
 
@@ -351,7 +351,7 @@ export interface TaskPushNotificationConfig {
 
 export interface TaskIdParams {
   id: string;
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
 }
 
 export interface TaskQueryParams extends TaskIdParams {
@@ -368,7 +368,7 @@ export interface MessageSendConfiguration {
 export interface MessageSendParams {
   message: Message;
   configuration?: MessageSendConfiguration;
-  metadata?: { [key: string]: any };
+  metadata?: { [key: string]: unknown };
 }
 
 
@@ -413,10 +413,12 @@ export interface TaskResubscriptionRequest extends JSONRPCRequest {
 // === A2A Response Interfaces ===
 
 // --- SendMessage ---
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SendMessageSuccessResponse extends JSONRPCResult<Message | Task> { }
 export type SendMessageResponse = SendMessageSuccessResponse | JSONRPCErrorResponse;
 
 // --- SendStreamingMessage ---
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SendStreamingMessageSuccessResponse
   extends JSONRPCResult<Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent> { }
 export type SendStreamingMessageResponse =
@@ -424,14 +426,17 @@ export type SendStreamingMessageResponse =
   | JSONRPCErrorResponse;
 
 // --- GetTask ---
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface GetTaskSuccessResponse extends JSONRPCResult<Task> { }
 export type GetTaskResponse = GetTaskSuccessResponse | JSONRPCErrorResponse;
 
 // --- CancelTask ---
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CancelTaskSuccessResponse extends JSONRPCResult<Task> { }
 export type CancelTaskResponse = CancelTaskSuccessResponse | JSONRPCErrorResponse;
 
 // --- SetTaskPushNotificationConfig ---
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SetTaskPushNotificationConfigSuccessResponse
   extends JSONRPCResult<TaskPushNotificationConfig> { }
 export type SetTaskPushNotificationConfigResponse =
@@ -439,6 +444,7 @@ export type SetTaskPushNotificationConfigResponse =
   | JSONRPCErrorResponse;
 
 // --- GetTaskPushNotificationConfig ---
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface GetTaskPushNotificationConfigSuccessResponse
   extends JSONRPCResult<TaskPushNotificationConfig> { }
 export type GetTaskPushNotificationConfigResponse =

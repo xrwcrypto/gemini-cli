@@ -254,7 +254,8 @@ class CoderAgentExecutor implements AgentExecutor {
         `[CoderAgentExecutor] Task ${taskId} finished with state: ${schema.TaskState.Completed} `
       );
 
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(
         `[CoderAgentExecutor] Error processing task ${taskId}: `,
         error
@@ -269,7 +270,7 @@ class CoderAgentExecutor implements AgentExecutor {
             kind: 'message',
             role: 'agent',
             messageId: uuidv4(),
-            parts: [{ kind: 'text', text: `Agent error: ${error.message} ` }],
+            parts: [{ kind: 'text', text: `Agent error: ${errorMessage} ` }],
             taskId,
             contextId,
           },
