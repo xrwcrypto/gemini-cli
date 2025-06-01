@@ -15,5 +15,11 @@
     "moduleResolution": "nodenext",
     "target": "es2022",
     "types": ["node", "vitest/globals"]
-  }
+  },
+  "references": [
+    { "path": "packages/a2alib" },
+    { "path": "packages/cli" },
+    { "path": "packages/core" },
+    { "path": "packages/server" }
+  ]
 }
