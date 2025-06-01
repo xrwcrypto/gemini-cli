@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import {
   AgentCard,
   AgentCapabilities,
@@ -91,7 +97,7 @@ export class A2AClient {
    * If provided, this will fetch a new card, not use the cached one from the constructor's URL.
    * @returns A Promise that resolves to the AgentCard.
    */
-  public async getAgentCard(agentBaseUrl?: string): Promise<AgentCard> {
+  async getAgentCard(agentBaseUrl?: string): Promise<AgentCard> {
     if (agentBaseUrl) {
       const specificAgentBaseUrl = agentBaseUrl.replace(/\/$/, "");
       const agentCardUrl = `${specificAgentBaseUrl}/.well-known/agent.json`;
@@ -194,7 +200,7 @@ export class A2AClient {
    * @param params The parameters for sending the message, including the message content and configuration.
    * @returns A Promise resolving to SendMessageResponse, which can be a Message, Task, or an error.
    */
-  public async sendMessage(params: MessageSendParams): Promise<SendMessageResponse> {
+  async sendMessage(params: MessageSendParams): Promise<SendMessageResponse> {
     return this._postRpcRequest<MessageSendParams, SendMessageResponse>("message/send", params);
   }
 
@@ -207,7 +213,7 @@ export class A2AClient {
    * @returns An AsyncGenerator yielding A2AStreamEventData (Message, Task, TaskStatusUpdateEvent, or TaskArtifactUpdateEvent).
    * The generator throws an error if streaming is not supported or if an HTTP/SSE error occurs.
    */
-  public async *sendMessageStream(params: MessageSendParams): AsyncGenerator<A2AStreamEventData, void, undefined> {
+  async *sendMessageStream(params: MessageSendParams): AsyncGenerator<A2AStreamEventData, void, undefined> {
     const agentCard = await this.agentCardPromise; // Ensure agent card is fetched
     if (!agentCard.capabilities?.streaming) {
       throw new Error("Agent does not support streaming (AgentCard.capabilities.streaming is not true).");
@@ -263,7 +269,7 @@ export class A2AClient {
    * @param params Parameters containing the taskId and the TaskPushNotificationConfig.
    * @returns A Promise resolving to SetTaskPushNotificationConfigResponse.
    */
-  public async setTaskPushNotificationConfig(params: TaskPushNotificationConfig): Promise<SetTaskPushNotificationConfigResponse> {
+  async setTaskPushNotificationConfig(params: TaskPushNotificationConfig): Promise<SetTaskPushNotificationConfigResponse> {
     const agentCard = await this.agentCardPromise;
     if (!agentCard.capabilities?.pushNotifications) {
       throw new Error("Agent does not support push notifications (AgentCard.capabilities.pushNotifications is not true).");
@@ -280,7 +286,7 @@ export class A2AClient {
    * @param params Parameters containing the taskId.
    * @returns A Promise resolving to GetTaskPushNotificationConfigResponse.
    */
-  public async getTaskPushNotificationConfig(params: TaskIdParams): Promise<GetTaskPushNotificationConfigResponse> {
+  async getTaskPushNotificationConfig(params: TaskIdParams): Promise<GetTaskPushNotificationConfigResponse> {
     // The 'params' (TaskIdParams) directly matches the structure expected by the RPC method.
     return this._postRpcRequest<TaskIdParams, GetTaskPushNotificationConfigResponse>(
       "tasks/pushNotificationConfig/get",
@@ -294,7 +300,7 @@ export class A2AClient {
    * @param params Parameters containing the taskId and optional historyLength.
    * @returns A Promise resolving to GetTaskResponse, which contains the Task object or an error.
    */
-  public async getTask(params: TaskQueryParams): Promise<GetTaskResponse> {
+  async getTask(params: TaskQueryParams): Promise<GetTaskResponse> {
     return this._postRpcRequest<TaskQueryParams, GetTaskResponse>("tasks/get", params);
   }
 
@@ -303,7 +309,7 @@ export class A2AClient {
    * @param params Parameters containing the taskId.
    * @returns A Promise resolving to CancelTaskResponse, which contains the updated Task object or an error.
    */
-  public async cancelTask(params: TaskIdParams): Promise<CancelTaskResponse> {
+  async cancelTask(params: TaskIdParams): Promise<CancelTaskResponse> {
     return this._postRpcRequest<TaskIdParams, CancelTaskResponse>("tasks/cancel", params);
   }
 
@@ -314,7 +320,7 @@ export class A2AClient {
    * @param params Parameters containing the taskId.
    * @returns An AsyncGenerator yielding A2AStreamEventData (Message, Task, TaskStatusUpdateEvent, or TaskArtifactUpdateEvent).
    */
-  public async *resubscribeTask(params: TaskIdParams): AsyncGenerator<A2AStreamEventData, void, undefined> {
+  async *resubscribeTask(params: TaskIdParams): AsyncGenerator<A2AStreamEventData, void, undefined> {
     const agentCard = await this.agentCardPromise;
     if (!agentCard.capabilities?.streaming) {
       throw new Error("Agent does not support streaming (required for tasks/resubscribe).");

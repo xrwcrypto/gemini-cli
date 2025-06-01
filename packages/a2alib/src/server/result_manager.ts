@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import {
     Message,
     Task,
@@ -18,7 +24,7 @@ export class ResultManager {
         this.taskStore = taskStore;
     }
 
-    public setContext(latestUserMessage: Message): void {
+    setContext(latestUserMessage: Message): void {
         this.latestUserMessage = latestUserMessage;
     }
 
@@ -26,7 +32,7 @@ export class ResultManager {
      * Processes an agent execution event and updates the task store.
      * @param event The agent execution event.
      */
-    public async processEvent(event: AgentExecutionEvent): Promise<void> {
+    async processEvent(event: AgentExecutionEvent): Promise<void> {
         if (event.kind === 'message') {
             this.finalMessageResult = event as Message;
             // If a message is received, it's usually the final result,
@@ -142,7 +148,7 @@ export class ResultManager {
      * This should be called after the event stream has been fully processed.
      * @returns The final Message or the current Task.
      */
-    public getFinalResult(): Message | Task | undefined {
+    getFinalResult(): Message | Task | undefined {
         if (this.finalMessageResult) {
             return this.finalMessageResult;
         }
@@ -154,7 +160,7 @@ export class ResultManager {
      * This task could be one that was started with or one created during agent execution.
      * @returns The current Task or undefined if no task is active.
      */
-    public getCurrentTask(): Task | undefined {
+    getCurrentTask(): Task | undefined {
         return this.currentTask;
     }
 }

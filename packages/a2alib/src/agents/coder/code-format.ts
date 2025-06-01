@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { GenkitBeta, z } from "genkit/beta";
 
 export const CodeMessageSchema = z.object({
@@ -116,8 +122,7 @@ export function defineCodeFormat(ai: GenkitBeta) {
       format: "text",
       schema: CodeMessageSchema,
     },
-    () => {
-      return {
+    () => ({
         instructions: `\n\n=== Output Instructions
 
 Output code in a markdown code block using the following format:
@@ -141,13 +146,8 @@ When generating code, always include a brief comment (using whatever comment syn
 // ... rest of code generated below
 \`\`\`
 `,
-        parseMessage: (message) => {
-          return new CodeMessage(extractCode(message.text));
-        },
-        parseChunk: (chunk) => {
-          return new CodeMessage(extractCode(chunk.accumulatedText));
-        },
-      };
-    }
+        parseMessage: (message) => new CodeMessage(extractCode(message.text)),
+        parseChunk: (chunk) => new CodeMessage(extractCode(chunk.accumulatedText)),
+      })
   );
 }

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import * as schema from "../schema.js";
 import { TaskStore } from "./store.js"; // Import TaskStore
 

@@ -1,12 +1,18 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import * as schema from "../schema.js";
 
 /**
  * Custom error class for A2A server operations, incorporating JSON-RPC error codes.
  */
 export class A2AError extends Error {
-  public code: number;
-  public data?: unknown;
-  public taskId?: string; // Optional task ID context
+  code: number;
+  data?: unknown;
+  taskId?: string; // Optional task ID context
 
   constructor(
     code: number,

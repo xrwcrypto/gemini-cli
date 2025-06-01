@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import express from "express";
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
@@ -43,7 +49,7 @@ class CoderAgentExecutor implements AgentExecutor {
       const initialTask: schema.Task = {
         kind: 'task',
         id: taskId,
-        contextId: contextId,
+        contextId,
         status: {
           state: schema.TaskState.Submitted,
           timestamp: new Date().toISOString(),
@@ -58,8 +64,8 @@ class CoderAgentExecutor implements AgentExecutor {
     // 2. Publish "working" status update
     const workingStatusUpdate: schema.TaskStatusUpdateEvent = {
       kind: 'status-update',
-      taskId: taskId,
-      contextId: contextId,
+      taskId,
+      contextId,
       status: {
         state: schema.TaskState.Working,
         message: {
@@ -67,8 +73,8 @@ class CoderAgentExecutor implements AgentExecutor {
           role: 'agent',
           messageId: uuidv4(),
           parts: [{ kind: 'text', text: 'Generating code...' }],
-          taskId: taskId,
-          contextId: contextId,
+          taskId,
+          contextId,
         },
         timestamp: new Date().toISOString(),
       },
@@ -99,8 +105,8 @@ class CoderAgentExecutor implements AgentExecutor {
       );
       const failureUpdate: schema.TaskStatusUpdateEvent = {
         kind: 'status-update',
-        taskId: taskId,
-        contextId: contextId,
+        taskId,
+        contextId,
         status: {
           state: schema.TaskState.Failed,
           message: {
@@ -108,8 +114,8 @@ class CoderAgentExecutor implements AgentExecutor {
             role: 'agent',
             messageId: uuidv4(),
             parts: [{ kind: 'text', text: 'No input message found to process.' }],
-            taskId: taskId,
-            contextId: contextId,
+            taskId,
+            contextId,
           },
           timestamp: new Date().toISOString(),
         },
@@ -155,8 +161,8 @@ class CoderAgentExecutor implements AgentExecutor {
               );
               const artifactUpdate: schema.TaskArtifactUpdateEvent = {
                 kind: 'artifact-update',
-                taskId: taskId,
-                contextId: contextId,
+                taskId,
+                contextId,
                 artifact: {
                   artifactId: prevFilename, // Using filename as artifactId for simplicity
                   name: prevFilename,
@@ -176,8 +182,8 @@ class CoderAgentExecutor implements AgentExecutor {
 
             const cancelledUpdate: schema.TaskStatusUpdateEvent = {
               kind: 'status-update',
-              taskId: taskId,
-              contextId: contextId,
+              taskId,
+              contextId,
               status: {
                 state: schema.TaskState.Canceled,
                 timestamp: new Date().toISOString(),
@@ -199,8 +205,8 @@ class CoderAgentExecutor implements AgentExecutor {
         );
         const artifactUpdate: schema.TaskArtifactUpdateEvent = {
           kind: 'artifact-update',
-          taskId: taskId,
-          contextId: contextId,
+          taskId,
+          contextId,
           artifact: {
             artifactId: filename,
             name: filename,
@@ -218,8 +224,8 @@ class CoderAgentExecutor implements AgentExecutor {
       // 5. Publish final task status update
       const finalUpdate: schema.TaskStatusUpdateEvent = {
         kind: 'status-update',
-        taskId: taskId,
-        contextId: contextId,
+        taskId,
+        contextId,
         status: {
           state: schema.TaskState.Completed,
           message: {
@@ -235,8 +241,8 @@ class CoderAgentExecutor implements AgentExecutor {
                     : 'Completed, but no files were generated.',
               },
             ],
-            taskId: taskId,
-            contextId: contextId,
+            taskId,
+            contextId,
           },
           timestamp: new Date().toISOString(),
         },
@@ -255,8 +261,8 @@ class CoderAgentExecutor implements AgentExecutor {
       );
       const errorUpdate: schema.TaskStatusUpdateEvent = {
         kind: 'status-update',
-        taskId: taskId,
-        contextId: contextId,
+        taskId,
+        contextId,
         status: {
           state: schema.TaskState.Failed,
           message: {
@@ -264,8 +270,8 @@ class CoderAgentExecutor implements AgentExecutor {
             role: 'agent',
             messageId: uuidv4(),
             parts: [{ kind: 'text', text: `Agent error: ${error.message} ` }],
-            taskId: taskId,
-            contextId: contextId,
+            taskId,
+            contextId,
           },
           timestamp: new Date().toISOString(),
         },

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { JSONRPCMessage, JSONRPCRequest, JSONRPCErrorResponse, MessageSendParams, TaskQueryParams, TaskIdParams, TaskPushNotificationConfig, JSONRPCResult, A2AResponse } from "../../schema.js";
 import { A2AError } from "../error.js";
 import { A2ARequestHandler } from "../request_handler/a2a_request_handler.js";
@@ -17,7 +23,7 @@ export class JsonRpcTransportHandler {
      * For streaming methods, it returns an AsyncGenerator of JSONRPCResult.
      * For non-streaming methods, it returns a Promise of a single JSONRPCMessage (Result or ErrorResponse).
      */
-    public async handle(
+    async handle(
         requestBody: any
     ): Promise<A2AResponse | AsyncGenerator<A2AResponse, void, undefined>> {
         let rpcRequest: JSONRPCRequest;
@@ -44,7 +50,7 @@ export class JsonRpcTransportHandler {
             const a2aError = error instanceof A2AError ? error : A2AError.parseError(error.message || 'Failed to parse JSON request.');
             return {
                 jsonrpc: '2.0',
-                id: (typeof rpcRequest!?.id !== 'undefined' ? rpcRequest!.id : null),
+                id: (typeof rpcRequest?.id !== 'undefined' ? rpcRequest!.id : null),
                 error: a2aError.toJSONRPCError(),
             } as JSONRPCErrorResponse;
         }
@@ -112,7 +118,7 @@ export class JsonRpcTransportHandler {
                 return {
                     jsonrpc: '2.0',
                     id: requestId,
-                    result: result,
+                    result,
                 } as JSONRPCResult;
             }
         } catch (error: any) {

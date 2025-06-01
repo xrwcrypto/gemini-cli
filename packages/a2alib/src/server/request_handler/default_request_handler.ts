@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
 import { Message, AgentCard, PushNotificationConfig, Task, MessageSendParams, TaskState, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, TaskQueryParams, TaskIdParams, TaskPushNotificationConfig } from "../../schema.js";
@@ -244,7 +250,7 @@ export class DefaultRequestHandler implements A2ARequestHandler {
         if (!taskAndHistory) {
             throw A2AError.taskNotFound(params.id);
         }
-        let task = taskAndHistory.task;
+        const task = taskAndHistory.task;
         if (params.historyLength !== undefined && params.historyLength >= 0) {
             if (task.history) {
                 task.history = task.history.slice(-params.historyLength);

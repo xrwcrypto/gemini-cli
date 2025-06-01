@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // === JSON-RPC Base Structures ===
 
 /**
@@ -151,7 +157,7 @@ export interface AgentCard {
   documentationUrl?: string;
   capabilities: AgentCapabilities;
   securitySchemes?: { [scheme: string]: SecurityScheme };
-  security?: { [scheme: string]: string[] }[];
+  security?: Array<{ [scheme: string]: string[] }>;
   defaultInputModes: string[];
   defaultOutputModes: string[];
   skills: AgentSkill[];

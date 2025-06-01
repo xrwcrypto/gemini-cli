@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import {
     TaskStatusUpdateEvent,
 } from "../../schema.js";
@@ -34,7 +40,7 @@ export class ExecutionEventQueue {
      * Provides an async generator that yields events from the event bus.
      * Stops when a Message event is received or a TaskStatusUpdateEvent with final=true is received.
      */
-    public async *events(): AsyncGenerator<AgentExecutionEvent, void, undefined> {
+    async *events(): AsyncGenerator<AgentExecutionEvent, void, undefined> {
         while (!this.stopped) {
             if (this.eventQueue.length > 0) {
                 const event = this.eventQueue.shift()!;
@@ -57,7 +63,7 @@ export class ExecutionEventQueue {
     /**
      * Stops the event queue from processing further events.
      */
-    public stop(): void {
+    stop(): void {
         this.stopped = true;
         if (this.resolvePromise) {
             this.resolvePromise(); // Unblock any pending await

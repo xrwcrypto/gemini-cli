@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { ExecutionEventBus, IExecutionEventBus } from "./execution_event_bus.js";
 
 export class ExecutionEventBusManager {
@@ -9,7 +15,7 @@ export class ExecutionEventBusManager {
      * @param messageId The ID of the message.
      * @returns An instance of IExecutionEventBus.
      */
-    public createOrGetByMessageId(messageId: string): IExecutionEventBus {
+    createOrGetByMessageId(messageId: string): IExecutionEventBus {
         if (!this.messageIdToBus.has(messageId)) {
             this.messageIdToBus.set(messageId, new ExecutionEventBus());
         }
@@ -22,7 +28,7 @@ export class ExecutionEventBusManager {
      * @param taskId The ID of the task.
      * @param messageId The ID of the message that initiated the task.
      */
-    public associateTask(taskId: string, messageId: string): void {
+    associateTask(taskId: string, messageId: string): void {
         if (this.messageIdToBus.has(messageId)) {
             this.taskIdToMessageId.set(taskId, messageId);
         } else {
@@ -37,7 +43,7 @@ export class ExecutionEventBusManager {
      * @param taskId The ID of the task.
      * @returns An instance of IExecutionEventBus or undefined if not found.
      */
-    public getByTaskId(taskId: string): IExecutionEventBus | undefined {
+    getByTaskId(taskId: string): IExecutionEventBus | undefined {
         const messageId = this.taskIdToMessageId.get(taskId);
         if (messageId) {
             return this.messageIdToBus.get(messageId);
@@ -50,7 +56,7 @@ export class ExecutionEventBusManager {
      * This should be called when an execution flow is complete to free resources.
      * @param messageId The ID of the message.
      */
-    public cleanupByMessageId(messageId: string): void {
+    cleanupByMessageId(messageId: string): void {
         const bus = this.messageIdToBus.get(messageId);
         if (bus) {
             bus.removeAllListeners();

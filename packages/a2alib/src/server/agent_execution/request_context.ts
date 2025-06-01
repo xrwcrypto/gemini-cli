@@ -1,13 +1,19 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import {
     Message,
     Task,
 } from "../../schema.js";
 
 export class RequestContext {
-    public readonly userMessage: Message;
+    readonly userMessage: Message;
     private cancellationChecker: () => boolean;
-    public readonly task?: Task;
-    public readonly referenceTasks?: Task[];
+    readonly task?: Task;
+    readonly referenceTasks?: Task[];
 
     constructor(
         userMessage: Message,
@@ -24,7 +30,7 @@ export class RequestContext {
     /**
      * Checks if the current task associated with this context needs to be cancelled.
      */
-    public isCancelled(): boolean {
+    isCancelled(): boolean {
         return this.cancellationChecker();
     }
 }

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { IExecutionEventBus } from "../events/execution_event_bus.js";
 import { RequestContext } from "./request_context.js";
 

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { genkit } from "genkit/beta";
 import { defineCodeFormat } from "./code-format.js";
 import { googleAI } from "@genkit-ai/googleai";

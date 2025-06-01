@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import express, { Request, Response, Express } from 'express';
 
 import { A2AError } from "./error.js";
@@ -20,7 +26,7 @@ export class A2AExpressApp {
      * @param baseUrl The base URL for A2A endpoints (e.g., "/a2a/api").
      * @returns The Express app with A2A routes.
      */
-    public setupRoutes(app: Express, baseUrl: string = ''): Express {
+    setupRoutes(app: Express, baseUrl: string = ''): Express {
         app.use(express.json());
 
         app.get(`${baseUrl}/.well-known/agent.json`, async (req: Request, res: Response) => {

@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import readline from "node:readline";
 import crypto from "node:crypto";
 import { A2AClient } from "./client/client.js";
@@ -232,7 +238,7 @@ async function main() {
     const messageId = generateId(); // Generate a unique message ID
 
     const messagePayload: Message = {
-      messageId: messageId,
+      messageId,
       kind: "message", // Required by Message interface
       role: "user",
       parts: [
