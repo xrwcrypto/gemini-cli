@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import express from "express";
-import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
+import express from 'express';
+// For generating unique IDs (currently unused)
+// import { v4 as uuidv4 } from 'uuid';
 
 import {
   InMemoryTaskStore,
@@ -16,7 +17,7 @@ import {
   IExecutionEventBus,
   DefaultRequestHandler,
   schema,
-} from "@gemini-code/a2alib/server/index.js"; // Import server components
+} from '@gemini-code/a2alib'; // Import server components
 
 const coderAgentCard: schema.AgentCard = {
   name: 'Coder Agent',
@@ -59,6 +60,12 @@ const coderAgentCard: schema.AgentCard = {
  * CoderAgentExecutor implements the agent's core logic for code generation.
  */
 class CoderAgentExecutor implements AgentExecutor {
+  async execute(
+    _requestContext: RequestContext,
+    _eventBus: IExecutionEventBus,
+  ): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
 }
 
 async function main() {
@@ -72,7 +79,7 @@ async function main() {
   const requestHandler = new DefaultRequestHandler(
     coderAgentCard,
     taskStore,
-    agentExecutor
+    agentExecutor,
   );
 
   // 4. Create and setup A2AExpressApp
@@ -82,8 +89,12 @@ async function main() {
   // 5. Start the server
   const PORT = process.env.CODER_AGENT_PORT || 41242; // Different port for coder agent
   expressApp.listen(PORT, () => {
-    console.log(`[CoderAgent] Server using new framework started on http://localhost:${PORT}`);
-    console.log(`[CoderAgent] Agent Card: http://localhost:${PORT}/.well-known/agent.json`);
+    console.log(
+      `[CoderAgent] Server using new framework started on http://localhost:${PORT}`,
+    );
+    console.log(
+      `[CoderAgent] Agent Card: http://localhost:${PORT}/.well-known/agent.json`,
+    );
     console.log('[CoderAgent] Press Ctrl+C to stop the server');
   });
 }

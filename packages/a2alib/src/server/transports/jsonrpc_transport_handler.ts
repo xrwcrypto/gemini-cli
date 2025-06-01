@@ -5,13 +5,7 @@
  */
 
 import {
-  JSONRPCRequest,
   JSONRPCErrorResponse,
-  MessageSendParams,
-  TaskQueryParams,
-  TaskIdParams,
-  TaskPushNotificationConfig,
-  JSONRPCResult,
   A2AResponse,
   A2ARequest,
   SendStreamingMessageSuccessResponse,
@@ -79,11 +73,19 @@ export class JsonRpcTransportHandler {
       if (rpcRequest && typeof rpcRequest.id !== 'undefined') {
         // If rpcRequest was assigned (even if it failed validation later)
         parsedId = rpcRequest.id;
-      } else if (typeof requestBody === 'object' && requestBody !== null && 'id' in requestBody) {
+      } else if (
+        typeof requestBody === 'object' &&
+        requestBody !== null &&
+        'id' in requestBody
+      ) {
         // Fallback to raw requestBody if rpcRequest is not yet assigned or has no id
         const rawId = (requestBody as { id?: string | number | null }).id;
         // Ensure rawId is of a valid type for JSON-RPC id
-        if (typeof rawId === 'string' || typeof rawId === 'number' || rawId === null) {
+        if (
+          typeof rawId === 'string' ||
+          typeof rawId === 'number' ||
+          rawId === null
+        ) {
           parsedId = rawId;
         }
       }
@@ -146,7 +148,12 @@ export class JsonRpcTransportHandler {
         })();
       } else {
         // Handle non-streaming methods
-        let result: SendMessageSuccessResponse['result'] | GetTaskSuccessResponse['result'] | CancelTaskSuccessResponse['result'] | SetTaskPushNotificationConfigSuccessResponse['result'] | GetTaskPushNotificationConfigSuccessResponse['result'];
+        let result:
+          | SendMessageSuccessResponse['result']
+          | GetTaskSuccessResponse['result']
+          | CancelTaskSuccessResponse['result']
+          | SetTaskPushNotificationConfigSuccessResponse['result']
+          | GetTaskPushNotificationConfigSuccessResponse['result'];
         switch (method) {
           case 'message/send':
             result = await this.requestHandler.sendMessage(params);
@@ -158,10 +165,12 @@ export class JsonRpcTransportHandler {
             result = await this.requestHandler.cancelTask(params);
             break;
           case 'tasks/pushNotificationConfig/set':
-            result = await this.requestHandler.setTaskPushNotificationConfig(params);
+            result =
+              await this.requestHandler.setTaskPushNotificationConfig(params);
             break;
           case 'tasks/pushNotificationConfig/get':
-            result = await this.requestHandler.getTaskPushNotificationConfig(params);
+            result =
+              await this.requestHandler.getTaskPushNotificationConfig(params);
             break;
           default:
             throw A2AError.methodNotFound(method);

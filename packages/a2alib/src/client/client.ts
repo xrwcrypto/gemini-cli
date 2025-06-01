@@ -149,7 +149,7 @@ export class A2AClient {
     const rpcRequest: JSONRPCRequest<TParams> = {
       jsonrpc: '2.0',
       method,
-      params: params,
+      params,
       id: requestId,
     };
 
@@ -250,7 +250,7 @@ export class A2AClient {
       // This is the initial JSON-RPC request to establish the stream
       jsonrpc: '2.0',
       method: 'message/stream',
-      params: params,
+      params,
       id: clientRequestId,
     };
 
@@ -387,7 +387,7 @@ export class A2AClient {
       // Initial JSON-RPC request to establish the stream
       jsonrpc: '2.0',
       method: 'tasks/resubscribe',
-      params: params,
+      params,
       id: clientRequestId,
     };
 

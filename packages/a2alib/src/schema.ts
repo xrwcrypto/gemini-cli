@@ -17,7 +17,8 @@ export interface JSONRPCMessage {
 /**
  * Represents a JSON-RPC request object base structure.
  */
-export interface JSONRPCRequest<TParams = { [key: string]: unknown }> extends JSONRPCMessage {
+export interface JSONRPCRequest<TParams = { [key: string]: unknown }>
+  extends JSONRPCMessage {
   method: string;
   params?: TParams;
 }
@@ -377,7 +378,8 @@ export interface SendMessageRequest extends JSONRPCRequest<MessageSendParams> {
   params: MessageSendParams;
 }
 
-export interface SendStreamingMessageRequest extends JSONRPCRequest<MessageSendParams> {
+export interface SendStreamingMessageRequest
+  extends JSONRPCRequest<MessageSendParams> {
   method: 'message/stream';
   params: MessageSendParams;
 }
@@ -392,17 +394,20 @@ export interface CancelTaskRequest extends JSONRPCRequest<TaskIdParams> {
   params: TaskIdParams;
 }
 
-export interface SetTaskPushNotificationConfigRequest extends JSONRPCRequest<TaskPushNotificationConfig> {
+export interface SetTaskPushNotificationConfigRequest
+  extends JSONRPCRequest<TaskPushNotificationConfig> {
   method: 'tasks/pushNotificationConfig/set';
   params: TaskPushNotificationConfig;
 }
 
-export interface GetTaskPushNotificationConfigRequest extends JSONRPCRequest<TaskIdParams> {
+export interface GetTaskPushNotificationConfigRequest
+  extends JSONRPCRequest<TaskIdParams> {
   method: 'tasks/pushNotificationConfig/get';
   params: TaskIdParams;
 }
 
-export interface TaskResubscriptionRequest extends JSONRPCRequest<TaskIdParams> {
+export interface TaskResubscriptionRequest
+  extends JSONRPCRequest<TaskIdParams> {
   method: 'tasks/resubscribe';
   params: TaskIdParams;
 }

@@ -40,12 +40,10 @@ export class A2AExpressApp {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
           console.error('Error fetching agent card:', error);
-          res
-            .status(500)
-            .json({
-              error: 'Failed to retrieve agent card',
-              details: errorMessage,
-            });
+          res.status(500).json({
+            error: 'Failed to retrieve agent card',
+            details: errorMessage,
+          });
         }
       },
     );
