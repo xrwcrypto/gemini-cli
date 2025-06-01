@@ -36,7 +36,7 @@ type A2AStreamEventData =
   | TaskArtifactUpdateEvent;
 
 /**
- * A2AClient is a TypeScript HTTP client for interacting with A2A-compliant agents.
+ * A2AClient is a TypeScript HTTP client for interacting with A2A-compliant servers.
  */
 export class A2AClient {
   private agentBaseUrl: string;
@@ -57,12 +57,13 @@ export class A2AClient {
   }
 
   /**
-   * Fetches the Agent Card from the agent's well-known URI and caches its service endpoint URL.
-   * This method is called by the constructor.
+   * Fetches the Agent Card from the given base URL.
+   * @param agentBaseUrl The base URL of the A2A agent.
    * @returns A Promise that resolves to the AgentCard.
    */
-  private async _fetchAndCacheAgentCard(): Promise<AgentCard> {
-    const agentCardUrl = `${this.agentBaseUrl}/.well-known/agent.json`;
+  private async _fetchAgentCard(agentBaseUrl: string): Promise<AgentCard> {
+    const cleanAgentBaseUrl = agentBaseUrl.replace(/\/$/, '');
+    const agentCardUrl = `${cleanAgentBaseUrl}/.well-known/agent.json`;
     try {
       const response = await fetch(agentCardUrl, {
         headers: { Accept: 'application/json' },
@@ -74,18 +75,32 @@ export class A2AClient {
       }
       const agentCard = (await response.json()) as AgentCard;
       if (!agentCard.url) {
+        // Ensure the card has a URL, critical for the primary card used by the client instance.
         throw new Error(
-          "Fetched Agent Card does not contain a valid 'url' for the service endpoint.",
+          `Fetched Agent Card from ${agentCardUrl} does not contain a valid 'url' for the service endpoint.`,
         );
       }
-      this.serviceEndpointUrl = agentCard.url; // Cache the service endpoint URL from the agent card
-      console.log('ENDOPINT', this.serviceEndpointUrl);
       return agentCard;
     } catch (error) {
-      console.error('Error fetching or parsing Agent Card:');
-      // Allow the promise to reject so users of agentCardPromise can handle it.
+      // Log and rethrow to allow specific handlers to catch it.
+      console.error(
+        `Error fetching or parsing Agent Card from ${agentCardUrl}:`,
+        error,
+      );
       throw error;
     }
+  }
+
+  /**
+   * Fetches the Agent Card from the agent's well-known URI and caches its service endpoint URL.
+   * This method is called by the constructor.
+   * @returns A Promise that resolves to the AgentCard.
+   */
+  private async _fetchAndCacheAgentCard(): Promise<AgentCard> {
+    const agentCard = await this._fetchAgentCard(this.agentBaseUrl);
+    this.serviceEndpointUrl = agentCard.url; // Cache the service endpoint URL from the agent card
+    console.log('ENDOPINT', this.serviceEndpointUrl);
+    return agentCard;
   }
 
   /**
@@ -98,17 +113,8 @@ export class A2AClient {
    */
   async getAgentCard(agentBaseUrl?: string): Promise<AgentCard> {
     if (agentBaseUrl) {
-      const specificAgentBaseUrl = agentBaseUrl.replace(/\/$/, '');
-      const agentCardUrl = `${specificAgentBaseUrl}/.well-known/agent.json`;
-      const response = await fetch(agentCardUrl, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch Agent Card from ${agentCardUrl}: ${response.status} ${response.statusText}`,
-        );
-      }
-      return (await response.json()) as AgentCard;
+      // Fetch a new card from the provided URL. This does not update the client's cached serviceEndpointUrl.
+      return this._fetchAgentCard(agentBaseUrl);
     }
     // If no specific URL is given, return the promise for the initially configured agent's card.
     return this.agentCardPromise;

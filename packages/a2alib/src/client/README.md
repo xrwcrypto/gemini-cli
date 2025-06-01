@@ -24,7 +24,7 @@ const client = new A2AClient('http://localhost:41241'); // Replace with your ser
 
 async function run() {
   try {
-    // Send a simple task (pass only params)
+    // Send a simple task
     const taskId = uuidv4();
     const sendParams: TaskSendParams = {
       id: taskId,
@@ -37,7 +37,7 @@ async function run() {
     const taskResult: Task | null = await client.sendTask(sendParams);
     console.log('Send Task Result:', taskResult);
 
-    // Get task status (pass only params)
+    // Get task status
     const getParams: TaskQueryParams = { id: taskId };
     // Method now returns Task | null directly
     const getTaskResult: Task | null = await client.getTask(getParams);
