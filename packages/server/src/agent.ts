@@ -23,6 +23,8 @@ import {
   createServerConfig,
   type ConfigParameters,
   GeminiEventType,
+  CoreToolScheduler,
+  Config,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -68,28 +70,18 @@ const coderAgentCard: schema.AgentCard = {
  */
 class CoderAgentExecutor implements AgentExecutor {
   private geminiClient: GeminiClient;
+  private toolScheduler: CoreToolScheduler;
+  private config: Config; // Added config property
 
-  constructor() {
-    // Basic configuration for the server
-    // In a production environment, these would come from a more robust config system
-    const configParams: ConfigParameters = {
-      apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06', // Or your preferred model
-      sandbox: false, // Sandbox might not be relevant for a server-side agent
-      targetDir: process.cwd(), // Or a specific directory the agent operates on
-      debugMode: process.env.DEBUG === 'true' || false,
-      question: '', // Not used in server mode directly like CLI
-      fullContext: false, // Server might have different context needs
-      userAgent: `GeminiA2AServer/0.1.0 Node.js/${process.version}`, // Basic user agent
-      userMemory: '', // Server might manage memory differently or not at all initially
-      geminiMdFileCount: 0,
-      // Ensure Vertex AI config is handled if necessary
-      vertexai:
-        process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' ? true : undefined,
-      // tool related configs are omitted for now, assuming server won't use CLI's tool discovery
-    };
-    const config = createServerConfig(configParams);
-    this.geminiClient = new GeminiClient(config);
+  constructor(config: Config) {
+    // Added config parameter
+    this.config = config; // Store config
+
+    this.geminiClient = new GeminiClient(this.config); // Use stored config
+    this.toolScheduler = new CoreToolScheduler({
+      toolRegistry: this.config.getToolRegistry(), // Use stored config to get registry
+      // TODO: Wire up handlers once we know where they live
+    });
   }
 
   async execute(
@@ -345,7 +337,26 @@ async function main() {
   const taskStore: TaskStore = new InMemoryTaskStore();
 
   // 2. Create AgentExecutor
-  const agentExecutor: AgentExecutor = new CoderAgentExecutor();
+  // Basic configuration for the server
+  // In a production environment, these would come from a more robust config system
+  const configParams: ConfigParameters = {
+    apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06', // Or your preferred model
+    sandbox: false, // Sandbox might not be relevant for a server-side agent
+    targetDir: process.cwd(), // Or a specific directory the agent operates on
+    debugMode: process.env.DEBUG === 'true' || false,
+    question: '', // Not used in server mode directly like CLI
+    fullContext: false, // Server might have different context needs
+    userAgent: `GeminiA2AServer/0.1.0 Node.js/${process.version}`, // Basic user agent
+    userMemory: '', // Server might manage memory differently or not at all initially
+    geminiMdFileCount: 0,
+    // Ensure Vertex AI config is handled if necessary
+    vertexai:
+      process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' ? true : undefined,
+    // tool related configs are omitted for now, assuming server won't use CLI's tool discovery
+  };
+  const config = createServerConfig(configParams);
+  const agentExecutor: AgentExecutor = new CoderAgentExecutor(config);
 
   // 3. Create DefaultRequestHandler
   const requestHandler = new DefaultRequestHandler(
