@@ -23,10 +23,11 @@ import {
   createServerConfig,
   type ConfigParameters,
   GeminiEventType,
-  CoreToolScheduler,
   Config,
+  ToolCallRequestInfo,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
+import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js';
 
 const coderAgentCard: schema.AgentCard = {
   name: 'Coder Agent',
@@ -70,18 +71,16 @@ const coderAgentCard: schema.AgentCard = {
  */
 class CoderAgentExecutor implements AgentExecutor {
   private geminiClient: GeminiClient;
-  private toolScheduler: CoreToolScheduler;
-  private config: Config; // Added config property
+  private config: Config;
+  private taskToolSchedulerManager: TaskToolSchedulerManager;
 
-  constructor(config: Config) {
-    // Added config parameter
-    this.config = config; // Store config
-
-    this.geminiClient = new GeminiClient(this.config); // Use stored config
-    this.toolScheduler = new CoreToolScheduler({
-      toolRegistry: this.config.getToolRegistry(), // Use stored config to get registry
-      // TODO: Wire up handlers once we know where they live
-    });
+  constructor(
+    config: Config,
+    taskToolSchedulerManager: TaskToolSchedulerManager,
+  ) {
+    this.config = config;
+    this.geminiClient = new GeminiClient(this.config);
+    this.taskToolSchedulerManager = taskToolSchedulerManager;
   }
 
   async execute(
@@ -150,6 +149,13 @@ class CoderAgentExecutor implements AgentExecutor {
     const cancellationCheckInterval = setInterval(() => {
       if (requestContext.isCancelled()) {
         abortController.abort();
+        // Also inform the taskToolSchedulerManager if a task is being cancelled externally
+        this.taskToolSchedulerManager.cancelTask(
+          taskId,
+          contextId,
+          eventBus,
+          'Cancelled due to external request',
+        );
         clearInterval(cancellationCheckInterval);
       }
     }, 500); // Check every 500ms
@@ -180,49 +186,39 @@ class CoderAgentExecutor implements AgentExecutor {
             });
             break;
           case GeminiEventType.ToolCallRequest:
-            console.log('Tool call request received:', event.value);
-            // Publish an InputRequired status update
-            eventBus.publish({
-              kind: 'status-update',
+            console.log(
+              '[CoderAgentExecutor] Tool call request received:',
+              event.value,
+            );
+            this.taskToolSchedulerManager.scheduleToolCalls(
               taskId,
               contextId,
-              status: {
-                state: schema.TaskState.InputRequired,
-                message: {
-                  kind: 'message',
-                  role: 'agent',
-                  messageId: uuidv4(),
-                  parts: [
-                    {
-                      kind: 'data',
-                      data: {
-                        toolCallId: event.value.callId,
-                        name: event.value.name,
-                        args: event.value.args,
-                      },
-                    },
-                  ],
-                  taskId,
-                  contextId,
-                },
-                timestamp: new Date().toISOString(),
-              },
-              final: false, // Expecting a tool response
-            });
+              event.value as ToolCallRequestInfo | ToolCallRequestInfo[], // Cast to expected type
+              eventBus,
+            );
+            // The TaskToolSchedulerManager will now emit appropriate status updates (e.g., Submitted, Working)
+            // It will also emit InputRequired if a tool needs confirmation.
             break;
           case GeminiEventType.ToolCallResponse:
-            console.log('Tool call response received:', event.value);
-            // Publish a message with the tool response
+            // This event type is usually for when the GeminiClient itself handles the tool call response.
+            // Since we are scheduling tools externally via TaskToolSchedulerManager, this path might be less common
+            // unless GeminiClient is also configured with a CoreToolScheduler that can respond directly.
+            // For now, we'll log it. The TaskToolSchedulerManager will be responsible for sending
+            // the actual tool results back to the Gemini model via subsequent sendMessageStream calls if needed,
+            // or by providing the results in the history for the next turn.
+            console.log(
+              '[CoderAgentExecutor] Tool call response received by GeminiClient:',
+              event.value,
+            );
             eventBus.publish({
               kind: 'message',
-              role: 'user', // Representing tool output as if from the user
+              role: 'user', // Representing tool output as if from the user to the model
               messageId: uuidv4(),
               parts: [
                 {
                   kind: 'data',
                   data: {
                     toolCallId: event.value.callId,
-                    // For simplicity, stringifying responseParts. Ideally, map to structured data if needed.
                     response: JSON.stringify(event.value.responseParts),
                     error: event.value.error?.message,
                     resultDisplay: event.value.resultDisplay,
@@ -234,8 +230,12 @@ class CoderAgentExecutor implements AgentExecutor {
             });
             break;
           case GeminiEventType.ToolCallConfirmation:
-            console.log('Tool call confirmation received:', event.value);
-            // Publish a message indicating tool confirmation
+            // This event is informational, indicating a tool call was confirmed by the CoreToolScheduler within GeminiClient.
+            // Our TaskToolSchedulerManager handles its own confirmations if a tool requires it (awaiting_approval state).
+            console.log(
+              '[CoderAgentExecutor] Tool call confirmation received by GeminiClient:',
+              event.value,
+            );
             eventBus.publish({
               kind: 'message',
               role: 'agent',
@@ -243,7 +243,7 @@ class CoderAgentExecutor implements AgentExecutor {
               parts: [
                 {
                   kind: 'text',
-                  text: `Tool call ${event.value.request.callId} (${event.value.request.name}) confirmed. Details: ${JSON.stringify(event.value.details)}`,
+                  text: `GeminiClient confirmed tool call ${event.value.request.callId} (${event.value.request.name}). Details: ${JSON.stringify(event.value.details)}`,
                 },
               ],
               taskId,
@@ -258,7 +258,12 @@ class CoderAgentExecutor implements AgentExecutor {
               status: { state: schema.TaskState.Canceled },
               final: true,
             });
-            // No need to clear interval here, it's cleared by the abort logic
+            this.taskToolSchedulerManager.cancelTask(
+              taskId,
+              contextId,
+              eventBus,
+              'Cancelled by user via GeminiClient event',
+            );
             return; // Exit early as task is cancelled
           case GeminiEventType.Error:
             eventBus.publish({
@@ -278,30 +283,45 @@ class CoderAgentExecutor implements AgentExecutor {
               },
               final: true,
             });
+            this.taskToolSchedulerManager.cancelTask(
+              taskId,
+              contextId,
+              eventBus,
+              `Failed due to GeminiClient error: ${event.value.message}`,
+            );
             clearInterval(cancellationCheckInterval);
             return; // Exit early on error
           default: {
             // Exhaustive check for unhandled event types
             const _exhaustiveCheck: never = event;
-            console.warn('Unhandled stream event type:', _exhaustiveCheck);
+            console.warn(
+              '[CoderAgentExecutor] Unhandled stream event type:',
+              _exhaustiveCheck,
+            );
             break;
           }
         }
       }
 
       if (!abortSignal.aborted) {
-        eventBus.publish({
-          kind: 'status-update',
-          taskId,
-          contextId,
-          status: { state: schema.TaskState.Completed },
-          final: true,
-        });
+        // If the loop finishes and wasn't aborted, it implies the model finished its turn.
+        // The actual 'Completed' state for the task (after tools) is handled by TaskToolSchedulerManager.
+        // We might send an interim 'agent processing complete' or just let TaskToolSchedulerManager drive the final state.
+        console.log(
+          '[CoderAgentExecutor] Model finished generating content/tool calls for this turn.',
+        );
+        // If no tool calls were made and content was generated, this might be the end of the task.
+        // However, TaskToolSchedulerManager is designed to send the final 'Completed' or 'Failed' event.
+        // To prevent premature 'Completed' if tools are pending, we might not send a 'Completed' here.
+        // Let TaskToolSchedulerManager's onAllToolCallsComplete be the definitive source of truth for task completion.
       }
     } catch (error) {
       if (!abortSignal.aborted) {
-        // Avoid double-reporting if already cancelled
-        console.error('Error executing agent:', error);
+        console.error('[CoderAgentExecutor] Error executing agent:', error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'Unknown error during agent execution';
         eventBus.publish({
           kind: 'status-update',
           taskId,
@@ -311,13 +331,7 @@ class CoderAgentExecutor implements AgentExecutor {
             message: {
               kind: 'message',
               role: 'agent',
-              parts: [
-                {
-                  kind: 'text',
-                  text:
-                    error instanceof Error ? error.message : 'Unknown error',
-                },
-              ],
+              parts: [{ kind: 'text', text: errorMessage }],
               messageId: uuidv4(),
               taskId,
               contextId,
@@ -325,6 +339,12 @@ class CoderAgentExecutor implements AgentExecutor {
           },
           final: true,
         });
+        this.taskToolSchedulerManager.cancelTask(
+          taskId,
+          contextId,
+          eventBus,
+          `Failed due to agent error: ${errorMessage}`,
+        );
       }
     } finally {
       clearInterval(cancellationCheckInterval);
@@ -341,7 +361,7 @@ async function main() {
   // In a production environment, these would come from a more robust config system
   const configParams: ConfigParameters = {
     apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06', // Or your preferred model
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06', // Updated model
     sandbox: false, // Sandbox might not be relevant for a server-side agent
     targetDir: process.cwd(), // Or a specific directory the agent operates on
     debugMode: process.env.DEBUG === 'true' || false,
@@ -354,15 +374,25 @@ async function main() {
     vertexai:
       process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' ? true : undefined,
     // tool related configs are omitted for now, assuming server won't use CLI's tool discovery
+    // but coreTools can be specified if needed, e.g., coreTools: ['ReadFileTool', 'ShellTool']
   };
   const config = createServerConfig(configParams);
-  const agentExecutor: AgentExecutor = new CoderAgentExecutor(config);
+
+  // Create TaskToolSchedulerManager
+  const taskToolSchedulerManager = new TaskToolSchedulerManager(config);
+
+  // Pass TaskToolSchedulerManager to CoderAgentExecutor
+  const agentExecutor: AgentExecutor = new CoderAgentExecutor(
+    config,
+    taskToolSchedulerManager,
+  );
 
   // 3. Create DefaultRequestHandler
   const requestHandler = new DefaultRequestHandler(
     coderAgentCard,
     taskStore,
     agentExecutor,
+    // true // waitForAgentOnTaskCancellation (optional param)
   );
 
   // 4. Create and setup A2AExpressApp
