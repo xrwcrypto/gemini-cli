@@ -15,6 +15,7 @@ export * from './core/turn.js';
 export * from './core/geminiRequest.js';
 export * from './core/coreToolScheduler.js';
 export * from './core/nonInteractiveToolExecutor.js';
+export * from './core/geminiChat.js';
 
 // Export utilities
 export * from './utils/paths.js';
