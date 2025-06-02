@@ -43,17 +43,12 @@ export class InMemoryTaskStore implements TaskStore {
 
   async load(taskId: string): Promise<TaskAndHistory | null> {
     const entry = this.store.get(taskId);
-    // Return copies to prevent external mutation
-    return entry
-      ? { task: { ...entry.task }, history: [...entry.history] }
-      : null;
+    // Return deep copies to prevent external mutation
+    return entry ? JSON.parse(JSON.stringify(entry)) : null;
   }
 
   async save(data: TaskAndHistory): Promise<void> {
-    // Store copies to prevent internal mutation if caller reuses objects
-    this.store.set(data.task.id, {
-      task: { ...data.task },
-      history: [...data.history],
-    });
+    // Store deep copies to prevent internal mutation if caller reuses objects
+    this.store.set(data.task.id, JSON.parse(JSON.stringify(data)));
   }
 }
