@@ -25,6 +25,7 @@ import {
   GeminiEventType,
   Config,
   ToolCallRequestInfo,
+  loadEnvironment,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js';
@@ -362,6 +363,7 @@ class CoderAgentExecutor implements AgentExecutor {
 }
 
 async function main() {
+  loadEnvironment();
   // 1. Create TaskStore
   const taskStore: TaskStore = new InMemoryTaskStore();
 
