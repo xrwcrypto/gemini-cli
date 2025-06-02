@@ -178,6 +178,8 @@ class CoderAgentExecutor implements AgentExecutor {
         abortSignal,
       );
 
+      let accumulatedContent = '';
+
       for await (const event of stream) {
         if (abortSignal.aborted) {
           // Event stream might have already yielded UserCancelled, but good to check
@@ -186,16 +188,20 @@ class CoderAgentExecutor implements AgentExecutor {
 
         switch (event.type) {
           case GeminiEventType.Content:
-            eventBus.publish({
-              kind: 'message',
-              role: 'agent',
-              parts: [{ kind: 'text', text: event.value }],
-              messageId: uuidv4(),
-              taskId,
-              contextId,
-            });
+            accumulatedContent += event.value;
             break;
           case GeminiEventType.ToolCallRequest:
+            if (accumulatedContent) {
+              eventBus.publish({
+                kind: 'message',
+                role: 'agent',
+                parts: [{ kind: 'text', text: accumulatedContent }],
+                messageId: uuidv4(),
+                taskId,
+                contextId,
+              });
+              accumulatedContent = ''; // Reset after publishing
+            }
             console.log(
               '[CoderAgentExecutor] Tool call request received:',
               event.value,
@@ -261,6 +267,18 @@ class CoderAgentExecutor implements AgentExecutor {
             });
             break;
           case GeminiEventType.UserCancelled:
+            if (accumulatedContent) {
+              // Publish any remaining content before cancelling
+              eventBus.publish({
+                kind: 'message',
+                role: 'agent',
+                parts: [{ kind: 'text', text: accumulatedContent }],
+                messageId: uuidv4(),
+                taskId,
+                contextId,
+              });
+              accumulatedContent = '';
+            }
             eventBus.publish({
               kind: 'status-update',
               taskId,
@@ -276,6 +294,18 @@ class CoderAgentExecutor implements AgentExecutor {
             );
             return; // Exit early as task is cancelled
           case GeminiEventType.Error:
+            if (accumulatedContent) {
+              // Publish any remaining content before erroring
+              eventBus.publish({
+                kind: 'message',
+                role: 'agent',
+                parts: [{ kind: 'text', text: accumulatedContent }],
+                messageId: uuidv4(),
+                taskId,
+                contextId,
+              });
+              accumulatedContent = '';
+            }
             eventBus.publish({
               kind: 'status-update',
               taskId,
@@ -311,6 +341,20 @@ class CoderAgentExecutor implements AgentExecutor {
             break;
           }
         }
+      }
+
+      if (!abortSignal.aborted && accumulatedContent) {
+        // If the loop finishes, wasn't aborted, and there's remaining content,
+        // publish it as the final message for this turn.
+        eventBus.publish({
+          kind: 'message',
+          role: 'agent',
+          parts: [{ kind: 'text', text: accumulatedContent }],
+          messageId: uuidv4(),
+          taskId,
+          contextId,
+        });
+        accumulatedContent = ''; // Clear after publishing
       }
 
       if (!abortSignal.aborted) {
