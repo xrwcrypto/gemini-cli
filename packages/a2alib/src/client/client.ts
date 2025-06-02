@@ -52,8 +52,57 @@ export class A2AClient {
    * @param agentBaseUrl The base URL of the A2A agent (e.g., https://agent.example.com).
    */
   constructor(agentBaseUrl: string) {
-    this.agentBaseUrl = agentBaseUrl.replace(/\/$/, ''); // Remove trailing slash if any
+    this.agentBaseUrl = agentBaseUrl.replace(/.\/$/, ''); // Remove trailing slash if any
     this.agentCardPromise = this._fetchAndCacheAgentCard();
+  }
+
+  private async _handleFetchError(
+    response: Response,
+    methodName: string,
+    isStreaming = false,
+  ): Promise<void> {
+    if (response.ok) {
+      return;
+    }
+
+    let errorBodyText = '(empty or non-JSON response)';
+    try {
+      errorBodyText = await response.text();
+      const errorJson = JSON.parse(errorBodyText);
+
+      if (errorJson.error) {
+        // This is a JSON-RPC error or A2A-specific error structure
+        const errorDetail = errorJson.error as JSONRPCError | A2AErrorData;
+        throw new Error(
+          `${isStreaming ? 'RPC Error establishing stream' : 'RPC error'} for ${methodName}: ${errorDetail.message} (Code: ${errorDetail.code}, HTTP Status: ${response.status}) Data: ${JSON.stringify(errorDetail.data)}`,
+        );
+      } else if (!isStreaming && !errorJson.jsonrpc) {
+        // If not streaming and not a JSON-RPC structure, but still an error
+        throw new Error(
+          `HTTP error for ${methodName}! Status: ${response.status} ${response.statusText}. Response: ${errorBodyText}`,
+        );
+      }
+      // If it's a streaming context and not a recognized error structure, or a non-streaming context with a jsonrpc field but no error field (unlikely for errors)
+      // fall through to the generic HTTP error.
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      // Rethrow if it's one of the specific errors we've constructed above
+      if (
+        errorMessage.startsWith('RPC error') ||
+        errorMessage.startsWith('RPC Error establishing stream') ||
+        errorMessage.startsWith('HTTP error')
+      ) {
+        throw e;
+      }
+      // Fallback for parsing errors or other unexpected issues
+      throw new Error(
+        `HTTP error for ${methodName}! Status: ${response.status} ${response.statusText}. Response: ${errorBodyText}`,
+      );
+    }
+    // Fallback for cases where errorJson was parsed but didn't fit specific structures above (e.g. streaming error not in RPC format)
+    throw new Error(
+      `HTTP error for ${methodName}! Status: ${response.status} ${response.statusText}. Response: ${errorBodyText}`,
+    );
   }
 
   /**
@@ -62,15 +111,23 @@ export class A2AClient {
    * @returns A Promise that resolves to the AgentCard.
    */
   private async _fetchAgentCard(agentBaseUrl: string): Promise<AgentCard> {
-    const cleanAgentBaseUrl = agentBaseUrl.replace(/\/$/, '');
+    const cleanAgentBaseUrl = agentBaseUrl.replace(/.\/$/, '');
     const agentCardUrl = `${cleanAgentBaseUrl}/.well-known/agent.json`;
     try {
       const response = await fetch(agentCardUrl, {
         headers: { Accept: 'application/json' },
       });
+      // Use the new error handler
       if (!response.ok) {
+        // Simplified error message for agent card fetching specifically
+        let errorBodyText = '(empty or non-JSON response)';
+        try {
+          errorBodyText = await response.text();
+        } catch (_parseError) {
+          // Ignore if text() fails, use default
+        }
         throw new Error(
-          `Failed to fetch Agent Card from ${agentCardUrl}: ${response.status} ${response.statusText}`,
+          `Failed to fetch Agent Card from ${agentCardUrl}: ${response.status} ${response.statusText}. Response: ${errorBodyText}`,
         );
       }
       const agentCard = (await response.json()) as AgentCard;
@@ -83,10 +140,16 @@ export class A2AClient {
       return agentCard;
     } catch (error) {
       // Log and rethrow to allow specific handlers to catch it.
-      console.error(
-        `Error fetching or parsing Agent Card from ${agentCardUrl}:`,
-        error,
-      );
+      const specificError =
+        error instanceof Error &&
+        (error.message.startsWith('Failed to fetch Agent Card') ||
+          error.message.startsWith('Fetched Agent Card from'));
+      if (!specificError) {
+        console.error(
+          `Error fetching or parsing Agent Card from ${agentCardUrl}:`,
+          error,
+        );
+      }
       throw error;
     }
   }
@@ -168,37 +231,7 @@ export class A2AClient {
       body: JSON.stringify(rpcRequest),
     });
 
-    if (!httpResponse.ok) {
-      let errorBodyText = '(empty or non-JSON response)';
-      try {
-        errorBodyText = await httpResponse.text();
-        const errorJson = JSON.parse(errorBodyText);
-        // If the body is a valid JSON-RPC error response, let it be handled by the standard parsing below.
-        // However, if it's not even a JSON-RPC structure but still an error, throw based on HTTP status.
-        if (!errorJson.jsonrpc && errorJson.error) {
-          // Check if it's a JSON-RPC error structure
-          throw new Error(
-            `RPC error for ${method}: ${errorJson.error.message} (Code: ${errorJson.error.code}, HTTP Status: ${httpResponse.status}) Data: ${JSON.stringify(errorJson.error.data)}`,
-          );
-        } else if (!errorJson.jsonrpc) {
-          throw new Error(
-            `HTTP error for ${method}! Status: ${httpResponse.status} ${httpResponse.statusText}. Response: ${errorBodyText}`,
-          );
-        }
-      } catch (e) {
-        // If parsing the error body fails or it's not a JSON-RPC error, throw a generic HTTP error.
-        // If it was already an error thrown from within the try block, rethrow it.
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        if (
-          errorMessage.startsWith('RPC error for') ||
-          errorMessage.startsWith('HTTP error for')
-        )
-          throw e;
-        throw new Error(
-          `HTTP error for ${method}! Status: ${httpResponse.status} ${httpResponse.statusText}. Response: ${errorBodyText}`,
-        );
-      }
-    }
+    await this._handleFetchError(httpResponse, method); // Use the new error handler
 
     const rpcResponse = (await httpResponse.json()) as
       | JSONRPCResult<unknown>
@@ -269,29 +302,8 @@ export class A2AClient {
       body: JSON.stringify(rpcRequest),
     });
 
-    if (!response.ok) {
-      // Attempt to read error body for more details
-      let errorBody = '';
-      try {
-        errorBody = await response.text();
-        const errorJson = JSON.parse(errorBody);
-        if (errorJson.error) {
-          throw new Error(
-            `HTTP error establishing stream for message/stream: ${response.status} ${response.statusText}. RPC Error: ${errorJson.error.message} (Code: ${errorJson.error.code})`,
-          );
-        }
-      } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        if (errorMessage.startsWith('HTTP error establishing stream')) throw e;
-        // Fallback if body is not JSON or parsing fails
-        throw new Error(
-          `HTTP error establishing stream for message/stream: ${response.status} ${response.statusText}. Response: ${errorBody || '(empty)'}`,
-        );
-      }
-      throw new Error(
-        `HTTP error establishing stream for message/stream: ${response.status} ${response.statusText}`,
-      );
-    }
+    await this._handleFetchError(response, 'message/stream', true); // Use new error handler for streaming
+
     if (
       !response.headers.get('Content-Type')?.startsWith('text/event-stream')
     ) {
@@ -406,27 +418,8 @@ export class A2AClient {
       body: JSON.stringify(rpcRequest),
     });
 
-    if (!response.ok) {
-      let errorBody = '';
-      try {
-        errorBody = await response.text();
-        const errorJson = JSON.parse(errorBody);
-        if (errorJson.error) {
-          throw new Error(
-            `HTTP error establishing stream for tasks/resubscribe: ${response.status} ${response.statusText}. RPC Error: ${errorJson.error.message} (Code: ${errorJson.error.code})`,
-          );
-        }
-      } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        if (errorMessage.startsWith('HTTP error establishing stream')) throw e;
-        throw new Error(
-          `HTTP error establishing stream for tasks/resubscribe: ${response.status} ${response.statusText}. Response: ${errorBody || '(empty)'}`,
-        );
-      }
-      throw new Error(
-        `HTTP error establishing stream for tasks/resubscribe: ${response.status} ${response.statusText}`,
-      );
-    }
+    await this._handleFetchError(response, 'tasks/resubscribe', true); // Use new error handler for streaming
+
     if (
       !response.headers.get('Content-Type')?.startsWith('text/event-stream')
     ) {
