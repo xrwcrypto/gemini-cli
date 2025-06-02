@@ -113,6 +113,15 @@ class CoderAgentExecutor implements AgentExecutor {
         artifacts: [], // Initialize artifacts array
       };
       eventBus.publish(initialTask);
+
+      // Also publish an initial non-final status update
+      eventBus.publish({
+        kind: 'status-update',
+        taskId,
+        contextId,
+        status: initialTask.status, // Use the same status object
+        final: false, // Initial submission is not final
+      });
     }
 
     const promptPart = userMessage?.parts?.find(

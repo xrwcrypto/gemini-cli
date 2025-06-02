@@ -62,52 +62,91 @@ export class TaskToolSchedulerManager {
           eventBus.publish(artifactEvent);
         },
         onAllToolCallsComplete: (completedToolCalls: CompletedToolCall[]) => {
-          let overallTaskState: TaskState = TaskState.Completed;
+          let determinedState: TaskState;
           const allMessages: string[] = [];
+          let hasErrors = false;
+          let hasCancellations = false;
+          let allSuccessful = true; // Assume success until proven otherwise
 
-          completedToolCalls.forEach((ctc) => {
-            const finalArtifact: Artifact = {
-              artifactId: `tool-${ctc.request.callId}-output`,
-              parts: [
-                {
-                  kind: 'text',
-                  text: ctc.response.resultDisplay,
-                } as Part,
-              ], // TODO: Handle different Part kinds
-              metadata: {
-                status: ctc.status,
-              },
-            };
-            const artifactEvent: TaskArtifactUpdateEvent = {
-              kind: 'artifact-update',
-              taskId,
-              contextId,
-              artifact: finalArtifact,
-              append: false,
-              lastChunk: true,
-            };
-            eventBus.publish(artifactEvent);
+          if (completedToolCalls.length === 0) {
+            // No tools were actually called, or all were filtered out before execution.
+            // This scenario implies the agent's turn might be over without tool interaction.
+            // We'll treat this as "Working" and let the agent decide the next step.
+            determinedState = TaskState.Working;
+            allMessages.push('No tool calls were executed. Agent processing.');
+            allSuccessful = false; // Not a tool success case
+          } else {
+            completedToolCalls.forEach((ctc) => {
+              const finalArtifact: Artifact = {
+                artifactId: `tool-${ctc.request.callId}-output`,
+                parts: [
+                  {
+                    kind: 'text',
+                    text: ctc.response.resultDisplay,
+                  } as Part,
+                ],
+                metadata: {
+                  status: ctc.status,
+                },
+              };
+              const artifactEvent: TaskArtifactUpdateEvent = {
+                kind: 'artifact-update',
+                taskId,
+                contextId,
+                artifact: finalArtifact,
+                append: false,
+                lastChunk: true,
+              };
+              eventBus.publish(artifactEvent);
 
-            if (ctc.status === 'error') {
-              overallTaskState = TaskState.Failed;
-              allMessages.push(
-                `Tool '${ctc.request.name}' (${ctc.request.callId}) failed: ${ctc.response.resultDisplay}`,
-              );
-            } else if (ctc.status === 'cancelled') {
-              // If any tool is cancelled, the task might be considered Canceled or Failed
-              // For now, let's lean towards Canceled if not already Failed
-              if (overallTaskState !== TaskState.Failed) {
-                overallTaskState = TaskState.Canceled;
+              if (ctc.status === 'error') {
+                hasErrors = true;
+                allSuccessful = false;
+                allMessages.push(
+                  `Tool '${ctc.request.name}' (${ctc.request.callId}) failed: ${ctc.response.resultDisplay}. Please advise on how to proceed.`,
+                );
+              } else if (ctc.status === 'cancelled') {
+                hasCancellations = true;
+                allSuccessful = false;
+                allMessages.push(
+                  `Tool '${ctc.request.name}' (${ctc.request.callId}) was cancelled: ${ctc.response.resultDisplay}`,
+                );
+              } else {
+                // success
+                allMessages.push(
+                  `Tool '${ctc.request.name}' (${ctc.request.callId}) completed successfully.`,
+                );
               }
+            });
+          }
+
+          if (hasErrors) {
+            determinedState = TaskState.InputRequired;
+          } else if (hasCancellations) {
+            determinedState = TaskState.Canceled;
+          } else if (allSuccessful && completedToolCalls.length > 0) {
+            // All tools ran and were successful
+            determinedState = TaskState.Working;
+            allMessages.push(
+              'All tools completed successfully. Agent processing results.',
+            );
+          } else if (!allSuccessful && completedToolCalls.length > 0) {
+            // Mixed results, but no errors that require immediate input, and not all cancelled.
+            // This path should ideally be covered by hasErrors or hasCancellations leading to InputRequired/Canceled.
+            // If we reach here, it implies some tools succeeded, some were cancelled, but none errored to force InputRequired.
+            // Defaulting to Working, as the agent might still process partial results.
+            determinedState = TaskState.Working;
+            allMessages.push(
+              'Tool processing finished with mixed results. Agent continuing.',
+            );
+          } else {
+            // Fallback for empty completedToolCalls or other unhandled scenarios.
+            determinedState = TaskState.Working;
+            if (allMessages.length === 0)
               allMessages.push(
-                `Tool '${ctc.request.name}' (${ctc.request.callId}) was cancelled: ${ctc.response.resultDisplay}`,
+                'Tool processing phase complete. Agent continuing.',
               );
-            } else {
-              allMessages.push(
-                `Tool '${ctc.request.name}' (${ctc.request.callId}) completed successfully.`,
-              );
-            }
-          });
+          }
 
           const statusMessage: Message = {
             kind: 'message',
@@ -115,7 +154,7 @@ export class TaskToolSchedulerManager {
             parts: [
               {
                 kind: 'text',
-                text: allMessages.join('\n') || 'All tool calls processed.',
+                text: allMessages.join('\n'),
               } as Part,
             ],
             messageId: `status-${taskId}-allcomplete-${Date.now()}`,
@@ -123,19 +162,30 @@ export class TaskToolSchedulerManager {
             contextId,
           };
 
+          // `final` is true if the state is InputRequired or Canceled.
+          // For Working, it's false, as the agent is expected to continue.
+          const isFinalEvent =
+            determinedState === TaskState.InputRequired ||
+            determinedState === TaskState.Canceled;
+
           const statusEvent: TaskStatusUpdateEvent = {
             kind: 'status-update',
             taskId,
             contextId,
             status: {
-              state: overallTaskState,
+              state: determinedState,
               message: statusMessage,
               timestamp: new Date().toISOString(),
             },
-            final: true,
+            final: isFinalEvent,
           };
           eventBus.publish(statusEvent);
-          this.schedulers.delete(taskId); // Clean up scheduler instance
+
+          // Clean up scheduler instance only if the task is Canceled.
+          // If InputRequired or Working, the scheduler might be needed again or is still part of an ongoing task flow.
+          if (determinedState === TaskState.Canceled) {
+            this.schedulers.delete(taskId);
+          }
         },
         onToolCallsUpdate: (updatedToolCalls: ToolCall[]) => {
           updatedToolCalls.forEach((tc) => {
@@ -183,7 +233,13 @@ export class TaskToolSchedulerManager {
                 message: statusMessage,
                 timestamp: new Date().toISOString(),
               },
-              final: false, // Individual tool updates are not final for the task
+              // If a2aState is InputRequired, Failed, or Canceled for this specific tool update, it's final for this update path.
+              // Otherwise (e.g. Working, Submitted), it's not final for the overall task.
+              final: [
+                TaskState.InputRequired,
+                TaskState.Failed,
+                TaskState.Canceled,
+              ].includes(a2aState),
             };
             eventBus.publish(statusEvent);
           });
@@ -201,7 +257,9 @@ export class TaskToolSchedulerManager {
     switch (coreStatus) {
       case 'scheduled':
       case 'validating':
-        return TaskState.Submitted;
+        // These are transient states leading to execution or approval.
+        // Consider them as 'Working' from A2A perspective as server is processing.
+        return TaskState.Working;
       case 'awaiting_approval':
         // This state in CoreToolScheduler means it's paused, waiting for user confirmation.
         // For A2A, this translates to InputRequired, as the system needs external input to proceed.
@@ -209,13 +267,17 @@ export class TaskToolSchedulerManager {
       case 'executing':
         return TaskState.Working;
       case 'success':
-        // Individual tool success is part of an ongoing "Working" state for the overall task.
-        // The final "Completed" state is determined in onAllToolCallsComplete.
-        return TaskState.Working;
+        // Individual tool success. The task is still ongoing until all tools complete
+        // and the agent decides its next step. So, it's still 'Working' or 'InputRequired'
+        // if further agent processing implies needing more from the user.
+        // For now, let's keep it as Working, assuming agent will continue.
+        // If agent turn ends and more is needed, it should become InputRequired.
+        return TaskState.Working; // Or potentially InputRequired based on broader context
       case 'error':
-        return TaskState.Failed;
+        // Tool specific error. Task should ask for input on how to proceed.
+        return TaskState.InputRequired;
       case 'cancelled':
-        return TaskState.Canceled;
+        return TaskState.Canceled; // Tool specific cancellation.
       default: {
         // Ensures all cases are handled if CoreToolScheduler.Status changes
         const exhaustiveCheck: never = coreStatus;
@@ -256,7 +318,7 @@ export class TaskToolSchedulerManager {
       taskId,
       contextId,
       status: {
-        state: TaskState.Submitted, // Or TaskState.Working if tools start immediately
+        state: TaskState.Working, // Task is actively working on tools now
         message: initialStatusMessage,
         timestamp: new Date().toISOString(),
       },
