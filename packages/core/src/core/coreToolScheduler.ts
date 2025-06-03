@@ -62,9 +62,9 @@ export type WaitingToolCall = {
   confirmationDetails: ToolCallConfirmationDetails;
 };
 
-export type Status = ToolCall['status'];
+export type Status = SchedulerToolCallState['status'];
 
-export type ToolCall =
+export type SchedulerToolCallState =
   | ValidatingToolCall
   | ScheduledToolCall
   | ErroredToolCall
@@ -91,7 +91,7 @@ export type AllToolCallsCompleteHandler = (
   completedToolCalls: CompletedToolCall[],
 ) => void;
 
-export type ToolCallsUpdateHandler = (toolCalls: ToolCall[]) => void;
+export type ToolCallsUpdateHandler = (toolCalls: SchedulerToolCallState[]) => void;
 
 /**
  * Formats tool output for a Gemini FunctionResponse.
@@ -165,7 +165,7 @@ interface CoreToolSchedulerOptions {
 
 export class CoreToolScheduler {
   private toolRegistry: Promise<ToolRegistry>;
-  private toolCalls: ToolCall[] = [];
+  private toolCalls: SchedulerToolCallState[] = [];
   private abortController: AbortController;
   private outputUpdateHandler?: OutputUpdateHandler;
   private onAllToolCallsComplete?: AllToolCallsCompleteHandler;
@@ -218,7 +218,7 @@ export class CoreToolScheduler {
         return currentCall;
       }
 
-      const callWithToolContext = currentCall as ToolCall & { tool: Tool };
+      const callWithToolContext = currentCall as SchedulerToolCallState & { tool: Tool };
 
       switch (newStatus) {
         case 'success':
@@ -301,8 +301,8 @@ export class CoreToolScheduler {
     const requestsToProcess = Array.isArray(request) ? request : [request];
     const toolRegistry = await this.toolRegistry;
 
-    const newToolCalls: ToolCall[] = requestsToProcess.map(
-      (reqInfo): ToolCall => {
+    const newToolCalls: SchedulerToolCallState[] = requestsToProcess.map(
+      (reqInfo): SchedulerToolCallState => {
         const toolInstance = toolRegistry.getTool(reqInfo.name);
         if (!toolInstance) {
           return {

@@ -114,7 +114,11 @@ export class OpenInVSCodeTool extends BaseTool<OpenInVSCodeToolParams, ToolResul
 
     return new Promise<ToolResult>((resolve) => {
       const commandToRun = 'code';
-      const args = [params.filePath]; // filePath can be relative or absolute
+      // Ensure filePath is absolute
+      const absoluteFilePath = path.isAbsolute(params.filePath)
+        ? params.filePath
+        : path.resolve(targetDir, params.filePath);
+      const args = [absoluteFilePath];
 
       const childProcess = spawn(commandToRun, args, {
         cwd: targetDir, // Execute from the target directory context
@@ -151,7 +155,7 @@ export class OpenInVSCodeTool extends BaseTool<OpenInVSCodeToolParams, ToolResul
         
         if (code === 0) {
           resolve({
-            llmContent: `Successfully executed: opened ${params.filePath} in VS Code.`,
+            llmContent: `The file "${params.filePath}" has been successfully opened in VS Code. The user's request is complete.`,
             returnDisplay: `Opened ${params.filePath} in VS Code.`,
           });
         } else {

@@ -17,6 +17,23 @@ export * from './core/geminiRequest.js';
 export * from './core/coreToolScheduler.js';
 export * from './core/nonInteractiveToolExecutor.js';
 
+// Explicitly export types that might not be picked up by 'export *' in all build scenarios
+export type {
+  SchedulerToolCallState,
+  Status,
+  ExecutingToolCall,
+  ScheduledToolCall,
+  ValidatingToolCall,
+  WaitingToolCall,
+  CompletedToolCall,
+  CancelledToolCall,
+  ToolCallsUpdateHandler,
+  AllToolCallsCompleteHandler,
+  OutputUpdateHandler
+} from './core/coreToolScheduler.js';
+
+export type { ToolCallRequestInfo } from './core/turn.js';
+
 // Export utilities
 export * from './utils/paths.js';
 export * from './utils/schemaValidator.js';

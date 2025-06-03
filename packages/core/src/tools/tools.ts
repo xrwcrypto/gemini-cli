@@ -5,6 +5,9 @@
  */
 
 import { FunctionDeclaration, PartListUnion, Schema } from '@google/genai';
+import {
+  OpenInVSCodeToolParams,
+} from './open-in-vscode.js';
 
 /**
  * Interface representing the base Tool functionality

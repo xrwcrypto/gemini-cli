@@ -18,7 +18,7 @@ import {
   AllToolCallsCompleteHandler,
   ToolCallsUpdateHandler,
   Tool,
-  ToolCall,
+  SchedulerToolCallState,
   Status as CoreStatus,
 } from '@gemini-code/core';
 import { useCallback, useEffect, useState, useRef } from 'react';
@@ -112,7 +112,7 @@ export function useReactToolScheduler(
     };
 
     const toolCallsUpdateHandler: ToolCallsUpdateHandler = (
-      updatedCoreToolCalls: ToolCall[],
+      updatedCoreToolCalls: SchedulerToolCallState[],
     ) => {
       setToolCallsForDisplay((prevTrackedCalls) =>
         updatedCoreToolCalls.map((coreTc) => {
