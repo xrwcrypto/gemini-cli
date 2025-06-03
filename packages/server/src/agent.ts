@@ -366,11 +366,22 @@ class CoderAgentExecutor implements AgentExecutor {
 
       if (!abortSignal.aborted) {
         // If the loop finishes and wasn't aborted, it implies the model finished its turn.
-        // The actual 'Completed' state for the task (after tools) is handled by TaskToolSchedulerManager.
-        // We might send an interim 'agent processing complete' or just let TaskToolSchedulerManager drive the final state.
         console.log(
           '[CoderAgentExecutor] Model finished generating content/tool calls for this turn.',
         );
+
+        // Send InputRequired status update as the agent is done sending messages for this turn.
+        eventBus.publish({
+          kind: 'status-update',
+          taskId,
+          contextId,
+          status: {
+            state: schema.TaskState.InputRequired,
+          },
+          final: true, // This status update is final for this phase of agent interaction
+        });
+
+        // The actual 'Completed' state for the task (after tools, if any) is handled by TaskToolSchedulerManager.
         // If no tool calls were made and content was generated, this might be the end of the task.
         // However, TaskToolSchedulerManager is designed to send the final 'Completed' or 'Failed' event.
         // To prevent premature 'Completed' if tools are pending, we might not send a 'Completed' here.
