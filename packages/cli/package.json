@@ -20,7 +20,8 @@
     "prerelease:version": "node ../../scripts/bind_package_version.js",
     "prerelease:deps": "node ../../scripts/bind_package_dependencies.js",
     "prepublishOnly": "npm publish --workspace=@gemini-code/core",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "bundle": "node bundle.mjs"
   },
   "files": [
     "dist"
@@ -58,6 +59,8 @@
     "@types/react": "^18.3.1",
     "@types/shell-quote": "^1.7.5",
     "@types/yargs": "^17.0.32",
+    "esbuild": "^0.25.5",
+    "esbuild-plugin-copy": "^2.1.1",
     "ink-testing-library": "^4.0.0",
     "jsdom": "^26.1.0",
     "typescript": "^5.3.3",
