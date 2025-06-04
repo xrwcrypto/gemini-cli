@@ -1,0 +1,1 @@
+Anytime a golang file is created or edited. Leave a little comment at the top that is random but creative.
