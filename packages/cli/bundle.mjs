@@ -12,6 +12,23 @@
 // && bash scripts/copy_bundle_assets.sh
 import { build } from 'esbuild'
 import { copy } from 'esbuild-plugin-copy';
+import { exec } from 'node:child_process';
+
+
+const commitHash = await new Promise((resolve, reject) => {
+    exec('git rev-parse --short HEAD', (error, stdout, stderr) => {
+      if (error) {
+        reject(`Error: ${error.message}`);
+        return;
+      }
+      if (stderr) {
+        reject(`stderr: ${stderr}`);
+        return;
+      }
+      resolve(stdout.trim());
+    });
+  });
+;
 
 const requireHotFix = `
 import { createRequire } from 'module';
@@ -37,9 +54,13 @@ await build({
     copy({
         resolveFrom: 'cwd',
         assets: {
-            from: ['../core/src/tools/shell.md', '../core/src/tools/shell.json'],
+            from: ['../core/src/tools/shell.md', '../core/src/tools/shell.json', './src/utils/*.sb'],
             to: ['./bundle']
         }
     })
-  ]
+  ],
+  // globals
+  define: {
+    ['GIT_COMMIT_HASH']: `${commitHash}`
+  }
 })
