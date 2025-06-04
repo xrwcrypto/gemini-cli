@@ -88,6 +88,9 @@ Signal: Signal number or \`(none)\` if no signal was received.
         child.stderr.removeListener('data', onStderr);
         child.removeListener('error', onError);
         child.removeListener('close', onClose);
+        if (child.connected) {
+          child.disconnect();
+        }
       };
 
       child.stdout.on('data', onStdout);

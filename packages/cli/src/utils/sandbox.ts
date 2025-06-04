@@ -580,6 +580,9 @@ async function pullImage(sandbox: string, image: string): Promise<boolean> {
       }
       pullProcess.removeListener('error', onError);
       pullProcess.removeListener('close', onClose);
+      if (pullProcess.connected) {
+        pullProcess.disconnect();
+      }
     };
 
     if (pullProcess.stdout) {

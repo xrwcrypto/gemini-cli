@@ -501,6 +501,9 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
               child.stderr.removeListener('data', onStderr);
               child.removeListener('error', onError);
               child.removeListener('close', onClose);
+              if (child.connected) {
+                child.disconnect();
+              }
             };
 
             child.stdout.on('data', onData);
