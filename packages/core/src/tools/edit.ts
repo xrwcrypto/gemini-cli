@@ -371,6 +371,9 @@ Expectation for required parameters:
     if (params.old_string === '') {
       return `Create ${shortenPath(relativePath)}`;
     }
+    if (params.old_string === params.new_string) {
+      return `No file changes to ${shortenPath(relativePath)}`;
+    }
 
     const oldStringSnippet =
       params.old_string.split('\n')[0].substring(0, 30) +

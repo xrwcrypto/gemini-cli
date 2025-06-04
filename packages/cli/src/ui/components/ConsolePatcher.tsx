@@ -7,6 +7,7 @@
 import { useEffect } from 'react';
 import util from 'util';
 import { ConsoleMessageItem } from '../types.js';
+import { logToFile } from '@gemini-code/core';
 
 interface UseConsolePatcherParams {
   onNewMessage: (message: Omit<ConsoleMessageItem, 'id'>) => void;
@@ -37,6 +38,8 @@ export const useConsolePatcher = ({
 
         // Then, if it's not a debug message or debugMode is on, pass to onNewMessage
         if (type !== 'debug' || debugMode) {
+          const formattedMessage = formatArgs(args);
+          logToFile(`[UI Console ${type.toUpperCase()}]: ${formattedMessage}`);
           onNewMessage({
             type,
             content: formatArgs(args),

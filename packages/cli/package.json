@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@gemini-code/core": "0.1.0",
+    "@google/generative-ai": "^0.11.3",
     "diff": "^7.0.0",
     "dotenv": "^16.4.7",
     "highlight.js": "^11.11.1",

@@ -36,6 +36,7 @@ export * from './tools/tool-registry.js';
 export * from './tools/read-file.js';
 export * from './tools/ls.js';
 export * from './tools/grep.js';
+export { logToFile, logObjectToFile } from './utils/fileLogger.js';
 export * from './tools/glob.js';
 export * from './tools/edit.js';
 export * from './tools/write-file.js';

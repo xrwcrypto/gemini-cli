@@ -23,15 +23,16 @@ import {
   getEffectiveModel,
   type EffectiveModelCheckResult,
 } from '../utils/modelCheck.js';
+import { logToFile } from '@gemini-code/core';
 
 // Simple console logger for now - replace with actual logger if available
 const logger = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debug: (...args: any[]) => console.debug('[DEBUG]', ...args),
+  debug: (...args: any[]) => logToFile(`[CONFIG DEBUG]: ${args.map(arg => String(arg)).join(' ')}`),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn: (...args: any[]) => console.warn('[WARN]', ...args),
+  warn: (...args: any[]) => logToFile(`[CONFIG WARN]: ${args.map(arg => String(arg)).join(' ')}`),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error: (...args: any[]) => console.error('[ERROR]', ...args),
+  error: (...args: any[]) => logToFile(`[CONFIG ERROR]: ${args.map(arg => String(arg)).join(' ')}`),
 };
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-pro-preview-05-06';

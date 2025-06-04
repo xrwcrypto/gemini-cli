@@ -16,6 +16,8 @@ import {
   FunctionCall,
   GenerateContentResponse,
 } from '@google/genai';
+import { GoogleGenerativeAIError } from '@google/generative-ai';
+import { logToFile } from '@gemini-code/core';
 
 function getResponseText(response: GenerateContentResponse): string | null {
   if (response.candidates && response.candidates.length > 0) {
@@ -33,6 +35,21 @@ function getResponseText(response: GenerateContentResponse): string | null {
   }
   return null;
 }
+
+const originalProcessStdoutWrite = process.stdout.write.bind(process.stdout);
+
+process.stdout.write = (
+  message: string | Uint8Array,
+  encodingOrCb?: BufferEncoding | ((err?: Error | null) => void),
+  cb?: (err?: Error | null) => void
+): boolean => {
+  const messageStr = typeof message === 'string' ? message : new TextDecoder().decode(message);
+  logToFile(`[NonInteractive STDOUT]: ${messageStr.trimEnd()}`);
+  if (typeof encodingOrCb === 'function') {
+    return originalProcessStdoutWrite(message, encodingOrCb);
+  }
+  return originalProcessStdoutWrite(message, encodingOrCb as BufferEncoding | undefined, cb);
+};
 
 export async function runNonInteractive(
   config: Config,
