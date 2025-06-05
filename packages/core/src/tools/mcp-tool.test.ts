@@ -15,7 +15,11 @@ import {
   Mocked,
 } from 'vitest';
 import { DiscoveredMCPTool } from './mcp-tool.js'; // Added getStringifiedResultForDisplay
-import { ToolResult, ToolConfirmationOutcome } from './tools.js'; // Added ToolConfirmationOutcome
+import {
+  ToolResult,
+  ToolConfirmationOutcome,
+  ToolCallConfirmationDetails,
+} from './tools.js'; // Added ToolConfirmationOutcome
 import { CallableTool, Part } from '@google/genai';
 
 // Mock @google/genai mcpToTool and CallableTool
@@ -264,10 +268,10 @@ describe('DiscoveredMCPTool', () => {
         inputSchema,
         serverToolName,
       );
-      const confirmation = await tool.shouldConfirmExecute(
+      const confirmation = (await tool.shouldConfirmExecute(
         {},
         new AbortController().signal,
-      );
+      )) as ToolCallConfirmationDetails;
       expect(confirmation).not.toBe(false);
       if (
         confirmation &&
@@ -277,6 +281,7 @@ describe('DiscoveredMCPTool', () => {
       ) {
         await confirmation.onConfirm(
           ToolConfirmationOutcome.ProceedAlwaysServer,
+          confirmation,
         );
         expect((DiscoveredMCPTool as any).allowlist.has(serverName)).toBe(true);
       } else {
@@ -296,10 +301,10 @@ describe('DiscoveredMCPTool', () => {
         serverToolName,
       );
       const toolAllowlistKey = `${serverName}.${serverToolName}`;
-      const confirmation = await tool.shouldConfirmExecute(
+      const confirmation = (await tool.shouldConfirmExecute(
         {},
         new AbortController().signal,
-      );
+      )) as ToolCallConfirmationDetails;
       expect(confirmation).not.toBe(false);
       if (
         confirmation &&
@@ -307,7 +312,10 @@ describe('DiscoveredMCPTool', () => {
         'onConfirm' in confirmation &&
         typeof confirmation.onConfirm === 'function'
       ) {
-        await confirmation.onConfirm(ToolConfirmationOutcome.ProceedAlwaysTool);
+        await confirmation.onConfirm(
+          ToolConfirmationOutcome.ProceedAlwaysTool,
+          confirmation,
+        );
         expect((DiscoveredMCPTool as any).allowlist.has(toolAllowlistKey)).toBe(
           true,
         );

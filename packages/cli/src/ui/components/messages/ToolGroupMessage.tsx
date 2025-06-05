@@ -8,7 +8,7 @@ import React, { useMemo } from 'react';
 import { Box } from 'ink';
 import { IndividualToolCallDisplay, ToolCallStatus } from '../../types.js';
 import { ToolMessage } from './ToolMessage.js';
-import { ToolConfirmationMessage } from './ToolConfirmationMessage.js';
+import { ToolConfirmationHandler } from './ToolConfirmationHandler.js';
 import { Colors } from '../../colors.js';
 
 interface ToolGroupMessageProps {
@@ -78,8 +78,8 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
             {tool.status === ToolCallStatus.Confirming &&
               isConfirming &&
               tool.confirmationDetails && (
-                <ToolConfirmationMessage
-                  confirmationDetails={tool.confirmationDetails}
+                <ToolConfirmationHandler
+                  initialConfirmationDetails={tool.confirmationDetails}
                 />
               )}
           </Box>

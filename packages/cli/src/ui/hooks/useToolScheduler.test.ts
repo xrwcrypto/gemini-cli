@@ -160,6 +160,7 @@ describe('useReactToolScheduler in YOLO Mode', () => {
       request.args,
       expect.any(AbortSignal),
       undefined,
+      undefined,
     );
 
     // Check that onComplete was called with success
@@ -200,7 +201,10 @@ describe('useReactToolScheduler', () => {
   let onComplete: Mock;
   let setPendingHistoryItem: Mock;
   let capturedOnConfirmForTest:
-    | ((outcome: ToolConfirmationOutcome) => void | Promise<void>)
+    | ((
+        outcome: ToolConfirmationOutcome,
+        updatedDetails: ToolCallConfirmationDetails,
+      ) => void | Promise<void>)
     | undefined;
 
   beforeEach(() => {
@@ -305,6 +309,7 @@ describe('useReactToolScheduler', () => {
     expect(mockTool.execute).toHaveBeenCalledWith(
       request.args,
       expect.any(AbortSignal),
+      undefined,
       undefined,
     );
     expect(onComplete).toHaveBeenCalledWith([
@@ -461,7 +466,10 @@ describe('useReactToolScheduler', () => {
     expect(capturedOnConfirmForTest).toBeDefined();
 
     await act(async () => {
-      await capturedOnConfirmForTest?.(ToolConfirmationOutcome.ProceedOnce);
+      await capturedOnConfirmForTest?.(
+        ToolConfirmationOutcome.ProceedOnce,
+        {} as ToolCallConfirmationDetails,
+      );
     });
 
     await act(async () => {
@@ -517,7 +525,10 @@ describe('useReactToolScheduler', () => {
     expect(capturedOnConfirmForTest).toBeDefined();
 
     await act(async () => {
-      await capturedOnConfirmForTest?.(ToolConfirmationOutcome.Cancel);
+      await capturedOnConfirmForTest?.(
+        ToolConfirmationOutcome.Cancel,
+        {} as ToolCallConfirmationDetails,
+      );
     });
     await act(async () => {
       await vi.runAllTimersAsync();
@@ -1095,7 +1106,7 @@ describe('mapToDisplay', () => {
           extraProps?.tool?.isOutputMarkdown ?? false,
         );
         if (status === 'awaiting_approval') {
-          expect(toolDisplay.confirmationDetails).toBe(
+          expect(toolDisplay.confirmationDetails).toEqual(
             extraProps!.confirmationDetails,
           );
         } else {

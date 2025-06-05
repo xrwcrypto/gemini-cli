@@ -16,6 +16,7 @@ import {
 import { WriteFileTool } from './write-file.js';
 import {
   FileDiff,
+  ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
   ToolEditConfirmationDetails,
 } from './tools.js';
@@ -458,12 +459,15 @@ describe('WriteFileTool', () => {
 
       const params = { file_path: filePath, content: proposedContent };
 
-      const confirmDetails = await tool.shouldConfirmExecute(
+      const confirmDetails = (await tool.shouldConfirmExecute(
         params,
         abortSignal,
-      );
+      )) as ToolCallConfirmationDetails;
       if (typeof confirmDetails === 'object' && confirmDetails.onConfirm) {
-        await confirmDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+        await confirmDetails.onConfirm(
+          ToolConfirmationOutcome.ProceedOnce,
+          confirmDetails,
+        );
       }
 
       const result = await tool.execute(params, abortSignal);
@@ -512,12 +516,15 @@ describe('WriteFileTool', () => {
 
       const params = { file_path: filePath, content: proposedContent };
 
-      const confirmDetails = await tool.shouldConfirmExecute(
+      const confirmDetails = (await tool.shouldConfirmExecute(
         params,
         abortSignal,
-      );
+      )) as ToolCallConfirmationDetails;
       if (typeof confirmDetails === 'object' && confirmDetails.onConfirm) {
-        await confirmDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+        await confirmDetails.onConfirm(
+          ToolConfirmationOutcome.ProceedOnce,
+          confirmDetails,
+        );
       }
 
       const result = await tool.execute(params, abortSignal);
@@ -552,12 +559,15 @@ describe('WriteFileTool', () => {
 
       const params = { file_path: filePath, content };
       // Simulate confirmation if your logic requires it before execute, or remove if not needed for this path
-      const confirmDetails = await tool.shouldConfirmExecute(
+      const confirmDetails = (await tool.shouldConfirmExecute(
         params,
         abortSignal,
-      );
+      )) as ToolCallConfirmationDetails;
       if (typeof confirmDetails === 'object' && confirmDetails.onConfirm) {
-        await confirmDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+        await confirmDetails.onConfirm(
+          ToolConfirmationOutcome.ProceedOnce,
+          confirmDetails,
+        );
       }
 
       await tool.execute(params, abortSignal);

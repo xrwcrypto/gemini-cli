@@ -354,8 +354,14 @@ Expectation for required parameters:
       title: `Confirm Edit: ${shortenPath(makeRelative(params.file_path, this.rootDirectory))}`,
       fileName,
       fileDiff,
-      onConfirm: async (outcome: ToolConfirmationOutcome) => {
-        if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+      onConfirm: async (
+        outcome: ToolConfirmationOutcome,
+        updatedDetails?: ToolCallConfirmationDetails,
+      ) => {
+        if (
+          outcome === ToolConfirmationOutcome.ProceedAlways &&
+          (!updatedDetails || updatedDetails.type !== 'edit')
+        ) {
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
       },
@@ -393,6 +399,8 @@ Expectation for required parameters:
   async execute(
     params: EditToolParams,
     _signal: AbortSignal,
+    updateOutput?: (output: string) => void,
+    confirmationDetails?: ToolCallConfirmationDetails,
   ): Promise<ToolResult> {
     const validationError = this.validateToolParams(params);
     if (validationError) {
@@ -403,14 +411,42 @@ Expectation for required parameters:
     }
 
     let editData: CalculatedEdit;
-    try {
-      editData = await this.calculateEdit(params, _signal);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      return {
-        llmContent: `Error preparing edit: ${errorMsg}`,
-        returnDisplay: `Error preparing edit: ${errorMsg}`,
+    if (
+      confirmationDetails &&
+      confirmationDetails.type === 'edit' &&
+      confirmationDetails.fileDiff
+    ) {
+      const patch = Diff.parsePatch(confirmationDetails.fileDiff)[0];
+      if (!patch) {
+        throw new Error('Could not parse diff');
+      }
+      const currentContent = patch.oldFileName;
+      const isNewFile = currentContent === '/dev/null';
+      const newContent = Diff.applyPatch(
+        isNewFile ? '' : fs.readFileSync(params.file_path, 'utf-8'),
+        confirmationDetails.fileDiff,
+      );
+
+      if (newContent === false) {
+        throw new Error('Could not apply patch');
+      }
+
+      editData = {
+        newContent,
+        currentContent: isNewFile ? null : fs.readFileSync(params.file_path, 'utf-8'),
+        occurrences: 1,
+        isNewFile,
       };
+    } else {
+      try {
+        editData = await this.calculateEdit(params, _signal);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return {
+          llmContent: `Error preparing edit: ${errorMsg}`,
+          returnDisplay: `Error preparing edit: ${errorMsg}`,
+        };
+      }
     }
 
     if (editData.error) {

@@ -79,6 +79,7 @@ export interface Tool<
     params: TParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
+    confirmationDetails?: ToolCallConfirmationDetails,
   ): Promise<TResult>;
 }
 
@@ -169,6 +170,7 @@ export abstract class BaseTool<
     params: TParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
+    confirmationDetails?: ToolCallConfirmationDetails,
   ): Promise<TResult>;
 }
 
@@ -196,10 +198,15 @@ export interface FileDiff {
   fileName: string;
 }
 
+export type OnConfirm = (
+  outcome: ToolConfirmationOutcome,
+  updatedDetails: ToolCallConfirmationDetails,
+) => Promise<void>;
+
 export interface ToolEditConfirmationDetails {
   type: 'edit';
   title: string;
-  onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
+  onConfirm: OnConfirm;
   fileName: string;
   fileDiff: string;
 }
@@ -207,7 +214,7 @@ export interface ToolEditConfirmationDetails {
 export interface ToolExecuteConfirmationDetails {
   type: 'exec';
   title: string;
-  onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
+  onConfirm: OnConfirm;
   command: string;
   rootCommand: string;
 }
@@ -218,7 +225,7 @@ export interface ToolMcpConfirmationDetails {
   serverName: string;
   toolName: string;
   toolDisplayName: string;
-  onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
+  onConfirm: OnConfirm;
 }
 
 export type ToolCallConfirmationDetails =
@@ -232,4 +239,5 @@ export enum ToolConfirmationOutcome {
   ProceedAlwaysServer = 'proceed_always_server',
   ProceedAlwaysTool = 'proceed_always_tool',
   Cancel = 'cancel',
+  Edit = 'edit',
 }

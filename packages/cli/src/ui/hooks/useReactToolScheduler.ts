@@ -21,6 +21,8 @@ import {
   ToolCall,
   Status as CoreStatus,
   logToolCall,
+  ToolCallConfirmationDetails,
+  ToolConfirmationOutcome,
 } from '@gemini-code/core';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import {
@@ -44,6 +46,10 @@ export type TrackedValidatingToolCall = ValidatingToolCall & {
 };
 export type TrackedWaitingToolCall = WaitingToolCall & {
   responseSubmittedToGemini?: boolean;
+  onConfirmation: (
+    outcome: ToolConfirmationOutcome,
+    updatedDetails: ToolCallConfirmationDetails,
+  ) => Promise<void>;
 };
 export type TrackedExecutingToolCall = ExecutingToolCall & {
   responseSubmittedToGemini?: boolean;
@@ -281,13 +287,27 @@ export function mapToDisplay(
             resultDisplay: trackedCall.response.resultDisplay,
             confirmationDetails: undefined,
           };
-        case 'awaiting_approval':
+        case 'awaiting_approval': {
+          const onConfirm = async (
+            outcome: ToolConfirmationOutcome,
+            updatedDetails: ToolCallConfirmationDetails,
+          ) => {
+            await (trackedCall as TrackedWaitingToolCall).onConfirmation(
+              outcome,
+              updatedDetails,
+            );
+          };
+
           return {
             ...baseDisplayProperties,
             status: mapCoreStatusToDisplayStatus(trackedCall.status),
             resultDisplay: undefined,
-            confirmationDetails: trackedCall.confirmationDetails,
+            confirmationDetails: {
+              ...trackedCall.confirmationDetails,
+              onConfirm,
+            },
           };
+        }
         case 'executing':
           return {
             ...baseDisplayProperties,

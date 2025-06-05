@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { DiffRenderer } from './DiffRenderer.js';
 import { Colors } from '../../colors.js';
@@ -13,11 +13,15 @@ import {
   ToolConfirmationOutcome,
   ToolExecuteConfirmationDetails,
   ToolMcpConfirmationDetails,
+  ToolEditConfirmationDetails,
 } from '@gemini-code/core';
 import {
   RadioButtonSelect,
   RadioSelectItem,
 } from '../shared/RadioButtonSelect.js';
+import { InlineEditor } from './InlineEditor.js';
+import * as Diff from 'diff';
+import { promises as fs } from 'fs';
 
 export interface ToolConfirmationMessageProps {
   confirmationDetails: ToolCallConfirmationDetails;
@@ -27,16 +31,117 @@ export const ToolConfirmationMessage: React.FC<
   ToolConfirmationMessageProps
 > = ({ confirmationDetails }) => {
   const { onConfirm } = confirmationDetails;
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [originalFileContent, setOriginalFileContent] = useState<string | null>(
+    null,
+  );
+  const [proposedFileContent, setProposedFileContent] = useState<string | null>(
+    null,
+  );
+  const [editedDiff, setEditedDiff] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !isEditing ||
+      confirmationDetails.type !== 'edit' ||
+      originalFileContent ||
+      isLoading
+    ) {
+      return;
+    }
+
+    setIsLoading(true);
+    const { fileName, fileDiff } =
+      confirmationDetails as ToolEditConfirmationDetails;
+    const patch = Diff.parsePatch(fileDiff)[0];
+    const isNewFile = patch.oldFileName === '/dev/null';
+
+    const getOriginalContent = () => {
+      if (isNewFile) {
+        return Promise.resolve('');
+      }
+      return fs.readFile(fileName, 'utf-8');
+    };
+
+    getOriginalContent()
+      .then((content) => {
+        setOriginalFileContent(content);
+        const patchedContent = Diff.applyPatch(content, fileDiff);
+        if (patchedContent === false) {
+          // TODO(asashour): report this error to the user.
+          setIsEditing(false);
+          return;
+        }
+        setProposedFileContent(patchedContent);
+      })
+      .catch(() => {
+        // TODO(asashour): report this error to the user.
+        setIsEditing(false);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [isEditing, confirmationDetails, originalFileContent, isLoading]);
 
   useInput((_, key) => {
     if (key.escape) {
-      onConfirm(ToolConfirmationOutcome.Cancel);
+      onConfirm(ToolConfirmationOutcome.Cancel, confirmationDetails);
     }
   });
 
-  const handleSelect = (item: ToolConfirmationOutcome) => onConfirm(item);
+  const handleSelect = (item: ToolConfirmationOutcome) => {
+    if (item === ToolConfirmationOutcome.Edit) {
+      setIsEditing(true);
+    } else {
+      const detailsToConfirm = { ...confirmationDetails };
+      if (editedDiff && detailsToConfirm.type === 'edit') {
+        detailsToConfirm.fileDiff = editedDiff;
+      }
+      onConfirm(item, detailsToConfirm);
+    }
+  };
 
-  let bodyContent: React.ReactNode | null = null; // Removed contextDisplay here
+  const handleCancel = () => {
+    setIsEditing(false);
+    setOriginalFileContent(null);
+    setProposedFileContent(null);
+  };
+
+  const handleSave = (newContent: string) => {
+    if (confirmationDetails.type === 'edit' && originalFileContent) {
+      const { fileName } = confirmationDetails as ToolEditConfirmationDetails;
+      const newDiff = Diff.createPatch(
+        fileName,
+        originalFileContent,
+        newContent,
+        'Current',
+        'Proposed',
+      );
+      setEditedDiff(newDiff);
+    }
+    handleCancel();
+  };
+
+  if (isEditing && confirmationDetails.type === 'edit') {
+    if (isLoading) {
+      return <Text>Loading file for editing...</Text>;
+    }
+
+    if (proposedFileContent === null) {
+      return <Text>Error loading file content for editing.</Text>;
+    }
+
+    return (
+      <InlineEditor
+        initialContent={proposedFileContent}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
+    );
+  }
+
+  let bodyContent: React.ReactNode | null = null;
   let question: string;
 
   const options: Array<RadioSelectItem<ToolConfirmationOutcome>> = new Array<
@@ -44,11 +149,9 @@ export const ToolConfirmationMessage: React.FC<
   >();
 
   if (confirmationDetails.type === 'edit') {
-    // Body content is now the DiffRenderer, passing filename to it
-    // The bordered box is removed from here and handled within DiffRenderer
     bodyContent = (
       <DiffRenderer
-        diffContent={confirmationDetails.fileDiff}
+        diffContent={editedDiff ?? confirmationDetails.fileDiff}
         filename={confirmationDetails.fileName}
       />
     );
@@ -62,6 +165,10 @@ export const ToolConfirmationMessage: React.FC<
       {
         label: 'Yes, allow always',
         value: ToolConfirmationOutcome.ProceedAlways,
+      },
+      {
+        label: 'Edit proposed change',
+        value: ToolConfirmationOutcome.Edit,
       },
       { label: 'No (esc)', value: ToolConfirmationOutcome.Cancel },
     );
@@ -108,7 +215,7 @@ export const ToolConfirmationMessage: React.FC<
       },
       {
         label: `Yes, always allow tool "${mcpProps.toolName}" from server "${mcpProps.serverName}"`,
-        value: ToolConfirmationOutcome.ProceedAlwaysTool, // Cast until types are updated
+        value: ToolConfirmationOutcome.ProceedAlwaysTool,
       },
       {
         label: `Yes, always allow all tools from server "${mcpProps.serverName}"`,
@@ -120,18 +227,14 @@ export const ToolConfirmationMessage: React.FC<
 
   return (
     <Box flexDirection="column" padding={1} minWidth="90%">
-      {/* Body Content (Diff Renderer or Command Info) */}
-      {/* No separate context display here anymore for edits */}
       <Box flexGrow={1} flexShrink={1} overflow="hidden" marginBottom={1}>
         {bodyContent}
       </Box>
 
-      {/* Confirmation Question */}
       <Box marginBottom={1} flexShrink={0}>
         <Text>{question}</Text>
       </Box>
 
-      {/* Select Input for Options */}
       <Box flexShrink={0}>
         <RadioButtonSelect items={options} onSelect={handleSelect} />
       </Box>

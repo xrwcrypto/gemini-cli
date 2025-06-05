@@ -29,6 +29,7 @@ export type ScheduledToolCall = {
   request: ToolCallRequestInfo;
   tool: Tool;
   startTime?: number;
+  confirmationDetails?: ToolCallConfirmationDetails;
 };
 
 export type ErroredToolCall = {
@@ -52,6 +53,7 @@ export type ExecutingToolCall = {
   tool: Tool;
   liveOutput?: string;
   startTime?: number;
+  confirmationDetails?: ToolCallConfirmationDetails;
 };
 
 export type CancelledToolCall = {
@@ -243,8 +245,15 @@ export class CoreToolScheduler {
   ): void;
   private setStatusInternal(
     targetCallId: string,
-    status: 'executing' | 'scheduled' | 'validating',
+    status: 'executing',
+    confirmationDetails?: ToolCallConfirmationDetails,
   ): void;
+  private setStatusInternal(
+    targetCallId: string,
+    status: 'scheduled',
+    confirmationDetails?: ToolCallConfirmationDetails,
+  ): void;
+  private setStatusInternal(targetCallId: string, status: 'validating'): void;
   private setStatusInternal(
     targetCallId: string,
     newStatus: Status,
@@ -308,6 +317,9 @@ export class CoreToolScheduler {
             tool: toolInstance,
             status: 'scheduled',
             startTime: existingStartTime,
+            confirmationDetails: auxiliaryData as
+              | ToolCallConfirmationDetails
+              | undefined,
           } as ScheduledToolCall;
         case 'cancelled': {
           const durationMs = existingStartTime
@@ -347,6 +359,9 @@ export class CoreToolScheduler {
             tool: toolInstance,
             status: 'executing',
             startTime: existingStartTime,
+            confirmationDetails: auxiliaryData as
+              | ToolCallConfirmationDetails
+              | undefined,
           } as ExecutingToolCall;
         default: {
           const exhaustiveCheck: never = newStatus;
@@ -421,11 +436,15 @@ export class CoreToolScheduler {
             const originalOnConfirm = confirmationDetails.onConfirm;
             const wrappedConfirmationDetails: ToolCallConfirmationDetails = {
               ...confirmationDetails,
-              onConfirm: (outcome: ToolConfirmationOutcome) =>
+              onConfirm: (
+                outcome: ToolConfirmationOutcome,
+                updatedDetails: ToolCallConfirmationDetails,
+              ) =>
                 this.handleConfirmationResponse(
                   reqInfo.callId,
                   originalOnConfirm,
                   outcome,
+                  updatedDetails,
                 ),
             };
             this.setStatusInternal(
@@ -454,15 +473,19 @@ export class CoreToolScheduler {
 
   async handleConfirmationResponse(
     callId: string,
-    originalOnConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>,
+    originalOnConfirm: (
+      outcome: ToolConfirmationOutcome,
+      updatedDetails: ToolCallConfirmationDetails,
+    ) => Promise<void>,
     outcome: ToolConfirmationOutcome,
+    updatedDetails: ToolCallConfirmationDetails,
   ): Promise<void> {
     const toolCall = this.toolCalls.find(
       (c) => c.request.callId === callId && c.status === 'awaiting_approval',
     );
 
     if (toolCall && toolCall.status === 'awaiting_approval') {
-      await originalOnConfirm(outcome);
+      await originalOnConfirm(outcome, updatedDetails);
     }
 
     if (outcome === ToolConfirmationOutcome.Cancel) {
@@ -472,7 +495,7 @@ export class CoreToolScheduler {
         'User did not allow tool call',
       );
     } else {
-      this.setStatusInternal(callId, 'scheduled');
+      this.setStatusInternal(callId, 'scheduled', updatedDetails);
     }
     this.attemptExecutionOfScheduledCalls();
   }
@@ -496,7 +519,11 @@ export class CoreToolScheduler {
 
         const scheduledCall = toolCall as ScheduledToolCall;
         const { callId, name: toolName } = scheduledCall.request;
-        this.setStatusInternal(callId, 'executing');
+        this.setStatusInternal(
+          callId,
+          'executing',
+          scheduledCall.confirmationDetails,
+        );
 
         const liveOutputCallback =
           scheduledCall.tool.canUpdateOutput && this.outputUpdateHandler
@@ -518,6 +545,7 @@ export class CoreToolScheduler {
             scheduledCall.request.args,
             this.abortController.signal,
             liveOutputCallback,
+            (scheduledCall as unknown as WaitingToolCall).confirmationDetails,
           )
           .then((toolResult: ToolResult) => {
             if (this.abortController.signal.aborted) {
