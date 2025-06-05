@@ -203,17 +203,27 @@ export class TaskToolSchedulerManager {
 
             const messageParts: Part[] = [];
             let messageText = `Tool '${tc.request.name}' (${tc.request.callId}) status: ${tc.status}.`;
+            let part = { kind: 'text', text: messageText } as Part;
             if (tc.status === 'error' && tc.response?.resultDisplay) {
               messageText = `Tool '${tc.request.name}' (${tc.request.callId}) failed: ${tc.response.resultDisplay}`;
+              part = { kind: 'text', text: messageText } as Part;
             } else if (
               tc.status === 'cancelled' &&
               tc.response?.resultDisplay
             ) {
               messageText = `Tool '${tc.request.name}' (${tc.request.callId}) cancelled: ${tc.response.resultDisplay}`;
+              part = { kind: 'text', text: messageText } as Part;
             } else if (tc.status === 'awaiting_approval') {
-              messageText = `Tool '${tc.request.name}' (${tc.request.callId}) is awaiting approval. Details: ${JSON.stringify(tc.confirmationDetails)}`;
+              part = { 
+                kind: 'data',
+                data: {
+                  name: tc.request.name, 
+                  toolCallId: tc.request.callId,
+                  confirmationDetails: tc.confirmationDetails,
+                }
+              } as Part;
             }
-            messageParts.push({ kind: 'text', text: messageText } as Part);
+            messageParts.push(part);
 
             const statusMessage: Message = {
               kind: 'message',
