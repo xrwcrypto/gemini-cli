@@ -44,6 +44,7 @@ import {
   getErrorMessage,
   type Config,
   getCurrentGeminiMdFilename,
+  ApprovalMode,
 } from '@gemini-code/core';
 import { useLogger } from './hooks/useLogger.js';
 import { StreamingContext } from './contexts/StreamingContext.js';
@@ -226,21 +227,36 @@ export const App = ({
 
   useEffect(() => {
     const fetchUserMessages = async () => {
-      const pastMessages = (await logger?.getPreviousUserMessages()) || [];
-      if (pastMessages.length > 0) {
-        setUserMessages(pastMessages.reverse());
-      } else {
-        setUserMessages(
-          history
-            .filter(
-              (item): item is HistoryItem & { type: 'user'; text: string } =>
-                item.type === 'user' &&
-                typeof item.text === 'string' &&
-                item.text.trim() !== '',
-            )
-            .map((item) => item.text),
-        );
+      const pastMessagesRaw = (await logger?.getPreviousUserMessages()) || []; // Newest first
+
+      const currentSessionUserMessages = history
+        .filter(
+          (item): item is HistoryItem & { type: 'user'; text: string } =>
+            item.type === 'user' &&
+            typeof item.text === 'string' &&
+            item.text.trim() !== '',
+        )
+        .map((item) => item.text)
+        .reverse(); // Newest first, to match pastMessagesRaw sorting
+
+      // Combine, with current session messages being more recent
+      const combinedMessages = [
+        ...currentSessionUserMessages,
+        ...pastMessagesRaw,
+      ];
+
+      // Deduplicate consecutive identical messages from the combined list (still newest first)
+      const deduplicatedMessages: string[] = [];
+      if (combinedMessages.length > 0) {
+        deduplicatedMessages.push(combinedMessages[0]); // Add the newest one unconditionally
+        for (let i = 1; i < combinedMessages.length; i++) {
+          if (combinedMessages[i] !== combinedMessages[i - 1]) {
+            deduplicatedMessages.push(combinedMessages[i]);
+          }
+        }
       }
+      // Reverse to oldest first for useInputHistory
+      setUserMessages(deduplicatedMessages.reverse());
     };
     fetchUserMessages();
   }, [history, logger]);
@@ -383,7 +399,11 @@ export const App = ({
           ) : (
             <>
               <LoadingIndicator
-                currentLoadingPhrase={currentLoadingPhrase}
+                currentLoadingPhrase={
+                  config.getAccessibility()?.disableLoadingPhrases
+                    ? undefined
+                    : currentLoadingPhrase
+                }
                 elapsedTime={elapsedTime}
               />
               <Box
@@ -412,9 +432,12 @@ export const App = ({
                   )}
                 </Box>
                 <Box>
-                  {showAutoAcceptIndicator && !shellModeActive && (
-                    <AutoAcceptIndicator />
-                  )}
+                  {showAutoAcceptIndicator !== ApprovalMode.DEFAULT &&
+                    !shellModeActive && (
+                      <AutoAcceptIndicator
+                        approvalMode={showAutoAcceptIndicator}
+                      />
+                    )}
                   {shellModeActive && <ShellModeIndicator />}
                 </Box>
               </Box>

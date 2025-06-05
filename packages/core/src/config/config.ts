@@ -21,6 +21,19 @@ import { WebFetchTool } from '../tools/web-fetch.js';
 import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
+import { GeminiClient } from '../core/client.js';
+import { GEMINI_CONFIG_DIR as GEMINI_DIR } from '../tools/memoryTool.js';
+import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
+
+export enum ApprovalMode {
+  DEFAULT = 'default',
+  AUTO_EDIT = 'autoEdit',
+  YOLO = 'yolo',
+}
+
+export interface AccessibilitySettings {
+  disableLoadingPhrases?: boolean;
+}
 
 export class MCPServerConfig {
   constructor(
@@ -53,14 +66,17 @@ export interface ConfigParameters {
   userAgent: string;
   userMemory?: string;
   geminiMdFileCount?: number;
-  alwaysSkipModificationConfirmation?: boolean;
+  approvalMode?: ApprovalMode;
   vertexai?: boolean;
   showMemoryUsage?: boolean;
   contextFileName?: string;
+  accessibility?: AccessibilitySettings;
+  fileFilteringRespectGitIgnore?: boolean;
+  fileFilteringAllowBuildArtifacts?: boolean;
 }
 
 export class Config {
-  private toolRegistry: ToolRegistry;
+  private toolRegistry: Promise<ToolRegistry>;
   private readonly apiKey: string;
   private readonly model: string;
   private readonly sandbox: boolean | string;
@@ -76,9 +92,14 @@ export class Config {
   private readonly userAgent: string;
   private userMemory: string;
   private geminiMdFileCount: number;
-  private alwaysSkipModificationConfirmation: boolean;
+  private approvalMode: ApprovalMode;
   private readonly vertexai: boolean | undefined;
   private readonly showMemoryUsage: boolean;
+  private readonly accessibility: AccessibilitySettings;
+  private readonly geminiClient: GeminiClient;
+  private readonly fileFilteringRespectGitIgnore: boolean;
+  private readonly fileFilteringAllowBuildArtifacts: boolean;
+  private fileDiscoveryService: FileDiscoveryService | null = null;
 
   constructor(params: ConfigParameters) {
     this.apiKey = params.apiKey;
@@ -96,16 +117,21 @@ export class Config {
     this.userAgent = params.userAgent;
     this.userMemory = params.userMemory ?? '';
     this.geminiMdFileCount = params.geminiMdFileCount ?? 0;
-    this.alwaysSkipModificationConfirmation =
-      params.alwaysSkipModificationConfirmation ?? false;
+    this.approvalMode = params.approvalMode ?? ApprovalMode.DEFAULT;
     this.vertexai = params.vertexai;
     this.showMemoryUsage = params.showMemoryUsage ?? false;
+    this.accessibility = params.accessibility ?? {};
+    this.fileFilteringRespectGitIgnore =
+      params.fileFilteringRespectGitIgnore ?? true;
+    this.fileFilteringAllowBuildArtifacts =
+      params.fileFilteringAllowBuildArtifacts ?? false;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
     }
 
     this.toolRegistry = createToolRegistry(this);
+    this.geminiClient = new GeminiClient(this);
   }
 
   getApiKey(): string {
@@ -124,7 +150,7 @@ export class Config {
     return this.targetDir;
   }
 
-  getToolRegistry(): ToolRegistry {
+  async getToolRegistry(): Promise<ToolRegistry> {
     return this.toolRegistry;
   }
 
@@ -179,12 +205,12 @@ export class Config {
     this.geminiMdFileCount = count;
   }
 
-  getAlwaysSkipModificationConfirmation(): boolean {
-    return this.alwaysSkipModificationConfirmation;
+  getApprovalMode(): ApprovalMode {
+    return this.approvalMode;
   }
 
-  setAlwaysSkipModificationConfirmation(skip: boolean): void {
-    this.alwaysSkipModificationConfirmation = skip;
+  setApprovalMode(mode: ApprovalMode): void {
+    this.approvalMode = mode;
   }
 
   getVertexAI(): boolean | undefined {
@@ -194,18 +220,54 @@ export class Config {
   getShowMemoryUsage(): boolean {
     return this.showMemoryUsage;
   }
+
+  getAccessibility(): AccessibilitySettings {
+    return this.accessibility;
+  }
+
+  getGeminiClient(): GeminiClient {
+    return this.geminiClient;
+  }
+
+  getFileFilteringRespectGitIgnore(): boolean {
+    return this.fileFilteringRespectGitIgnore;
+  }
+
+  getFileFilteringAllowBuildArtifacts(): boolean {
+    return this.fileFilteringAllowBuildArtifacts;
+  }
+
+  async getFileService(): Promise<FileDiscoveryService> {
+    if (!this.fileDiscoveryService) {
+      this.fileDiscoveryService = new FileDiscoveryService(this.targetDir);
+      await this.fileDiscoveryService.initialize({
+        respectGitIgnore: this.fileFilteringRespectGitIgnore,
+        includeBuildArtifacts: this.fileFilteringAllowBuildArtifacts,
+      });
+    }
+    return this.fileDiscoveryService;
+  }
 }
 
 function findEnvFile(startDir: string): string | null {
   let currentDir = path.resolve(startDir);
   while (true) {
+    // prefer gemini-specific .env under GEMINI_DIR
+    const geminiEnvPath = path.join(currentDir, GEMINI_DIR, '.env');
+    if (fs.existsSync(geminiEnvPath)) {
+      return geminiEnvPath;
+    }
     const envPath = path.join(currentDir, '.env');
     if (fs.existsSync(envPath)) {
       return envPath;
     }
     const parentDir = path.dirname(currentDir);
     if (parentDir === currentDir || !parentDir) {
-      // check ~/.env as fallback
+      // check .env under home as fallback, again preferring gemini-specific .env
+      const homeGeminiEnvPath = path.join(os.homedir(), GEMINI_DIR, '.env');
+      if (fs.existsSync(homeGeminiEnvPath)) {
+        return homeGeminiEnvPath;
+      }
       const homeEnvPath = path.join(os.homedir(), '.env');
       if (fs.existsSync(homeEnvPath)) {
         return homeEnvPath;
@@ -232,7 +294,7 @@ export function createServerConfig(params: ConfigParameters): Config {
   });
 }
 
-export function createToolRegistry(config: Config): ToolRegistry {
+export function createToolRegistry(config: Config): Promise<ToolRegistry> {
   const registry = new ToolRegistry(config);
   const targetDir = config.getTargetDir();
   const tools = config.getCoreTools()
@@ -248,17 +310,19 @@ export function createToolRegistry(config: Config): ToolRegistry {
     }
   };
 
-  registerCoreTool(LSTool, targetDir);
+  registerCoreTool(LSTool, targetDir, config);
   registerCoreTool(ReadFileTool, targetDir);
   registerCoreTool(GrepTool, targetDir);
-  registerCoreTool(GlobTool, targetDir);
+  registerCoreTool(GlobTool, targetDir, config);
   registerCoreTool(EditTool, config);
   registerCoreTool(WriteFileTool, config);
   registerCoreTool(WebFetchTool, config);
-  registerCoreTool(ReadManyFilesTool, targetDir);
+  registerCoreTool(ReadManyFilesTool, targetDir, config);
   registerCoreTool(ShellTool, config);
   registerCoreTool(MemoryTool);
   registerCoreTool(WebSearchTool, config);
-  registry.discoverTools();
-  return registry;
+  return (async () => {
+    await registry.discoverTools();
+    return registry;
+  })();
 }

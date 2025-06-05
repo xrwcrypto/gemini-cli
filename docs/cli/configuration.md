@@ -42,10 +42,26 @@ When you create a `.gemini/settings.json` file for project-specific settings, or
   - **Default:** `GEMINI.md`
   - **Example:** `"contextFileName": "AGENTS.md"`
 
+- **`fileFiltering`** (object, optional):
+
+  - **Description:** Controls git-aware file filtering behavior for @ commands and file discovery tools.
+  - **Properties:**
+    - **`respectGitIgnore`** (boolean, default: `true`): Whether to respect .gitignore patterns when discovering files. When enabled, git-ignored files (like `node_modules/`, `dist/`, `.env`) are automatically excluded from @ commands and file listing operations.
+    - **`customIgnorePatterns`** (array of strings, default: `[]`): Additional patterns to ignore beyond git-ignored files. Useful for excluding specific directories or file types.
+    - **`allowBuildArtifacts`** (boolean, default: `false`): Whether to include build artifacts and generated files in file discovery operations.
+  - **Example:**
+    ```json
+    "fileFiltering": {
+      "respectGitIgnore": true,
+      "customIgnorePatterns": ["temp/", "*.log"],
+      "allowBuildArtifacts": false
+    }
+    ```
+
 - **`coreTools`** (array of strings, optional):
   - **Description:** Allows you to specify a list of core tool names that should be made available to the model. This can be used to restrict or customize the set of built-in tools.
   - **Example:** `"coreTools": ["ReadFileTool", "GlobTool", "SearchText"]`.
-  - **Behavior:** If this setting is provided, only the listed tools will be available for the model to use. If omitted, all default core tools are available. See [Built-in Tools](../server/tools-api.md#built-in-tools) for a list of core tools. You can also specify the alternative internal tool names used by the model, e.g. `read_file`, and you can get a full listing for that by simply asking the model "what tools do you have?".
+  - **Behavior:** If this setting is provided, only the listed tools will be available for the model to use. If omitted, all default core tools are available. See [Built-in Tools](../core/tools-api.md#built-in-tools) for a list of core tools. You can also specify the alternative internal tool names used by the model, e.g. `read_file`, and you can get a full listing for that by simply asking the model "what tools do you have?".
 - **`autoAccept`** (boolean, optional):
 
   - **Description:** Controls whether the CLI automatically accepts and executes tool calls that are considered safe (e.g., read-only operations) without explicit user confirmation.
@@ -66,12 +82,42 @@ When you create a `.gemini/settings.json` file for project-specific settings, or
   - `"docker"` or `"podman"`: Explicitly choose container-based sandboxing command.
   - `<command>`: Specify custom command for container-based sandboxing.
 - **`toolDiscoveryCommand`** (string, advanced):
-  - Custom command for tool discovery (if applicable to your setup).
-  - Must return JSON array of tools of `function_declarations` type as in [Gemini REST API](https://ai.google.dev/gemini-api/docs/function-calling).
+  - Custom shell command for discovering tools from your project, if available.
+  - Must return on `stdout` a JSON array of [function declarations](https://ai.google.dev/gemini-api/docs/function-calling#function-declarations).
+    - Tool wrappers, i.e. `[{ "function_declarations": [...] }, ...]`, are optional.
+    - Example for a single function `add_two_numbers(a, b)`:
+      ```
+      [
+        {
+          "name": "add_two_numbers",
+          "description": "Add two numbers.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "integer",
+                "description": "first number"
+              },
+              "b": {
+                "type": "integer",
+                "description": "second number"
+              }
+            },
+            "required": [
+              "a",
+              "b"
+            ]
+          }
+        }
+      ]
+      ```
 - **`toolCallCommand`** (string, advanced):
-  - Custom command for executing tool calls (if applicable to your setup).
-  - Must take function name as first argument and function arguments as JSON on `stdin`
-  - Must return JSON result of funcation call on `stdout`.
+  - Custom shell command for calling a specific tool discovered via `toolDiscoveryCommand`.
+  - Must take function `name` (exactly as in [function declaration](https://ai.google.dev/gemini-api/docs/function-calling#function-declarations)) as first command line argument.
+  - Must read function arguments as JSON on `stdin`, analogous to [`functionCall.args`](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#functioncall).
+    - Example for `add_two_numbers` (see above): `{"a":1, "b":2}`
+  - Must return function output as JSON on `stdout`, analogous to [`functionResponse.response.content`](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#functionresponse).
+    - Example for `add_two_numbers` (see above): `3` (for input `{"a":1, "b":2}` on `stdin`)
 - **`mcpServers`** (object, advanced):
   - Configures connections to one or more Model-Context Protocol (MCP) servers for discovering and using custom tools.
   - This is an object where each key is a unique server name (alias) and the value is an object defining that server's parameters:
@@ -80,6 +126,7 @@ When you create a `.gemini/settings.json` file for project-specific settings, or
     - `env` (object, optional): Environment variables to set for the server process.
     - `cwd` (string, optional): The working directory in which to start the server.
     - `timeout` (number, optional): Timeout in milliseconds for requests to this MCP server.
+    - `trust` (boolean, optional): Trust this server and bypass all tool call confirmations.
   - **Behavior:**
     - The CLI will attempt to connect to each configured MCP server to discover available tools.
     - If multiple MCP servers expose a tool with the same name, the tool names will be prefixed with the server alias you defined in the configuration (e.g., `serverAlias__actualToolName`) to avoid conflicts.

@@ -40,7 +40,6 @@ import {
   TrackedCompletedToolCall,
   TrackedCancelledToolCall,
 } from './useReactToolScheduler.js';
-import { GeminiChat } from '@gemini-code/core/src/core/geminiChat.js';
 
 export function mergePartListUnions(list: PartListUnion[]): PartListUnion {
   const resultParts: PartListUnion = [];
@@ -76,7 +75,6 @@ export const useGeminiStream = (
 ) => {
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const chatSessionRef = useRef<GeminiChat | null>(null);
   const geminiClientRef = useRef<GeminiClient | null>(null);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [pendingHistoryItemRef, setPendingHistoryItem] =
@@ -147,7 +145,7 @@ export const useGeminiStream = (
     setInitError(null);
     if (!geminiClientRef.current) {
       try {
-        geminiClientRef.current = new GeminiClient(config);
+        geminiClientRef.current = config.getGeminiClient();
       } catch (error: unknown) {
         const errorMsg = `Failed to initialize client: ${getErrorMessage(error) || 'Unknown error'}`;
         setInitError(errorMsg);
@@ -256,31 +254,6 @@ export const useGeminiStream = (
     ],
   );
 
-  const ensureChatSession = useCallback(async (): Promise<{
-    client: GeminiClient | null;
-    chat: GeminiChat | null;
-  }> => {
-    const currentClient = geminiClientRef.current;
-    if (!currentClient) {
-      const errorMsg = 'Gemini client is not available.';
-      setInitError(errorMsg);
-      addItem({ type: MessageType.ERROR, text: errorMsg }, Date.now());
-      return { client: null, chat: null };
-    }
-
-    if (!chatSessionRef.current) {
-      try {
-        chatSessionRef.current = await currentClient.startChat();
-      } catch (err: unknown) {
-        const errorMsg = `Failed to start chat: ${getErrorMessage(err)}`;
-        setInitError(errorMsg);
-        addItem({ type: MessageType.ERROR, text: errorMsg }, Date.now());
-        return { client: currentClient, chat: null };
-      }
-    }
-    return { client: currentClient, chat: chatSessionRef.current };
-  }, [addItem]);
-
   // --- Stream Event Handlers ---
 
   const handleContentEvent = useCallback(
@@ -383,6 +356,18 @@ export const useGeminiStream = (
     [addItem, pendingHistoryItemRef, setPendingHistoryItem],
   );
 
+  const handleChatCompressionEvent = useCallback(
+    () =>
+      addItem(
+        {
+          type: 'info',
+          text: `IMPORTANT: this conversation approached the input token limit for ${config.getModel()}. We'll send a compressed context to the model for any future messages.`,
+        },
+        Date.now(),
+      ),
+    [addItem, config],
+  );
+
   const processGeminiStreamEvents = useCallback(
     async (
       stream: AsyncIterable<GeminiEvent>,
@@ -391,20 +376,35 @@ export const useGeminiStream = (
       let geminiMessageBuffer = '';
       const toolCallRequests: ToolCallRequestInfo[] = [];
       for await (const event of stream) {
-        if (event.type === ServerGeminiEventType.Content) {
-          geminiMessageBuffer = handleContentEvent(
-            event.value,
-            geminiMessageBuffer,
-            userMessageTimestamp,
-          );
-        } else if (event.type === ServerGeminiEventType.ToolCallRequest) {
-          toolCallRequests.push(event.value);
-        } else if (event.type === ServerGeminiEventType.UserCancelled) {
-          handleUserCancelledEvent(userMessageTimestamp);
-          return StreamProcessingStatus.UserCancelled;
-        } else if (event.type === ServerGeminiEventType.Error) {
-          handleErrorEvent(event.value, userMessageTimestamp);
-          return StreamProcessingStatus.Error;
+        switch (event.type) {
+          case ServerGeminiEventType.Content:
+            geminiMessageBuffer = handleContentEvent(
+              event.value,
+              geminiMessageBuffer,
+              userMessageTimestamp,
+            );
+            break;
+          case ServerGeminiEventType.ToolCallRequest:
+            toolCallRequests.push(event.value);
+            break;
+          case ServerGeminiEventType.UserCancelled:
+            handleUserCancelledEvent(userMessageTimestamp);
+            break;
+          case ServerGeminiEventType.Error:
+            handleErrorEvent(event.value, userMessageTimestamp);
+            break;
+          case ServerGeminiEventType.ChatCompressed:
+            handleChatCompressionEvent();
+            break;
+          case ServerGeminiEventType.ToolCallConfirmation:
+          case ServerGeminiEventType.ToolCallResponse:
+            // do nothing
+            break;
+          default: {
+            // enforces exhaustive switch-case
+            const unreachable: never = event;
+            return unreachable;
+          }
         }
       }
       if (toolCallRequests.length > 0) {
@@ -417,6 +417,7 @@ export const useGeminiStream = (
       handleUserCancelledEvent,
       handleErrorEvent,
       scheduleToolCalls,
+      handleChatCompressionEvent,
     ],
   );
 
@@ -444,9 +445,12 @@ export const useGeminiStream = (
         return;
       }
 
-      const { client, chat } = await ensureChatSession();
+      const client = geminiClientRef.current;
 
-      if (!client || !chat) {
+      if (!client) {
+        const errorMsg = 'Gemini client is not available.';
+        setInitError(errorMsg);
+        addItem({ type: MessageType.ERROR, text: errorMsg }, Date.now());
         return;
       }
 
@@ -454,7 +458,7 @@ export const useGeminiStream = (
       setInitError(null);
 
       try {
-        const stream = client.sendMessageStream(chat, queryToSend, abortSignal);
+        const stream = client.sendMessageStream(queryToSend, abortSignal);
         const processingStatus = await processGeminiStreamEvents(
           stream,
           userMessageTimestamp,
@@ -487,7 +491,6 @@ export const useGeminiStream = (
       streamingState,
       setShowHelp,
       prepareQueryForGemini,
-      ensureChatSession,
       processGeminiStreamEvents,
       pendingHistoryItemRef,
       addItem,
@@ -530,7 +533,10 @@ export const useGeminiStream = (
       },
     );
 
-    if (completedAndReadyToSubmitTools.length > 0) {
+    if (
+      completedAndReadyToSubmitTools.length > 0 &&
+      completedAndReadyToSubmitTools.length === toolCalls.length
+    ) {
       const responsesToSend: PartListUnion[] =
         completedAndReadyToSubmitTools.map(
           (toolCall) => toolCall.response.responseParts,

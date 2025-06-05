@@ -11,12 +11,7 @@ import {
   useReactToolScheduler,
   mapToDisplay,
 } from './useReactToolScheduler.js';
-import {
-  Part,
-  PartListUnion,
-  PartUnion,
-  FunctionResponse,
-} from '@google/genai';
+import { PartUnion, FunctionResponse } from '@google/genai';
 import {
   Config,
   ToolCallRequestInfo,
@@ -26,9 +21,9 @@ import {
   ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
   ToolCallResponseInfo,
-  formatLlmContentForFunctionResponse, // Import from core
   ToolCall, // Import from core
-  Status as ToolCallStatusType, // Import from core
+  Status as ToolCallStatusType,
+  ApprovalMode, // Import from core
 } from '@gemini-code/core';
 import {
   HistoryItemWithoutId,
@@ -52,6 +47,7 @@ const mockToolRegistry = {
 
 const mockConfig = {
   getToolRegistry: vi.fn(() => mockToolRegistry as unknown as ToolRegistry),
+  getApprovalMode: vi.fn(() => ApprovalMode.DEFAULT),
 };
 
 const mockTool: Tool = {
@@ -91,117 +87,106 @@ const mockToolRequiresConfirmation: Tool = {
   ),
 };
 
-describe('formatLlmContentForFunctionResponse', () => {
-  it('should handle simple string llmContent', () => {
-    const llmContent = 'Simple text output';
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({ output: 'Simple text output' });
-    expect(additionalParts).toEqual([]);
+describe('useReactToolScheduler in YOLO Mode', () => {
+  let onComplete: Mock;
+  let setPendingHistoryItem: Mock;
+
+  beforeEach(() => {
+    onComplete = vi.fn();
+    setPendingHistoryItem = vi.fn();
+    mockToolRegistry.getTool.mockClear();
+    (mockToolRequiresConfirmation.execute as Mock).mockClear();
+    (mockToolRequiresConfirmation.shouldConfirmExecute as Mock).mockClear();
+
+    // IMPORTANT: Enable YOLO mode for this test suite
+    (mockConfig.getApprovalMode as Mock).mockReturnValue(ApprovalMode.YOLO);
+
+    vi.useFakeTimers();
   });
 
-  it('should handle llmContent as a single Part with text', () => {
-    const llmContent: Part = { text: 'Text from Part object' };
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({ output: 'Text from Part object' });
-    expect(additionalParts).toEqual([]);
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    // IMPORTANT: Disable YOLO mode after this test suite
+    (mockConfig.getApprovalMode as Mock).mockReturnValue(ApprovalMode.DEFAULT);
   });
 
-  it('should handle llmContent as a PartListUnion array with a single text Part', () => {
-    const llmContent: PartListUnion = [{ text: 'Text from array' }];
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({ output: 'Text from array' });
-    expect(additionalParts).toEqual([]);
-  });
+  const renderSchedulerInYoloMode = () =>
+    renderHook(() =>
+      useReactToolScheduler(
+        onComplete,
+        mockConfig as unknown as Config,
+        setPendingHistoryItem,
+      ),
+    );
 
-  it('should handle llmContent with inlineData', () => {
-    const llmContent: Part = {
-      inlineData: { mimeType: 'image/png', data: 'base64...' },
+  it('should skip confirmation and execute tool directly when yoloMode is true', async () => {
+    mockToolRegistry.getTool.mockReturnValue(mockToolRequiresConfirmation);
+    const expectedOutput = 'YOLO Confirmed output';
+    (mockToolRequiresConfirmation.execute as Mock).mockResolvedValue({
+      llmContent: expectedOutput,
+      returnDisplay: 'YOLO Formatted tool output',
+    } as ToolResult);
+
+    const { result } = renderSchedulerInYoloMode();
+    const schedule = result.current[1];
+    const request: ToolCallRequestInfo = {
+      callId: 'yoloCall',
+      name: 'mockToolRequiresConfirmation',
+      args: { data: 'any data' },
     };
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({
-      status: 'Binary content of type image/png was processed.',
-    });
-    expect(additionalParts).toEqual([llmContent]);
-  });
 
-  it('should handle llmContent with fileData', () => {
-    const llmContent: Part = {
-      fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
-    };
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({
-      status: 'Binary content of type application/pdf was processed.',
+    act(() => {
+      schedule(request);
     });
-    expect(additionalParts).toEqual([llmContent]);
-  });
 
-  it('should handle llmContent as an array of multiple Parts (text and inlineData)', () => {
-    const llmContent: PartListUnion = [
-      { text: 'Some textual description' },
-      { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
-      { text: 'Another text part' },
-    ];
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({
-      status: 'Tool execution succeeded.',
+    await act(async () => {
+      await vi.runAllTimersAsync(); // Process validation
     });
-    expect(additionalParts).toEqual(llmContent);
-  });
-
-  it('should handle llmContent as an array with a single inlineData Part', () => {
-    const llmContent: PartListUnion = [
-      { inlineData: { mimeType: 'image/gif', data: 'gifdata...' } },
-    ];
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({
-      status: 'Binary content of type image/gif was processed.',
+    await act(async () => {
+      await vi.runAllTimersAsync(); // Process scheduling
     });
-    expect(additionalParts).toEqual(llmContent);
-  });
-
-  it('should handle llmContent as a generic Part (not text, inlineData, or fileData)', () => {
-    const llmContent: Part = { functionCall: { name: 'test', args: {} } };
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({
-      status: 'Tool execution succeeded.',
+    await act(async () => {
+      await vi.runAllTimersAsync(); // Process execution
     });
-    expect(additionalParts).toEqual([llmContent]);
-  });
 
-  it('should handle empty string llmContent', () => {
-    const llmContent = '';
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({ output: '' });
-    expect(additionalParts).toEqual([]);
-  });
+    // Check that shouldConfirmExecute was NOT called
+    expect(
+      mockToolRequiresConfirmation.shouldConfirmExecute,
+    ).not.toHaveBeenCalled();
 
-  it('should handle llmContent as an empty array', () => {
-    const llmContent: PartListUnion = [];
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({
-      status: 'Tool execution succeeded.',
+    // Check that execute WAS called
+    expect(mockToolRequiresConfirmation.execute).toHaveBeenCalledWith(
+      request.args,
+      expect.any(AbortSignal),
+      undefined,
+    );
+
+    // Check that onComplete was called with success
+    expect(onComplete).toHaveBeenCalledWith([
+      expect.objectContaining({
+        status: 'success',
+        request,
+        response: expect.objectContaining({
+          resultDisplay: 'YOLO Formatted tool output',
+          responseParts: {
+            functionResponse: {
+              id: 'yoloCall',
+              name: 'mockToolRequiresConfirmation',
+              response: { output: expectedOutput },
+            },
+          },
+        }),
+      }),
+    ]);
+
+    // Ensure no confirmation UI was triggered (setPendingHistoryItem should not have been called with confirmation details)
+    const setPendingHistoryItemCalls = setPendingHistoryItem.mock.calls;
+    const confirmationCall = setPendingHistoryItemCalls.find((call) => {
+      const item = typeof call[0] === 'function' ? call[0]({}) : call[0];
+      return item?.tools?.[0]?.confirmationDetails;
     });
-    expect(additionalParts).toEqual([]);
-  });
-
-  it('should handle llmContent as a Part with undefined inlineData/fileData/text', () => {
-    const llmContent: Part = {}; // An empty part object
-    const { functionResponseJson, additionalParts } =
-      formatLlmContentForFunctionResponse(llmContent);
-    expect(functionResponseJson).toEqual({
-      status: 'Tool execution succeeded.',
-    });
-    expect(additionalParts).toEqual([llmContent]);
+    expect(confirmationCall).toBeUndefined();
   });
 });
 
@@ -328,13 +313,13 @@ describe('useReactToolScheduler', () => {
         request,
         response: expect.objectContaining({
           resultDisplay: 'Formatted tool output',
-          responseParts: expect.arrayContaining([
-            expect.objectContaining({
-              functionResponse: expect.objectContaining({
-                response: { output: 'Tool output' },
-              }),
-            }),
-          ]),
+          responseParts: {
+            functionResponse: {
+              id: 'call1',
+              name: 'mockTool',
+              response: { output: 'Tool output' },
+            },
+          },
         }),
       }),
     ]);
@@ -812,13 +797,13 @@ describe('useReactToolScheduler', () => {
       request: requests[0],
       response: expect.objectContaining({
         resultDisplay: 'Display 1',
-        responseParts: expect.arrayContaining([
-          expect.objectContaining({
-            functionResponse: expect.objectContaining({
-              response: { output: 'Output 1' },
-            }),
-          }),
-        ]),
+        responseParts: {
+          functionResponse: {
+            id: 'multi1',
+            name: 'tool1',
+            response: { output: 'Output 1' },
+          },
+        },
       }),
     });
     expect(call2Result).toMatchObject({
@@ -826,13 +811,13 @@ describe('useReactToolScheduler', () => {
       request: requests[1],
       response: expect.objectContaining({
         resultDisplay: 'Display 2',
-        responseParts: expect.arrayContaining([
-          expect.objectContaining({
-            functionResponse: expect.objectContaining({
-              response: { output: 'Output 2' },
-            }),
-          }),
-        ]),
+        responseParts: {
+          functionResponse: {
+            id: 'multi2',
+            name: 'tool2',
+            response: { output: 'Output 2' },
+          },
+        },
       }),
     });
     expect(result.current[0]).toEqual([]);

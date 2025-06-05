@@ -20,7 +20,7 @@ import { makeRelative, shortenPath } from '../utils/paths.js';
 import { isNodeError } from '../utils/errors.js';
 import { ReadFileTool } from './read-file.js';
 import { GeminiClient } from '../core/client.js';
-import { Config } from '../config/config.js';
+import { Config, ApprovalMode } from '../config/config.js';
 import { ensureCorrectEdit } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 
@@ -114,7 +114,7 @@ Expectation for required parameters:
     );
     this.config = config;
     this.rootDirectory = path.resolve(this.config.getTargetDir());
-    this.client = new GeminiClient(this.config);
+    this.client = config.getGeminiClient();
   }
 
   /**
@@ -281,7 +281,7 @@ Expectation for required parameters:
     params: EditToolParams,
     abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
-    if (this.config.getAlwaysSkipModificationConfirmation()) {
+    if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
       return false;
     }
     const validationError = this.validateToolParams(params);
@@ -356,7 +356,7 @@ Expectation for required parameters:
       fileDiff,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
-          this.config.setAlwaysSkipModificationConfirmation(true);
+          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
       },
     };
@@ -364,16 +364,24 @@ Expectation for required parameters:
   }
 
   getDescription(params: EditToolParams): string {
+    if (!params.file_path || !params.old_string || !params.new_string) {
+      return `Model did not provide valid parameters for edit tool`;
+    }
     const relativePath = makeRelative(params.file_path, this.rootDirectory);
     if (params.old_string === '') {
       return `Create ${shortenPath(relativePath)}`;
     }
+
     const oldStringSnippet =
       params.old_string.split('\n')[0].substring(0, 30) +
       (params.old_string.length > 30 ? '...' : '');
     const newStringSnippet =
       params.new_string.split('\n')[0].substring(0, 30) +
       (params.new_string.length > 30 ? '...' : '');
+
+    if (params.old_string === params.new_string) {
+      return `No file changes to ${shortenPath(relativePath)}`;
+    }
     return `${shortenPath(relativePath)}: ${oldStringSnippet} => ${newStringSnippet}`;
   }
 

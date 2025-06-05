@@ -9,6 +9,7 @@ export * from './config/config.js';
 
 // Export Core Logic
 export * from './core/client.js';
+export * from './core/geminiChat.js';
 export * from './core/logger.js';
 export * from './core/prompts.js';
 export * from './core/turn.js';
@@ -23,6 +24,10 @@ export * from './utils/schemaValidator.js';
 export * from './utils/errors.js';
 export * from './utils/getFolderStructure.js';
 export * from './utils/memoryDiscovery.js';
+export * from './utils/gitIgnoreParser.js';
+
+// Export services
+export * from './services/fileDiscoveryService.js';
 
 // Export base tool definitions
 export * from './tools/tools.js';

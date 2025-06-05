@@ -13,7 +13,7 @@ The Gemini CLI is primarily composed of two main packages, along with a suite of
       - Input processing (parsing commands, text prompts).
       - History management.
       - Display rendering (including Markdown, code highlighting, and tool messages).
-      - Theme and UI customization.
+      - [Theme and UI customization](./cli/themes.md).
       - Communication with the Core package.
       - Manages user configuration settings specific to the CLI.
 
@@ -57,14 +57,26 @@ A typical interaction with the Gemini CLI follows this general flow:
 graph TD
     User[User via Terminal] -- Input --> CLI[packages/cli]
     CLI -- Request --> Core[packages/core]
-    Core -- Prompt/Tool Info --> GeminiAPI[Gemini API]
-    GeminiAPI -- Response/Tool Call --> Core
-    Core -- Tool Details --> CLI
-    CLI -- User Confirms --> Core
-    Core -- Execute Tool --> Tools[Tools e.g., read_file, shell]
-    Tools -- Tool Result --> Core
-    Core -- Final Response --> CLI
+    Core -- Prompt/ToolInfo --> GeminiAPI[Gemini API]
+    GeminiAPI -- Response/ToolCall --> Core
+    Core -- ToolDetails --> CLI
+    CLI -- UserConfirms --> Core
+    Core -- ExecuteTool --> Tools[Tools e.g., read_file, shell]
+    Tools -- ToolResult --> Core
+    Core -- FinalResponse --> CLI
     CLI -- Output --> User
+
+    classDef userStyle fill:#FFFFFF,stroke:#333333,stroke-width:2px
+    classDef cliStyle fill:#FBBC05,stroke:#000000,stroke-width:2px
+    classDef coreStyle fill:#34A853,stroke:#000000,stroke-width:2px
+    classDef apiStyle fill:#4285F4,stroke:#3F51B5,stroke-width:2px
+    classDef toolsStyle fill:#EA4335,stroke:#000000,stroke-width:2px
+
+    class User userStyle
+    class CLI cliStyle
+    class Core coreStyle
+    class GeminiAPI apiStyle
+    class Tools toolsStyle
 ```
 
 ## Key Design Principles

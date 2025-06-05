@@ -35,6 +35,7 @@ vi.mock('../tools/memoryTool', () => ({
   setGeminiMdFilename: vi.fn(),
   getCurrentGeminiMdFilename: vi.fn(() => 'GEMINI.md'), // Mock the original filename
   DEFAULT_CONTEXT_FILENAME: 'GEMINI.md',
+  GEMINI_CONFIG_DIR: '.gemini',
 }));
 
 describe('Server Config (config.ts)', () => {
@@ -141,5 +142,28 @@ describe('Server Config (config.ts)', () => {
   it('Config constructor should not call setGeminiMdFilename if contextFileName is not provided', () => {
     new Config(baseParams); // baseParams does not have contextFileName
     expect(mockSetGeminiMdFilename).not.toHaveBeenCalled();
+  });
+
+  it('should set default file filtering settings when not provided', () => {
+    const config = new Config(baseParams);
+    expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
+    expect(config.getFileFilteringAllowBuildArtifacts()).toBe(false);
+  });
+
+  it('should set custom file filtering settings when provided', () => {
+    const paramsWithFileFiltering: ConfigParameters = {
+      ...baseParams,
+      fileFilteringRespectGitIgnore: false,
+      fileFilteringAllowBuildArtifacts: true,
+    };
+    const config = new Config(paramsWithFileFiltering);
+    expect(config.getFileFilteringRespectGitIgnore()).toBe(false);
+    expect(config.getFileFilteringAllowBuildArtifacts()).toBe(true);
+  });
+
+  it('should have a getFileService method that returns FileDiscoveryService', async () => {
+    const config = new Config(baseParams);
+    const fileService = await config.getFileService();
+    expect(fileService).toBeDefined();
   });
 });

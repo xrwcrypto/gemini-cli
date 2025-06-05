@@ -7,8 +7,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { render } from 'ink-testing-library';
 import { App } from './App.js';
-import { Config as ServerConfig, MCPServerConfig } from '@gemini-code/core';
-import type { ToolRegistry } from '@gemini-code/core';
+import {
+  Config as ServerConfig,
+  MCPServerConfig,
+  ApprovalMode,
+  ToolRegistry,
+  AccessibilitySettings,
+} from '@gemini-code/core';
 import { LoadedSettings, SettingsFile, Settings } from '../config/settings.js';
 
 // Define a more complete mock server config based on actual Config
@@ -28,9 +33,10 @@ interface MockServerConfig {
   userAgent: string;
   userMemory: string;
   geminiMdFileCount: number;
-  alwaysSkipModificationConfirmation: boolean;
+  approvalMode: ApprovalMode;
   vertexai?: boolean;
   showMemoryUsage?: boolean;
+  accessibility?: AccessibilitySettings;
 
   getApiKey: Mock<() => string>;
   getModel: Mock<() => string>;
@@ -50,10 +56,11 @@ interface MockServerConfig {
   setUserMemory: Mock<(newUserMemory: string) => void>;
   getGeminiMdFileCount: Mock<() => number>;
   setGeminiMdFileCount: Mock<(count: number) => void>;
-  getAlwaysSkipModificationConfirmation: Mock<() => boolean>;
-  setAlwaysSkipModificationConfirmation: Mock<(skip: boolean) => void>;
+  getApprovalMode: Mock<() => ApprovalMode>;
+  setApprovalMode: Mock<(skip: ApprovalMode) => void>;
   getVertexAI: Mock<() => boolean | undefined>;
   getShowMemoryUsage: Mock<() => boolean>;
+  getAccessibility: Mock<() => AccessibilitySettings>;
 }
 
 // Mock @gemini-code/core and its Config class
@@ -80,10 +87,10 @@ vi.mock('@gemini-code/core', async (importOriginal) => {
         userAgent: opts.userAgent || 'test-agent',
         userMemory: opts.userMemory || '',
         geminiMdFileCount: opts.geminiMdFileCount || 0,
-        alwaysSkipModificationConfirmation:
-          opts.alwaysSkipModificationConfirmation ?? false,
+        approvalMode: opts.approvalMode ?? ApprovalMode.DEFAULT,
         vertexai: opts.vertexai,
         showMemoryUsage: opts.showMemoryUsage ?? false,
+        accessibility: opts.accessibility ?? {},
 
         getApiKey: vi.fn(() => opts.apiKey || 'test-key'),
         getModel: vi.fn(() => opts.model || 'test-model-in-mock-factory'),
@@ -105,12 +112,11 @@ vi.mock('@gemini-code/core', async (importOriginal) => {
         setUserMemory: vi.fn(),
         getGeminiMdFileCount: vi.fn(() => opts.geminiMdFileCount || 0),
         setGeminiMdFileCount: vi.fn(),
-        getAlwaysSkipModificationConfirmation: vi.fn(
-          () => opts.alwaysSkipModificationConfirmation ?? false,
-        ),
-        setAlwaysSkipModificationConfirmation: vi.fn(),
+        getApprovalMode: vi.fn(() => opts.approvalMode ?? ApprovalMode.DEFAULT),
+        setApprovalMode: vi.fn(),
         getVertexAI: vi.fn(() => opts.vertexai),
         getShowMemoryUsage: vi.fn(() => opts.showMemoryUsage ?? false),
+        getAccessibility: vi.fn(() => opts.accessibility ?? {}),
       };
     });
   return {
@@ -187,7 +193,8 @@ describe('App UI', () => {
     }
     mockConfig.getShowMemoryUsage.mockReturnValue(false); // Default for most tests
 
-    mockSettings = createMockSettings();
+    // Ensure a theme is set so the theme dialog does not appear.
+    mockSettings = createMockSettings({ theme: 'Default' });
   });
 
   afterEach(() => {
@@ -234,7 +241,10 @@ describe('App UI', () => {
   });
 
   it('should display custom contextFileName in footer when set and count is 1', async () => {
-    mockSettings = createMockSettings({ contextFileName: 'AGENTS.MD' });
+    mockSettings = createMockSettings({
+      contextFileName: 'AGENTS.MD',
+      theme: 'Default',
+    });
     mockConfig.getGeminiMdFileCount.mockReturnValue(1);
     mockConfig.getDebugMode.mockReturnValue(false);
     mockConfig.getShowMemoryUsage.mockReturnValue(false);
@@ -252,7 +262,10 @@ describe('App UI', () => {
   });
 
   it('should display custom contextFileName with plural when set and count is > 1', async () => {
-    mockSettings = createMockSettings({ contextFileName: 'MY_NOTES.TXT' });
+    mockSettings = createMockSettings({
+      contextFileName: 'MY_NOTES.TXT',
+      theme: 'Default',
+    });
     mockConfig.getGeminiMdFileCount.mockReturnValue(3);
     mockConfig.getDebugMode.mockReturnValue(false);
     mockConfig.getShowMemoryUsage.mockReturnValue(false);
@@ -270,7 +283,10 @@ describe('App UI', () => {
   });
 
   it('should not display context file message if count is 0, even if contextFileName is set', async () => {
-    mockSettings = createMockSettings({ contextFileName: 'ANY_FILE.MD' });
+    mockSettings = createMockSettings({
+      contextFileName: 'ANY_FILE.MD',
+      theme: 'Default',
+    });
     mockConfig.getGeminiMdFileCount.mockReturnValue(0);
     mockConfig.getDebugMode.mockReturnValue(false);
     mockConfig.getShowMemoryUsage.mockReturnValue(false);
@@ -326,5 +342,22 @@ describe('App UI', () => {
     currentUnmount = unmount;
     await Promise.resolve();
     expect(lastFrame()).toContain('Using 2 MCP servers');
+  });
+
+  it('should display theme dialog if no theme is set in settings', async () => {
+    mockSettings = createMockSettings({});
+    mockConfig.getDebugMode.mockReturnValue(false);
+    mockConfig.getShowMemoryUsage.mockReturnValue(false);
+
+    const { lastFrame, unmount } = render(
+      <App
+        config={mockConfig as unknown as ServerConfig}
+        settings={mockSettings}
+        cliVersion="1.0.0"
+      />,
+    );
+    currentUnmount = unmount;
+
+    expect(lastFrame()).toContain('Select Theme');
   });
 });

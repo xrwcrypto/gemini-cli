@@ -12,7 +12,7 @@ import { StreamingState } from '../types.js';
 import { GeminiRespondingSpinner } from './GeminiRespondingSpinner.js';
 
 interface LoadingIndicatorProps {
-  currentLoadingPhrase: string;
+  currentLoadingPhrase?: string;
   elapsedTime: number;
   rightContent?: React.ReactNode;
 }
@@ -37,8 +37,10 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
           }
         />
       </Box>
-      <Text color={Colors.AccentPurple}>
-        {currentLoadingPhrase}
+      {currentLoadingPhrase && (
+        <Text color={Colors.AccentPurple}>{currentLoadingPhrase}</Text>
+      )}
+      <Text color={Colors.SubtleComment}>
         {streamingState === StreamingState.WaitingForConfirmation
           ? ''
           : ` (esc to cancel, ${elapsedTime}s)`}

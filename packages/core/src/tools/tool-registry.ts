@@ -53,28 +53,51 @@ Signal: Signal number or \`(none)\` if no signal was received.
     const child = spawn(callCommand, [this.name]);
     child.stdin.write(JSON.stringify(params));
     child.stdin.end();
+
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
     let error: Error | null = null;
-    child.on('error', (err: Error) => {
-      error = err;
-    });
     let code: number | null = null;
     let signal: NodeJS.Signals | null = null;
-    child.on(
-      'close',
-      (_code: number | null, _signal: NodeJS.Signals | null) => {
+
+    await new Promise<void>((resolve) => {
+      const onStdout = (data: Buffer) => {
+        stdout += data?.toString();
+      };
+
+      const onStderr = (data: Buffer) => {
+        stderr += data?.toString();
+      };
+
+      const onError = (err: Error) => {
+        error = err;
+      };
+
+      const onClose = (
+        _code: number | null,
+        _signal: NodeJS.Signals | null,
+      ) => {
         code = _code;
         signal = _signal;
-      },
-    );
-    await new Promise((resolve) => child.on('close', resolve));
+        cleanup();
+        resolve();
+      };
+
+      const cleanup = () => {
+        child.stdout.removeListener('data', onStdout);
+        child.stderr.removeListener('data', onStderr);
+        child.removeListener('error', onError);
+        child.removeListener('close', onClose);
+        if (child.connected) {
+          child.disconnect();
+        }
+      };
+
+      child.stdout.on('data', onStdout);
+      child.stderr.on('data', onStderr);
+      child.on('error', onError);
+      child.on('close', onClose);
+    });
 
     // if there is any error, non-zero exit code, signal, or stderr, return error details instead of stdout
     if (error || code !== 0 || signal || stderr) {
@@ -100,6 +123,7 @@ Signal: Signal number or \`(none)\` if no signal was received.
 
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
+  private discovery: Promise<void> | null = null;
   private config: Config;
 
   constructor(config: Config) {
@@ -121,7 +145,7 @@ export class ToolRegistry {
   }
 
   /**
-   * Discovers tools from project, if a discovery command is configured.
+   * Discovers tools from project (if available and configured).
    * Can be called multiple times to update discovered tools.
    */
   async discoverTools(): Promise<void> {
@@ -136,10 +160,16 @@ export class ToolRegistry {
     // discover tools using discovery command, if configured
     const discoveryCmd = this.config.getToolDiscoveryCommand();
     if (discoveryCmd) {
-      // execute discovery command and extract function declarations
+      // execute discovery command and extract function declarations (w/ or w/o "tool" wrappers)
       const functions: FunctionDeclaration[] = [];
       for (const tool of JSON.parse(execSync(discoveryCmd).toString().trim())) {
-        functions.push(...tool['function_declarations']);
+        if (tool['function_declarations']) {
+          functions.push(...tool['function_declarations']);
+        } else if (tool['functionDeclarations']) {
+          functions.push(...tool['functionDeclarations']);
+        } else if (tool['name']) {
+          functions.push(tool);
+        }
       }
       // register each function as a tool
       for (const func of functions) {
@@ -154,7 +184,11 @@ export class ToolRegistry {
       }
     }
     // discover tools using MCP servers, if configured
-    await discoverMcpTools(this.config, this);
+    await discoverMcpTools(
+      this.config.getMcpServers() ?? {},
+      this.config.getMcpServerCommand(),
+      this,
+    );
   }
 
   /**
@@ -176,6 +210,19 @@ export class ToolRegistry {
    */
   getAllTools(): Tool[] {
     return Array.from(this.tools.values());
+  }
+
+  /**
+   * Returns an array of tools registered from a specific MCP server.
+   */
+  getToolsByServer(serverName: string): Tool[] {
+    const serverTools: Tool[] = [];
+    for (const tool of this.tools.values()) {
+      if ((tool as DiscoveredMCPTool)?.serverName === serverName) {
+        serverTools.push(tool);
+      }
+    }
+    return serverTools;
   }
 
   /**

@@ -7,7 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import * as Diff from 'diff';
-import { Config } from '../config/config.js';
+import { Config, ApprovalMode } from '../config/config.js';
 import {
   BaseTool,
   ToolResult,
@@ -77,7 +77,7 @@ export class WriteFileTool extends BaseTool<WriteFileToolParams, ToolResult> {
       },
     );
 
-    this.client = new GeminiClient(this.config);
+    this.client = this.config.getGeminiClient();
   }
 
   private isWithinRoot(pathToCheck: string): boolean {
@@ -129,6 +129,9 @@ export class WriteFileTool extends BaseTool<WriteFileToolParams, ToolResult> {
   }
 
   getDescription(params: WriteFileToolParams): string {
+    if (!params.file_path || !params.content) {
+      return `Model did not provide valid parameters for write file tool`;
+    }
     const relativePath = makeRelative(
       params.file_path,
       this.config.getTargetDir(),
@@ -143,7 +146,7 @@ export class WriteFileTool extends BaseTool<WriteFileToolParams, ToolResult> {
     params: WriteFileToolParams,
     abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
-    if (this.config.getAlwaysSkipModificationConfirmation()) {
+    if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
       return false;
     }
 
@@ -186,7 +189,7 @@ export class WriteFileTool extends BaseTool<WriteFileToolParams, ToolResult> {
       fileDiff,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
-          this.config.setAlwaysSkipModificationConfirmation(true);
+          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
       },
     };

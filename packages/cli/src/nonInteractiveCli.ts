@@ -6,7 +6,6 @@
 
 import {
   Config,
-  GeminiClient,
   ToolCallRequestInfo,
   executeToolCall,
   ToolRegistry,
@@ -39,11 +38,10 @@ export async function runNonInteractive(
   config: Config,
   input: string,
 ): Promise<void> {
-  const geminiClient = new GeminiClient(config);
-  const toolRegistry: ToolRegistry = config.getToolRegistry();
-  await toolRegistry.discoverTools();
+  const geminiClient = config.getGeminiClient();
+  const toolRegistry: ToolRegistry = await config.getToolRegistry();
 
-  const chat = await geminiClient.startChat();
+  const chat = await geminiClient.getChat();
   const abortController = new AbortController();
   let currentMessages: Content[] = [{ role: 'user', parts: [{ text: input }] }];
 
@@ -96,9 +94,19 @@ export async function runNonInteractive(
             console.error(
               `Error executing tool ${fc.name}: ${toolResponse.resultDisplay || toolResponse.error.message}`,
             );
-            toolResponseParts.push(...(toolResponse.responseParts as Part[]));
-          } else {
-            toolResponseParts.push(...(toolResponse.responseParts as Part[]));
+          }
+
+          if (toolResponse.responseParts) {
+            const parts = Array.isArray(toolResponse.responseParts)
+              ? toolResponse.responseParts
+              : [toolResponse.responseParts];
+            for (const part of parts) {
+              if (typeof part === 'string') {
+                toolResponseParts.push({ text: part });
+              } else if (part) {
+                toolResponseParts.push(part);
+              }
+            }
           }
         }
         currentMessages = [{ role: 'user', parts: toolResponseParts }];

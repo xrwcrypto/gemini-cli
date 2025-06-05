@@ -143,7 +143,7 @@ For more detailed architecture, see `docs/architecture.md`.
 
 ## Debugging
 
-To debug the CLI application using VS Code:
+### VS Code:
 
 1.  Start the CLI in debug mode from the root directory:
     ```bash
@@ -160,6 +160,34 @@ To hit a breakpoint inside the sandbox container run:
 DEBUG=1 gemini
 ```
 
+### React DevTools
+
+To debug the CLI's React-based UI, you can use React DevTools. Ink, the library used for the CLI's interface, is compatible with React DevTools version 4.x.
+
+1.  **Start the Gemini CLI in development mode:**
+
+    ```bash
+    DEV=true npm start
+    ```
+
+2.  **Install and run React DevTools version 4.28.5 (or the latest compatible 4.x version):**
+
+    You can either install it globally:
+
+    ```bash
+    npm install -g react-devtools@4.28.5
+    react-devtools
+    ```
+
+    Or run it directly using npx:
+
+    ```bash
+    npx react-devtools@4.28.5
+    ```
+
+    Your running CLI application should then connect to React DevTools.
+    ![](/docs/assets/connected_devtools.png)
+
 ## Sandboxing
 
 ### MacOS Seatbelt
@@ -170,7 +198,7 @@ On MacOS, `gemini` uses Seatbelt (`sandbox-exec`) under a `minimal` profile (see
 
 For stronger container-based sandboxing on MacOS or other platforms, you can set `GEMINI_SANDBOX=true|docker|podman|<command>` in your environment or `.env` file. The specified command (or if `true` then either `docker` or `podman`) must be installed on the host machine. Once enabled, `npm run build:all` will build a minimal container ("sandbox") image and `npm start` will launch inside a fresh instance of that container. The first build can take 20-30s (mostly due to downloading of the base image) but after that both build and start overhead should be minimal. Default builds (`npm run build`) will not rebuild the sandbox.
 
-Container-based sandboxing mounts the project directory (and system temp directory) with read-write access and is started/stopped/removed automatically as you start/stop Gemini CLI. Files created within the sandbox should be automatically mapped to your user/group on host machine. You can easily specify additional mounts, ports, or environment variables by setting `SANDBOX_{MOUNTS,PORTS,ENV}` as needed. You can also fully customize the sandbox for your projects by creating the files `.gemini/sandbox.Dockerfile` and/or `.gemini/sandbox.bashrc` under your project settings directory `.gemini`.
+Container-based sandboxing mounts the project directory (and system temp directory) with read-write access and is started/stopped/removed automatically as you start/stop Gemini CLI. Files created within the sandbox should be automatically mapped to your user/group on host machine. You can easily specify additional mounts, ports, or environment variables by setting `SANDBOX_{MOUNTS,PORTS,ENV}` as needed. You can also fully customize the sandbox for your projects by creating the files `.gemini/sandbox.Dockerfile` and/or `.gemini/sandbox.bashrc` under your project settings directory (`.gemini`) and running `gemini` with `BUILD_SANDBOX=1` to trigger building of your custom sandbox.
 
 ## Manual Publish
 

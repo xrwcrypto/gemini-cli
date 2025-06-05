@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { homedir } from 'os';
-import { MCPServerConfig } from '@gemini-code/core/src/config/config.js';
+import { MCPServerConfig } from '@gemini-code/core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
@@ -21,6 +21,10 @@ export enum SettingScope {
   Workspace = 'Workspace',
 }
 
+export interface AccessibilitySettings {
+  disableLoadingPhrases?: boolean;
+}
+
 export interface Settings {
   theme?: string;
   sandbox?: boolean | string;
@@ -31,6 +35,14 @@ export interface Settings {
   mcpServers?: Record<string, MCPServerConfig>;
   showMemoryUsage?: boolean;
   contextFileName?: string;
+  accessibility?: AccessibilitySettings;
+
+  // Git-aware file filtering settings
+  fileFiltering?: {
+    respectGitIgnore?: boolean;
+    allowBuildArtifacts?: boolean;
+  };
+
   // Add other settings here.
 }
 

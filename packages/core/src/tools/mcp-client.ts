@@ -8,18 +8,18 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { parse } from 'shell-quote';
-import { Config, MCPServerConfig } from '../config/config.js';
+import { MCPServerConfig } from '../config/config.js';
 import { DiscoveredMCPTool } from './mcp-tool.js';
+import { CallableTool, FunctionDeclaration, mcpToTool } from '@google/genai';
 import { ToolRegistry } from './tool-registry.js';
 
 export async function discoverMcpTools(
-  config: Config,
+  mcpServers: Record<string, MCPServerConfig>,
+  mcpServerCommand: string | undefined,
   toolRegistry: ToolRegistry,
 ): Promise<void> {
-  const mcpServers = config.getMcpServers() || {};
-
-  if (config.getMcpServerCommand()) {
-    const cmd = config.getMcpServerCommand()!;
+  if (mcpServerCommand) {
+    const cmd = mcpServerCommand;
     const args = parse(cmd, process.env) as string[];
     if (args.some((arg) => typeof arg !== 'string')) {
       throw new Error('failed to parse mcpServerCommand: ' + cmd);
@@ -33,12 +33,7 @@ export async function discoverMcpTools(
 
   const discoveryPromises = Object.entries(mcpServers).map(
     ([mcpServerName, mcpServerConfig]) =>
-      connectAndDiscover(
-        mcpServerName,
-        mcpServerConfig,
-        toolRegistry,
-        mcpServers,
-      ),
+      connectAndDiscover(mcpServerName, mcpServerConfig, toolRegistry),
   );
   await Promise.all(discoveryPromises);
 }
@@ -47,7 +42,6 @@ async function connectAndDiscover(
   mcpServerName: string,
   mcpServerConfig: MCPServerConfig,
   toolRegistry: ToolRegistry,
-  mcpServers: Record<string, MCPServerConfig>,
 ): Promise<void> {
   let transport;
   if (mcpServerConfig.url) {
@@ -67,7 +61,7 @@ async function connectAndDiscover(
     console.error(
       `MCP server '${mcpServerName}' has invalid configuration: missing both url (for SSE) and command (for stdio). Skipping.`,
     );
-    return; // Return a resolved promise as this path doesn't throw.
+    return;
   }
 
   const mcpClient = new Client({
@@ -82,63 +76,81 @@ async function connectAndDiscover(
       `failed to start or connect to MCP server '${mcpServerName}' ` +
         `${JSON.stringify(mcpServerConfig)}; \n${error}`,
     );
-    return; // Return a resolved promise, let other MCP servers be discovered.
+    return;
   }
 
   mcpClient.onerror = (error) => {
-    console.error('MCP ERROR', error.toString());
+    console.error(`MCP ERROR (${mcpServerName}):`, error.toString());
   };
 
   if (transport instanceof StdioClientTransport && transport.stderr) {
     transport.stderr.on('data', (data) => {
-      if (!data.toString().includes('] INFO')) {
-        console.debug('MCP STDERR', data.toString());
+      const stderrStr = data.toString();
+      // Filter out verbose INFO logs from some MCP servers
+      if (!stderrStr.includes('] INFO')) {
+        console.debug(`MCP STDERR (${mcpServerName}):`, stderrStr);
       }
     });
   }
 
   try {
-    const result = await mcpClient.listTools();
-    for (const tool of result.tools) {
-      // Recursively remove additionalProperties and $schema from the inputSchema
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- This function recursively navigates a deeply nested and potentially heterogeneous JSON schema object. Using 'any' is a pragmatic choice here to avoid overly complex type definitions for all possible schema variations.
-      const removeSchemaProps = (obj: any) => {
-        if (typeof obj !== 'object' || obj === null) {
-          return;
-        }
-        if (Array.isArray(obj)) {
-          obj.forEach(removeSchemaProps);
-        } else {
-          delete obj.additionalProperties;
-          delete obj.$schema;
-          Object.values(obj).forEach(removeSchemaProps);
-        }
-      };
-      removeSchemaProps(tool.inputSchema);
+    const mcpCallableTool: CallableTool = mcpToTool(mcpClient);
+    const discoveredToolFunctions = await mcpCallableTool.tool();
 
-      // if there are multiple MCP servers, prefix tool name with mcpServerName to avoid collisions
-      let toolNameForModel = tool.name;
-      if (Object.keys(mcpServers).length > 1) {
+    if (
+      !discoveredToolFunctions ||
+      !Array.isArray(discoveredToolFunctions.functionDeclarations)
+    ) {
+      console.error(
+        `MCP server '${mcpServerName}' did not return valid tool function declarations. Skipping.`,
+      );
+      if (transport instanceof StdioClientTransport) {
+        await transport.close();
+      } else if (transport instanceof SSEClientTransport) {
+        await transport.close();
+      }
+      return;
+    }
+
+    for (const funcDecl of discoveredToolFunctions.functionDeclarations) {
+      if (!funcDecl.name) {
+        console.warn(
+          `Discovered a function declaration without a name from MCP server '${mcpServerName}'. Skipping.`,
+        );
+        continue;
+      }
+
+      let toolNameForModel = funcDecl.name;
+
+      // Replace invalid characters (based on 400 error message from Gemini API) with underscores
+      toolNameForModel = toolNameForModel.replace(/[^a-zA-Z0-9_.-]/g, '_');
+
+      const existingTool = toolRegistry.getTool(toolNameForModel);
+      if (existingTool) {
         toolNameForModel = mcpServerName + '__' + toolNameForModel;
       }
 
-      // replace invalid characters (based on 400 error message) with underscores
-      toolNameForModel = toolNameForModel.replace(/[^a-zA-Z0-9_.-]/g, '_');
-
-      // if longer than 63 characters, replace middle with '___'
-      // note 400 error message says max length is 64, but actual limit seems to be 63
+      // If longer than 63 characters, replace middle with '___'
+      // (Gemini API says max length 64, but actual limit seems to be 63)
       if (toolNameForModel.length > 63) {
         toolNameForModel =
           toolNameForModel.slice(0, 28) + '___' + toolNameForModel.slice(-32);
       }
+
+      // Ensure parameters is a valid JSON schema object, default to empty if not.
+      const parameterSchema: Record<string, unknown> =
+        funcDecl.parameters && typeof funcDecl.parameters === 'object'
+          ? { ...(funcDecl.parameters as FunctionDeclaration) }
+          : { type: 'object', properties: {} };
+
       toolRegistry.registerTool(
         new DiscoveredMCPTool(
-          mcpClient,
+          mcpCallableTool,
           mcpServerName,
           toolNameForModel,
-          tool.description ?? '',
-          tool.inputSchema,
-          tool.name,
+          funcDecl.description ?? '',
+          parameterSchema,
+          funcDecl.name,
           mcpServerConfig.timeout,
           mcpServerConfig.trust,
         ),
@@ -148,6 +160,29 @@ async function connectAndDiscover(
     console.error(
       `Failed to list or register tools for MCP server '${mcpServerName}': ${error}`,
     );
-    // Do not re-throw, allow other servers to proceed.
+    // Ensure transport is cleaned up on error too
+    if (
+      transport instanceof StdioClientTransport ||
+      transport instanceof SSEClientTransport
+    ) {
+      await transport.close();
+    }
+  }
+
+  // If no tools were registered from this MCP server, the following 'if' block
+  // will close the connection. This is done to conserve resources and prevent
+  // an orphaned connection to a server that isn't providing any usable
+  // functionality. Connections to servers that did provide tools are kept
+  // open, as those tools will require the connection to function.
+  if (toolRegistry.getToolsByServer(mcpServerName).length === 0) {
+    console.log(
+      `No tools registered from MCP server '${mcpServerName}'. Closing connection.`,
+    );
+    if (
+      transport instanceof StdioClientTransport ||
+      transport instanceof SSEClientTransport
+    ) {
+      await transport.close();
+    }
   }
 }

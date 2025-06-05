@@ -25,7 +25,7 @@ import { FileDiff } from './tools.js';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { Config } from '../config/config.js';
+import { ApprovalMode, Config } from '../config/config.js';
 import { Content, Part, SchemaUnion } from '@google/genai';
 
 describe('EditTool', () => {
@@ -39,10 +39,18 @@ describe('EditTool', () => {
     rootDir = path.join(tempDir, 'root');
     fs.mkdirSync(rootDir);
 
+    // The client instance that EditTool will use
+    const mockClientInstanceWithGenerateJson = {
+      generateJson: mockGenerateJson, // mockGenerateJson is already defined and hoisted
+    };
+
     mockConfig = {
+      getGeminiClient: vi
+        .fn()
+        .mockReturnValue(mockClientInstanceWithGenerateJson),
       getTargetDir: () => rootDir,
-      getAlwaysSkipModificationConfirmation: vi.fn(() => false),
-      setAlwaysSkipModificationConfirmation: vi.fn(),
+      getApprovalMode: vi.fn(() => false),
+      setApprovalMode: vi.fn(),
       // getGeminiConfig: () => ({ apiKey: 'test-api-key' }), // This was not a real Config method
       // Add other properties/methods of Config if EditTool uses them
       // Minimal other methods to satisfy Config type if needed by EditTool constructor or other direct uses:
@@ -65,12 +73,10 @@ describe('EditTool', () => {
     } as unknown as Config;
 
     // Reset mocks before each test
-    (mockConfig.getAlwaysSkipModificationConfirmation as Mock).mockClear();
-    (mockConfig.setAlwaysSkipModificationConfirmation as Mock).mockClear();
+    (mockConfig.getApprovalMode as Mock).mockClear();
+    (mockConfig.getApprovalMode as Mock).mockClear();
     // Default to not skipping confirmation
-    (mockConfig.getAlwaysSkipModificationConfirmation as Mock).mockReturnValue(
-      false,
-    );
+    (mockConfig.getApprovalMode as Mock).mockReturnValue(ApprovalMode.DEFAULT);
 
     // Reset mocks and set default implementation for ensureCorrectEdit
     mockEnsureCorrectEdit.mockReset();
@@ -439,9 +445,9 @@ describe('EditTool', () => {
         new_string: fileContent,
       };
 
-      (
-        mockConfig.getAlwaysSkipModificationConfirmation as Mock
-      ).mockReturnValueOnce(true);
+      (mockConfig.getApprovalMode as Mock).mockReturnValueOnce(
+        ApprovalMode.AUTO_EDIT,
+      );
       const result = await tool.execute(params, new AbortController().signal);
 
       expect(result.llmContent).toMatch(/Created new file/);
@@ -538,6 +544,59 @@ describe('EditTool', () => {
       expect(result.llmContent).toMatch(/File already exists, cannot create/);
       expect(result.returnDisplay).toMatch(
         /Attempted to create a file that already exists/,
+      );
+    });
+  });
+
+  describe('getDescription', () => {
+    it('should return "No file changes to..." if old_string and new_string are the same', () => {
+      const testFileName = 'test.txt';
+      const params: EditToolParams = {
+        file_path: path.join(rootDir, testFileName),
+        old_string: 'identical_string',
+        new_string: 'identical_string',
+      };
+      // shortenPath will be called internally, resulting in just the file name
+      expect(tool.getDescription(params)).toBe(
+        `No file changes to ${testFileName}`,
+      );
+    });
+
+    it('should return a snippet of old and new strings if they are different', () => {
+      const testFileName = 'test.txt';
+      const params: EditToolParams = {
+        file_path: path.join(rootDir, testFileName),
+        old_string: 'this is the old string value',
+        new_string: 'this is the new string value',
+      };
+      // shortenPath will be called internally, resulting in just the file name
+      // The snippets are truncated at 30 chars + '...'
+      expect(tool.getDescription(params)).toBe(
+        `${testFileName}: this is the old string value => this is the new string value`,
+      );
+    });
+
+    it('should handle very short strings correctly in the description', () => {
+      const testFileName = 'short.txt';
+      const params: EditToolParams = {
+        file_path: path.join(rootDir, testFileName),
+        old_string: 'old',
+        new_string: 'new',
+      };
+      expect(tool.getDescription(params)).toBe(`${testFileName}: old => new`);
+    });
+
+    it('should truncate long strings in the description', () => {
+      const testFileName = 'long.txt';
+      const params: EditToolParams = {
+        file_path: path.join(rootDir, testFileName),
+        old_string:
+          'this is a very long old string that will definitely be truncated',
+        new_string:
+          'this is a very long new string that will also be truncated',
+      };
+      expect(tool.getDescription(params)).toBe(
+        `${testFileName}: this is a very long old string... => this is a very long new string...`,
       );
     });
   });
