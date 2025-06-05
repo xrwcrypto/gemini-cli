@@ -176,74 +176,20 @@ class CoderAgentExecutor implements AgentExecutor {
 
     try {
       console.log('[CoderAgentExecutor] Sending initial prompt to Gemini...');
-      const firstStream = this.geminiClient.sendMessageStream(
+      let currentStream = this.geminiClient.sendMessageStream(
         [{ text: prompt }],
         abortSignal,
       );
 
       let accumulatedContent = '';
-      let toolCallRequest;
+      let toolCallRequest = undefined;
+      let streamFinished = false;
 
-      for await (const event of firstStream) {
-        if (abortSignal.aborted) break;
+      while (!abortSignal.aborted && !streamFinished) {
+        toolCallRequest = undefined; // Reset for each turn
+        accumulatedContent = ''; // Reset for each turn
 
-        switch (event.type) {
-          case GeminiEventType.Content:
-            accumulatedContent += event.value;
-            break;
-          case GeminiEventType.ToolCallRequest:
-            console.log(
-              '[CoderAgentExecutor] Tool call request received:',
-              event.value,
-            );
-            toolCallRequest = event.value;
-            break;
-          case GeminiEventType.UserCancelled:
-          case GeminiEventType.Error:
-              // Handle error and cancellation during the first stream
-              // (Publish status updates, cancel tasks etc. as in original code)
-              console.error(`[CoderAgentExecutor] Error or cancellation: ${event.type || 'User Cancelled'}`);
-              eventBus.publish({
-                  kind: 'status-update',
-                  taskId,
-                  contextId,
-                  status: { state: event.type === GeminiEventType.Error ? schema.TaskState.Failed : schema.TaskState.Canceled },
-                  final: true,
-              });
-              return; // Exit
-        }
-      }
-
-      if (accumulatedContent) {
-        eventBus.publish({
-          kind: 'message',
-          role: 'agent',
-          parts: [{ kind: 'text', text: accumulatedContent }],
-          messageId: uuidv4(),
-          taskId,
-          contextId,
-        });
-        accumulatedContent = '';
-      }
-      
-      if (toolCallRequest) {
-        const completedToolCalls = await this.taskToolSchedulerManager.scheduleToolCalls(
-          taskId,
-          contextId,
-          toolCallRequest,
-          eventBus,
-        );
-
-        const toolResults = completedToolCalls.flatMap(ctc => (ctc.response.responseParts));
-
-        console.log('[CoderAgentExecutor] Sending tool results back to Gemini...');
-
-        const secondStream = this.geminiClient.sendMessageStream(
-          toolResults,
-          abortSignal,
-        );
-
-        for await (const event of secondStream) {
+        for await (const event of currentStream) {
           if (abortSignal.aborted) break;
 
           switch (event.type) {
@@ -251,32 +197,70 @@ class CoderAgentExecutor implements AgentExecutor {
               accumulatedContent += event.value;
               break;
             case GeminiEventType.ToolCallRequest:
-               console.warn("[CoderAgentExecutor] Received a subsequent tool call request. This is not handled in the current implementation.");
-               break;
-            // Handle error/cancellation for the second stream as well
+              console.log(
+                '[CoderAgentExecutor] Tool call request received:',
+                event.value,
+              );
+              toolCallRequest = event.value;
+              break;
             case GeminiEventType.UserCancelled:
             case GeminiEventType.Error:
-              console.error(`[CoderAgentExecutor] Error or cancellation during second stream: ${event.type || 'User Cancelled'}`);
+              console.error(
+                `[CoderAgentExecutor] Error or cancellation: ${
+                  event.type || 'User Cancelled'
+                }`,
+              );
               eventBus.publish({
-                  kind: 'status-update',
-                  taskId,
-                  contextId,
-                  status: { state: event.type === GeminiEventType.Error ? schema.TaskState.Failed : schema.TaskState.Canceled },
-                  final: true,
+                kind: 'status-update',
+                taskId,
+                contextId,
+                status: {
+                  state:
+                    event.type === GeminiEventType.Error
+                      ? schema.TaskState.Failed
+                      : schema.TaskState.Canceled,
+                },
+                final: true,
               });
-              return; // Exit
+              return; // Exit execute function on error/cancellation
           }
         }
-        
+
         if (accumulatedContent) {
-           eventBus.publish({
-              kind: 'message',
-              role: 'agent',
-              parts: [{ kind: 'text', text: accumulatedContent }],
-              messageId: uuidv4(),
+          eventBus.publish({
+            kind: 'message',
+            role: 'agent',
+            parts: [{ kind: 'text', text: accumulatedContent }],
+            messageId: uuidv4(),
+            taskId,
+            contextId,
+          });
+        }
+
+        if (toolCallRequest && !abortSignal.aborted) {
+          const completedToolCalls =
+            await this.taskToolSchedulerManager.scheduleToolCalls(
               taskId,
               contextId,
-           });
+              toolCallRequest,
+              eventBus,
+            );
+
+          const toolResults = completedToolCalls.flatMap(
+            (ctc) => ctc.response.responseParts,
+          );
+
+          console.log(
+            '[CoderAgentExecutor] Sending tool results back to Gemini...',
+          );
+          // Set the next stream to process as the response from sending tool results
+          currentStream = this.geminiClient.sendMessageStream(
+            toolResults,
+            abortSignal,
+          );
+        } else {
+          // If no tool call request was received, the stream is finished for this turn
+          streamFinished = true;
         }
       }
 
