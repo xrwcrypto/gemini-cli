@@ -26,7 +26,6 @@ import {
   Config,
   ToolCallRequestInfo,
   loadEnvironment,
-  type GeminiChat,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js';
@@ -75,7 +74,6 @@ class CoderAgentExecutor implements AgentExecutor {
   private geminiClient: GeminiClient;
   private config: Config;
   private taskToolSchedulerManager: TaskToolSchedulerManager;
-  private chatSessions: Map<string, GeminiChat> = new Map();
 
   constructor(
     config: Config,
@@ -173,14 +171,7 @@ class CoderAgentExecutor implements AgentExecutor {
     }, 500); // Check every 500ms
 
     try {
-      let chat = this.chatSessions.get(taskId);
-      if (!chat) {
-        chat = await this.geminiClient.startChat();
-        this.chatSessions.set(taskId, chat);
-      }
-
       const stream = this.geminiClient.sendMessageStream(
-        chat, // Use the retrieved or new chat session
         [{ text: prompt }],
         abortSignal,
       );
@@ -340,10 +331,9 @@ class CoderAgentExecutor implements AgentExecutor {
             return; // Exit early on error
           default: {
             // Exhaustive check for unhandled event types
-            const _exhaustiveCheck: never = event;
             console.warn(
               '[CoderAgentExecutor] Unhandled stream event type:',
-              _exhaustiveCheck,
+              event,
             );
             break;
           }
