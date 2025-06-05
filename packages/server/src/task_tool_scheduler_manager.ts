@@ -23,6 +23,7 @@ import { IExecutionEventBus } from '@gemini-code/a2alib';
 
 export class TaskToolSchedulerManager {
   private schedulers: Map<string, CoreToolScheduler> = new Map();
+  private completionResolvers: Map<string, (result: CompletedToolCall[]) => void> = new Map();
   private config: Config;
 
   constructor(config: Config) {
@@ -67,6 +68,11 @@ export class TaskToolSchedulerManager {
           let hasErrors = false;
           let hasCancellations = false;
           let allSuccessful = true; // Assume success until proven otherwise
+          if (this.completionResolvers.has(taskId)) {
+            const resolve = this.completionResolvers.get(taskId)!;
+            resolve(completedToolCalls);
+            this.completionResolvers.delete(taskId); // Clean up the resolver
+          }
 
           if (completedToolCalls.length === 0) {
             // No tools were actually called, or all were filtered out before execution.
@@ -203,27 +209,17 @@ export class TaskToolSchedulerManager {
 
             const messageParts: Part[] = [];
             let messageText = `Tool '${tc.request.name}' (${tc.request.callId}) status: ${tc.status}.`;
-            let part = { kind: 'text', text: messageText } as Part;
             if (tc.status === 'error' && tc.response?.resultDisplay) {
               messageText = `Tool '${tc.request.name}' (${tc.request.callId}) failed: ${tc.response.resultDisplay}`;
-              part = { kind: 'text', text: messageText } as Part;
             } else if (
               tc.status === 'cancelled' &&
               tc.response?.resultDisplay
             ) {
               messageText = `Tool '${tc.request.name}' (${tc.request.callId}) cancelled: ${tc.response.resultDisplay}`;
-              part = { kind: 'text', text: messageText } as Part;
             } else if (tc.status === 'awaiting_approval') {
-              part = { 
-                kind: 'data',
-                data: {
-                  name: tc.request.name, 
-                  toolCallId: tc.request.callId,
-                  confirmationDetails: tc.confirmationDetails,
-                }
-              } as Part;
+              messageText = `Tool '${tc.request.name}' (${tc.request.callId}) is awaiting approval. Details: ${JSON.stringify(tc.confirmationDetails)}`;
             }
-            messageParts.push(part);
+            messageParts.push({ kind: 'text', text: messageText } as Part);
 
             const statusMessage: Message = {
               kind: 'message',
@@ -299,13 +295,18 @@ export class TaskToolSchedulerManager {
     }
   }
 
-  scheduleToolCalls(
+  async scheduleToolCalls(
     taskId: string,
     contextId: string,
     requests: ToolCallRequestInfo | ToolCallRequestInfo[],
     eventBus: IExecutionEventBus,
-  ): void {
+  ): Promise<CompletedToolCall[]> {
     const scheduler = this.getOrCreateScheduler(taskId, contextId, eventBus);
+
+    // Create and store the promise resolver
+    const completionPromise = new Promise<CompletedToolCall[]>((resolve) => {
+      this.completionResolvers.set(taskId, resolve);
+    });
     scheduler.schedule(requests);
 
     // Send an initial "Submitted" or "Working" status for the task's tool execution phase
@@ -335,6 +336,7 @@ export class TaskToolSchedulerManager {
       final: false,
     };
     eventBus.publish(initialStatusEvent);
+    return completionPromise;
   }
 
   cancelTask(
@@ -378,5 +380,6 @@ export class TaskToolSchedulerManager {
     } else {
       console.warn(`No active scheduler found for task ${taskId} to cancel.`);
     }
+    
   }
 }

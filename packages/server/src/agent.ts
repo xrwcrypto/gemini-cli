@@ -24,7 +24,7 @@ import {
   type ConfigParameters,
   GeminiEventType,
   Config,
-  ToolCallRequestInfo,
+  ToolConfirmationOutcome,
   loadEnvironment,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
@@ -90,7 +90,8 @@ class CoderAgentExecutor implements AgentExecutor {
   ): Promise<void> {
     const userMessage = requestContext.userMessage;
     const existingTask = requestContext.task;
-
+    let lastOnconfirm: (outcome: ToolConfirmationOutcome) => Promise<void> = () => { return Promise.resolve(); }
+    
     const taskId = existingTask?.id || uuidv4();
     const contextId =
       userMessage.contextId || existingTask?.contextId || uuidv4();
@@ -129,6 +130,9 @@ class CoderAgentExecutor implements AgentExecutor {
       (part): part is schema.TextPart => part.kind === 'text',
     );
     const prompt = promptPart?.text;
+    if (lastOnconfirm != null) {
+      await lastOnconfirm(ToolConfirmationOutcome.ProceedOnce)
+    }
 
     if (!prompt) {
       console.error('No text prompt found in requestContext.userMessage.parts');
@@ -171,178 +175,46 @@ class CoderAgentExecutor implements AgentExecutor {
     }, 500); // Check every 500ms
 
     try {
-      const stream = this.geminiClient.sendMessageStream(
+      console.log('[CoderAgentExecutor] Sending initial prompt to Gemini...');
+      const firstStream = this.geminiClient.sendMessageStream(
         [{ text: prompt }],
         abortSignal,
       );
 
       let accumulatedContent = '';
+      let toolCallRequest;
 
-      for await (const event of stream) {
-        if (abortSignal.aborted) {
-          // Event stream might have already yielded UserCancelled, but good to check
-          break;
-        }
+      for await (const event of firstStream) {
+        if (abortSignal.aborted) break;
 
         switch (event.type) {
           case GeminiEventType.Content:
             accumulatedContent += event.value;
             break;
           case GeminiEventType.ToolCallRequest:
-            if (accumulatedContent) {
-              eventBus.publish({
-                kind: 'message',
-                role: 'agent',
-                parts: [{ kind: 'text', text: accumulatedContent }],
-                messageId: uuidv4(),
-                taskId,
-                contextId,
-              });
-              accumulatedContent = ''; // Reset after publishing
-            }
             console.log(
               '[CoderAgentExecutor] Tool call request received:',
               event.value,
             );
-            this.taskToolSchedulerManager.scheduleToolCalls(
-              taskId,
-              contextId,
-              event.value as ToolCallRequestInfo | ToolCallRequestInfo[], // Cast to expected type
-              eventBus,
-            );
-            // The TaskToolSchedulerManager will now emit appropriate status updates (e.g., Submitted, Working)
-            // It will also emit InputRequired if a tool needs confirmation.
-            break;
-          case GeminiEventType.ToolCallResponse:
-            // This event type is usually for when the GeminiClient itself handles the tool call response.
-            // Since we are scheduling tools externally via TaskToolSchedulerManager, this path might be less common
-            // unless GeminiClient is also configured with a CoreToolScheduler that can respond directly.
-            // For now, we'll log it. The TaskToolSchedulerManager will be responsible for sending
-            // the actual tool results back to the Gemini model via subsequent sendMessageStream calls if needed,
-            // or by providing the results in the history for the next turn.
-            console.log(
-              '[CoderAgentExecutor] Tool call response received by GeminiClient:',
-              event.value,
-            );
-            eventBus.publish({
-              kind: 'message',
-              role: 'user', // Representing tool output as if from the user to the model
-              messageId: uuidv4(),
-              parts: [
-                {
-                  kind: 'data',
-                  data: {
-                    toolCallId: event.value.callId,
-                    response: JSON.stringify(event.value.responseParts),
-                    error: event.value.error?.message,
-                    resultDisplay: event.value.resultDisplay,
-                  },
-                },
-              ],
-              taskId,
-              contextId,
-            });
-            break;
-          case GeminiEventType.ToolCallConfirmation:
-            // This event is informational, indicating a tool call was confirmed by the CoreToolScheduler within GeminiClient.
-            // Our TaskToolSchedulerManager handles its own confirmations if a tool requires it (awaiting_approval state).
-            console.log(
-              '[CoderAgentExecutor] Tool call confirmation received by GeminiClient:',
-              event.value,
-            );
-            eventBus.publish({
-              kind: 'message',
-              role: 'agent',
-              messageId: uuidv4(),
-              parts: [
-                {
-                  kind: 'text',
-                  text: `GeminiClient confirmed tool call ${event.value.request.callId} (${event.value.request.name}). Details: ${JSON.stringify(event.value.details)}`,
-                },
-              ],
-              taskId,
-              contextId,
-            });
+            toolCallRequest = event.value;
             break;
           case GeminiEventType.UserCancelled:
-            if (accumulatedContent) {
-              // Publish any remaining content before cancelling
-              eventBus.publish({
-                kind: 'message',
-                role: 'agent',
-                parts: [{ kind: 'text', text: accumulatedContent }],
-                messageId: uuidv4(),
-                taskId,
-                contextId,
-              });
-              accumulatedContent = '';
-            }
-            eventBus.publish({
-              kind: 'status-update',
-              taskId,
-              contextId,
-              status: { state: schema.TaskState.Canceled },
-              final: true,
-            });
-            this.taskToolSchedulerManager.cancelTask(
-              taskId,
-              contextId,
-              eventBus,
-              'Cancelled by user via GeminiClient event',
-            );
-            return; // Exit early as task is cancelled
           case GeminiEventType.Error:
-            if (accumulatedContent) {
-              // Publish any remaining content before erroring
+              // Handle error and cancellation during the first stream
+              // (Publish status updates, cancel tasks etc. as in original code)
+              console.error(`[CoderAgentExecutor] Error or cancellation: ${event.type || 'User Cancelled'}`);
               eventBus.publish({
-                kind: 'message',
-                role: 'agent',
-                parts: [{ kind: 'text', text: accumulatedContent }],
-                messageId: uuidv4(),
-                taskId,
-                contextId,
-              });
-              accumulatedContent = '';
-            }
-            eventBus.publish({
-              kind: 'status-update',
-              taskId,
-              contextId,
-              status: {
-                state: schema.TaskState.Failed,
-                message: {
-                  kind: 'message',
-                  role: 'agent',
-                  parts: [{ kind: 'text', text: event.value.message }],
-                  messageId: uuidv4(),
+                  kind: 'status-update',
                   taskId,
                   contextId,
-                },
-              },
-              final: true,
-            });
-            this.taskToolSchedulerManager.cancelTask(
-              taskId,
-              contextId,
-              eventBus,
-              `Failed due to GeminiClient error: ${event.value.message}`,
-            );
-            clearInterval(cancellationCheckInterval);
-            return; // Exit early on error
-          default: {
-            // Exhaustive check for unhandled event types
-            console.warn(
-              '[CoderAgentExecutor] Unhandled stream event type:',
-              event,
-            );
-            break;
-          }
+                  status: { state: event.type === GeminiEventType.Error ? schema.TaskState.Failed : schema.TaskState.Canceled },
+                  final: true,
+              });
+              return; // Exit
         }
       }
 
-      if (!abortSignal.aborted && accumulatedContent) {
-        // If the loop finishes, wasn't aborted, and there's remaining content,
-        // publish it as the final message for this turn.
+      if (accumulatedContent) {
         eventBus.publish({
           kind: 'message',
           role: 'agent',
@@ -351,31 +223,72 @@ class CoderAgentExecutor implements AgentExecutor {
           taskId,
           contextId,
         });
-        accumulatedContent = ''; // Clear after publishing
+        accumulatedContent = '';
+      }
+      
+      if (toolCallRequest) {
+        const completedToolCalls = await this.taskToolSchedulerManager.scheduleToolCalls(
+          taskId,
+          contextId,
+          toolCallRequest,
+          eventBus,
+        );
+
+        const toolResults = completedToolCalls.flatMap(ctc => (ctc.response.responseParts));
+
+        console.log('[CoderAgentExecutor] Sending tool results back to Gemini...');
+
+        const secondStream = this.geminiClient.sendMessageStream(
+          toolResults,
+          abortSignal,
+        );
+
+        for await (const event of secondStream) {
+          if (abortSignal.aborted) break;
+
+          switch (event.type) {
+            case GeminiEventType.Content:
+              accumulatedContent += event.value;
+              break;
+            case GeminiEventType.ToolCallRequest:
+               console.warn("[CoderAgentExecutor] Received a subsequent tool call request. This is not handled in the current implementation.");
+               break;
+            // Handle error/cancellation for the second stream as well
+            case GeminiEventType.UserCancelled:
+            case GeminiEventType.Error:
+              console.error(`[CoderAgentExecutor] Error or cancellation during second stream: ${event.type || 'User Cancelled'}`);
+              eventBus.publish({
+                  kind: 'status-update',
+                  taskId,
+                  contextId,
+                  status: { state: event.type === GeminiEventType.Error ? schema.TaskState.Failed : schema.TaskState.Canceled },
+                  final: true,
+              });
+              return; // Exit
+          }
+        }
+        
+        if (accumulatedContent) {
+           eventBus.publish({
+              kind: 'message',
+              role: 'agent',
+              parts: [{ kind: 'text', text: accumulatedContent }],
+              messageId: uuidv4(),
+              taskId,
+              contextId,
+           });
+        }
       }
 
       if (!abortSignal.aborted) {
-        // If the loop finishes and wasn't aborted, it implies the model finished its turn.
-        console.log(
-          '[CoderAgentExecutor] Model finished generating content/tool calls for this turn.',
-        );
-
-        // Send InputRequired status update as the agent is done sending messages for this turn.
+        console.log('[CoderAgentExecutor] Task flow completed.');
         eventBus.publish({
           kind: 'status-update',
           taskId,
           contextId,
-          status: {
-            state: schema.TaskState.InputRequired,
-          },
-          final: true, // This status update is final for this phase of agent interaction
+          status: { state: schema.TaskState.Completed }, // Use Completed for a successful flow
+          final: true,
         });
-
-        // The actual 'Completed' state for the task (after tools, if any) is handled by TaskToolSchedulerManager.
-        // If no tool calls were made and content was generated, this might be the end of the task.
-        // However, TaskToolSchedulerManager is designed to send the final 'Completed' or 'Failed' event.
-        // To prevent premature 'Completed' if tools are pending, we might not send a 'Completed' here.
-        // Let TaskToolSchedulerManager's onAllToolCallsComplete be the definitive source of truth for task completion.
       }
     } catch (error) {
       if (!abortSignal.aborted) {
