@@ -111,7 +111,7 @@ class CoderAgentExecutor implements AgentExecutor {
     if (!existingTask) {
       this.tasks.set(
         taskId,
-        new Task(taskId, contextId, this.baseConfig)
+        new Task(taskId, contextId, this.baseConfig, eventBus)
       );
       eventBus.publish({
         kind: 'task',
@@ -139,6 +139,7 @@ class CoderAgentExecutor implements AgentExecutor {
 
     try {
       const task = this.tasks.get(taskId)!;
+      task.eventBus = eventBus;
       // Do a turn: accept user input, then respond.
       console.log("processing user turn");
       let agentEvents = task.acceptUserMessage(requestContext, abortSignal);

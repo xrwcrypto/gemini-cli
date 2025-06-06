@@ -15,6 +15,7 @@ import {
   ToolCall,
   ToolConfirmationOutcome,
   ToolCallRequestInfo,
+  Tool,
 } from '@gemini-code/core';
 import {
   TaskStatusUpdateEvent,
@@ -31,6 +32,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PartUnion } from '@google/genai';
 
+type ToolDef = Omit<Tool, 'config'>;
 
 export class Task {
   id: string;
@@ -41,11 +43,13 @@ export class Task {
   pendingToolConfirmationDetails: Map<string, ToolCallConfirmationDetails>;
   taskState: TaskState;
   accumulatedContent: string;
+  eventBus: IExecutionEventBus;
   
   constructor(
     id: string,
     contextId: string,
     config: Config,
+    eventBus: IExecutionEventBus,
   ) {
     this.id = id;
     this.contextId = contextId;
@@ -55,6 +59,7 @@ export class Task {
     this.pendingToolConfirmationDetails = new Map<string, ToolCallConfirmationDetails>();
     this.taskState = TaskState.Submitted;
     this.accumulatedContent = "";
+    this.eventBus = eventBus;
   }
 
     private createScheduler(
@@ -65,85 +70,149 @@ export class Task {
           toolRegistry: this.config.getToolRegistry(),
           outputUpdateHandler: (toolCallId: string, outputChunk: string) => {
             console.log("Received output chunk for tool call " + toolCallId + ": " + outputChunk)
-            // const artifact: Artifact = {
-            //   artifactId: `tool-${toolCallId}-output`,
-            //   parts: [
-            //     {
-            //       kind: 'text',
-            //       text: outputChunk,
-            //     } as Part,
-            //   ],
-            // };
-            // const artifactEvent: TaskArtifactUpdateEvent = {
-            //   kind: 'artifact-update',
-            //   taskId,
-            //   contextId,
-            //   artifact,
-            //   append: true,
-            //   lastChunk: false,
-            // };
-            // this.eventBus.publish(artifactEvent);
+            const artifact: Artifact = {
+              artifactId: `tool-${toolCallId}-output`,
+              parts: [
+                {
+                  kind: 'text',
+                  text: outputChunk,
+                } as Part,
+              ],
+            };
+            const artifactEvent: TaskArtifactUpdateEvent = {
+              kind: 'artifact-update',
+              taskId,
+              contextId,
+              artifact,
+              append: true,
+              lastChunk: false,
+            };
+            this.eventBus.publish(artifactEvent);
           },
           onAllToolCallsComplete: (completedToolCalls: CompletedToolCall[]) => {
             console.log("All tool calls completed", completedToolCalls);
-            // completedToolCalls.forEach((ctc) => {
-            //   const finalArtifact: Artifact = {
-            //     artifactId: `tool-${ctc.request.callId}-output`,
-            //     parts: [
-            //       {
-            //         kind: 'data',
-            //         data: ctc,
-            //       } as Part,
-            //     ],
-            //     metadata: {
-            //       status: ctc.status,
-            //     },
-            //   };
-            //   const artifactEvent: TaskArtifactUpdateEvent = {
-            //     kind: 'artifact-update',
-            //     taskId,
-            //     contextId,
-            //     artifact: finalArtifact,
-            //     append: false,
-            //     lastChunk: true,
-            //   };
-            //   this.eventBus.publish(artifactEvent);
-            // });
+            completedToolCalls.forEach((tc) => {
+              const statusMessage: Message = this.toolStatusMessage(tc, taskId, contextId);
+  
+              const statusEvent: TaskStatusUpdateEvent = {
+                kind: 'status-update',
+                taskId,
+                contextId,
+                status: {
+                  state: this.taskState,
+                  message: statusMessage,
+                  timestamp: new Date().toISOString(),
+                },
+                final: false,
+              };
+              this.eventBus.publish(statusEvent);
+            });
           },
           onToolCallsUpdate: (toolCalls: ToolCall[]) => {
             console.log("Tool calls updated", toolCalls);
-            // updatedToolCalls.forEach((tc) => {
-            //   const messageParts: Part[] = [];
-            //   messageParts.push({ kind: 'data', data: tc } as Part);
-                                          
-            //   const statusMessage: Message = {
-            //     kind: 'message',
-            //     role: 'agent',
-            //     parts: messageParts,
-            //     messageId: uuidv4(),
-            //     taskId,
-            //     contextId,
-            //   };
+            toolCalls.forEach((tc) => {
+              const statusMessage: Message = this.toolStatusMessage(tc, taskId, contextId);
   
-            //   const statusEvent: TaskStatusUpdateEvent = {
-            //     kind: 'status-update',
-            //     taskId,
-            //     contextId,
-            //     status: {
-            //       state: this.taskState,
-            //       message: statusMessage,
-            //       timestamp: new Date().toISOString(),
-            //     },
-            //     final: false,
-            //   };
-            //   this.eventBus.publish(statusEvent);
-            // });
+              const statusEvent: TaskStatusUpdateEvent = {
+                kind: 'status-update',
+                taskId,
+                contextId,
+                status: {
+                  state: this.taskState,
+                  message: statusMessage,
+                  timestamp: new Date().toISOString(),
+                },
+                final: false,
+              };
+              this.eventBus.publish(statusEvent);
+            });
           },
         });
         return scheduler;
     }
+  private toolStatusMessage(tc: ToolCall, taskId: string, contextId: string) {
+    const messageParts: Part[] = [];
+    switch (tc.status) {
+      case 'awaiting_approval':
+        messageParts.push({
+          kind: 'data', data: {
+            request: tc.request,
+            tool: tc.tool as ToolDef,
+            status: tc.status,
+            confirmationDetails: tc.confirmationDetails
+          }
+        } as Part);
+        break;
+      case 'cancelled':
+        messageParts.push({
+          kind: 'data', data: {
+            request: tc.request,
+            tool: tc.tool as ToolDef,
+            status: tc.status,
+          }
+        } as Part);
+        break;
+      case 'error':
+        messageParts.push({
+          kind: 'data', data: {
+            request: tc.request,
+            response: tc.response,
+            status: tc.status,
+          }
+        } as Part);
+        break;
+      case 'executing':
+        messageParts.push({
+          kind: 'data', data: {
+            request: tc.request,
+            tool: tc.tool as ToolDef,
+            status: tc.status,
+          }
+        } as Part);
+        break;
+      case 'scheduled':
+        messageParts.push({
+          kind: 'data', data: {
+            request: tc.request,
+            tool: tc.tool as ToolDef,
+            status: tc.status,
+          }
+        } as Part);
+        break;
+      case 'validating':
+        messageParts.push({
+          kind: 'data', data: {
+            request: tc.request,
+            tool: tc.tool as ToolDef,
+            status: tc.status,
+          }
+        } as Part);
+        break;
+      case 'success':
+        messageParts.push({
+          kind: 'data', data: {
+            request: tc.request,
+            response: tc.response,
+            tool: tc.tool as ToolDef,
+            status: tc.status,
+          }
+        } as Part);
+        break;
+    }
+
+    const statusMessage: Message = {
+      kind: 'message',
+      role: 'agent',
+      parts: messageParts,
+      messageId: uuidv4(),
+      taskId,
+      contextId,
+    };
+    return statusMessage;
+  }
+
   // Change the state and write to the A2A eventBus
-  acceptAgentMessage(event: ServerGeminiStreamEvent, eventBus: IExecutionEventBus): void {
+  async acceptAgentMessage(event: ServerGeminiStreamEvent, eventBus: IExecutionEventBus): Promise<void> {
     switch (event.type) {
       case GeminiEventType.Content:
         console.log("accumulating agent message")
@@ -162,7 +231,7 @@ export class Task {
           },
           final: false,
         });
-        this.scheduler.schedule(event.value);
+        await this.scheduler.schedule(event.value);
         break;
       case GeminiEventType.ToolCallResponse:
         console.log("received tool call response");
