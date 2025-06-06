@@ -15,6 +15,7 @@ import {
   ToolCall,
   ToolConfirmationOutcome,
   ToolCallRequestInfo,
+  ToolCallResponseInfo,
   // Tool, // Unused import
   ServerGeminiErrorEvent,
 } from '@gemini-code/core';
@@ -33,6 +34,13 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PartUnion } from '@google/genai';
 
+interface ToolStatusMessagePayload {
+  request: ToolCallRequestInfo;
+  status: string;
+  confirmationDetails?: ToolCallConfirmationDetails;
+  response?: ToolCallResponseInfo;
+}
+
 export class Task {
   id: string;
   contextId: string;
@@ -49,7 +57,7 @@ export class Task {
   private toolCompletionPromise?: Promise<void>;
   private toolCompletionNotifier?: {
     resolve: () => void;
-    reject: (reason?: any) => void;
+    reject: (reason?: Error) => void;
   };
 
   constructor(
@@ -353,8 +361,8 @@ export class Task {
     contextId: string,
   ): Message {
     const messageParts: Part[] = [];
-    const dataPayload: Record<string, any> = {
-      request: tc.request as ToolCallRequestInfo,
+    const dataPayload: ToolStatusMessagePayload = {
+      request: tc.request,
       status: tc.status,
     };
 
@@ -378,7 +386,7 @@ export class Task {
 
     messageParts.push({
       kind: 'data',
-      data: dataPayload,
+      data: dataPayload as unknown,
     } as Part);
 
     return {
@@ -391,11 +399,7 @@ export class Task {
     };
   }
 
-  async acceptAgentMessage(
-    event: ServerGeminiStreamEvent,
-    eventBus: IExecutionEventBus,
-  ): Promise<void> {
-    this.eventBus = eventBus; // Ensure eventBus is current
+  async acceptAgentMessage(event: ServerGeminiStreamEvent): Promise<void> {
     switch (event.type) {
       case GeminiEventType.Content:
         console.log('[Task] Accumulating agent message content...');
@@ -403,7 +407,7 @@ export class Task {
         break;
       case GeminiEventType.ToolCallRequest:
         console.log('[Task] Received tool call request from LLM:', event.value);
-        this.flushAccumulatedContent(eventBus);
+        this.flushAccumulatedContent();
         this._setTaskStateAndPublishUpdate(schema.TaskState.Working);
         // The scheduler will call _schedulerToolCallsUpdate, which will register the tool.
         await this.scheduler.schedule(event.value);
@@ -415,7 +419,7 @@ export class Task {
           '[Task] Received tool call response from LLM (part of generation):',
           event.value,
         );
-        this.flushAccumulatedContent(eventBus);
+        this.flushAccumulatedContent();
         // this._setTaskStateAndPublishUpdate(schema.TaskState.Working, "LLM generated tool response part");
         break;
       case GeminiEventType.ToolCallConfirmation:
@@ -424,7 +428,7 @@ export class Task {
           '[Task] Received tool call confirmation request from LLM:',
           event.value.request.callId,
         );
-        this.flushAccumulatedContent(eventBus);
+        this.flushAccumulatedContent();
         this.pendingToolConfirmationDetails.set(
           event.value.request.callId,
           event.value.details,
@@ -434,7 +438,7 @@ export class Task {
         break;
       case GeminiEventType.UserCancelled:
         console.log('[Task] Received user cancelled event from LLM stream.');
-        this.flushAccumulatedContent(eventBus);
+        this.flushAccumulatedContent();
         this.cancelPendingTools('User cancelled via LLM stream event');
         this._setTaskStateAndPublishUpdate(
           schema.TaskState.Canceled,
@@ -453,7 +457,7 @@ export class Task {
           '[Task] Received error event from LLM stream:',
           errorMessage,
         );
-        this.flushAccumulatedContent(eventBus);
+        this.flushAccumulatedContent();
         this.cancelPendingTools(`LLM stream error: ${errorMessage}`);
         this._setTaskStateAndPublishUpdate(
           schema.TaskState.Failed,
@@ -590,8 +594,7 @@ export class Task {
     }
   }
 
-  flushAccumulatedContent(eventBus: IExecutionEventBus): boolean {
-    this.eventBus = eventBus; // Ensure eventBus is current
+  flushAccumulatedContent(): boolean {
     if (this.accumulatedContent === '') {
       return false;
     }

@@ -159,12 +159,12 @@ class CoderAgentExecutor implements AgentExecutor {
           console.log(
             `[CoderAgentExecutor] Task ${taskId}: Aborted during agent event stream.`,
           );
-          task.flushAccumulatedContent(eventBus);
+          task.flushAccumulatedContent();
           throw new Error('Task aborted during agent event stream');
         }
-        await task.acceptAgentMessage(event, eventBus);
+        await task.acceptAgentMessage(event);
       }
-      task.flushAccumulatedContent(eventBus);
+      task.flushAccumulatedContent();
 
       if (abortSignal.aborted) {
         console.log(
