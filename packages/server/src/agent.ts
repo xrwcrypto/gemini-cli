@@ -29,26 +29,27 @@ import {
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js';
+import { Task } from './task.js';
 
 const coderAgentCard: schema.AgentCard = {
-  name: 'Coder Agent',
+  name: 'Gemini SDLC Agent',
   description:
     'An agent that generates code based on natural language instructions and streams file outputs.',
-  url: 'http://localhost:41242/', // Adjusted port and base URL
+  url: 'http://localhost:41242/',
   provider: {
-    organization: 'A2A Samples',
-    url: 'https://example.com/a2a-samples',
+    organization: 'Google',
+    url: 'https://google.com',
   },
   version: '0.0.2', // Incremented version
   capabilities: {
-    streaming: true, // Agent streams artifact updates
+    streaming: true,
     pushNotifications: false,
     stateTransitionHistory: true,
   },
   securitySchemes: undefined,
   security: undefined,
   defaultInputModes: ['text'],
-  defaultOutputModes: ['text', 'file'], // 'file' implies artifacts
+  defaultOutputModes: ['text'],
   skills: [
     {
       id: 'code_generation',
@@ -71,17 +72,13 @@ const coderAgentCard: schema.AgentCard = {
  * CoderAgentExecutor implements the agent's core logic for code generation.
  */
 class CoderAgentExecutor implements AgentExecutor {
-  private geminiClient: GeminiClient;
-  private config: Config;
-  private taskToolSchedulerManager: TaskToolSchedulerManager;
+  private baseConfig: Config;
+  private tasks: Map<string, Task> = new Map();
 
   constructor(
     config: Config,
-    taskToolSchedulerManager: TaskToolSchedulerManager,
   ) {
-    this.config = config;
-    this.geminiClient = new GeminiClient(this.config);
-    this.taskToolSchedulerManager = taskToolSchedulerManager;
+    this.baseConfig = config;
   }
 
   async execute(
@@ -90,7 +87,6 @@ class CoderAgentExecutor implements AgentExecutor {
   ): Promise<void> {
     const userMessage = requestContext.userMessage;
     const existingTask = requestContext.task;
-    let lastOnconfirm: (outcome: ToolConfirmationOutcome) => Promise<void> = () => { return Promise.resolve(); }
     
     const taskId = existingTask?.id || uuidv4();
     const contextId =
@@ -100,9 +96,24 @@ class CoderAgentExecutor implements AgentExecutor {
       `[CoderAgentExecutor] Processing message ${userMessage.messageId} for task ${taskId} (context: ${contextId})`,
     );
 
-    // 1. Publish initial Task event if it's a new task
+    // Got a task that we weren't expecting.
+    if (existingTask && !this.tasks.has(taskId)) {
+      eventBus.publish({
+          kind: 'status-update',
+          taskId,
+          contextId,
+          status: { state: schema.TaskState.Failed },
+          final: true,
+        });
+      return;
+    }
+
     if (!existingTask) {
-      const initialTask: schema.Task = {
+      this.tasks.set(
+        taskId,
+        new Task(taskId, contextId, this.baseConfig)
+      );
+      eventBus.publish({
         kind: 'task',
         id: taskId,
         contextId,
@@ -112,48 +123,7 @@ class CoderAgentExecutor implements AgentExecutor {
         },
         history: [userMessage],
         metadata: userMessage.metadata,
-        artifacts: [], // Initialize artifacts array
-      };
-      eventBus.publish(initialTask);
-
-      // Also publish an initial non-final status update
-      eventBus.publish({
-        kind: 'status-update',
-        taskId,
-        contextId,
-        status: initialTask.status, // Use the same status object
-        final: false, // Initial submission is not final
       });
-    }
-
-    const promptPart = userMessage?.parts?.find(
-      (part): part is schema.TextPart => part.kind === 'text',
-    );
-    const prompt = promptPart?.text;
-    if (lastOnconfirm != null) {
-      await lastOnconfirm(ToolConfirmationOutcome.ProceedOnce)
-    }
-
-    if (!prompt) {
-      console.error('No text prompt found in requestContext.userMessage.parts');
-      eventBus.publish({
-        kind: 'status-update',
-        taskId,
-        contextId,
-        status: {
-          state: schema.TaskState.Failed,
-          message: {
-            kind: 'message',
-            role: 'agent',
-            parts: [{ kind: 'text', text: 'No text prompt provided.' }],
-            messageId: uuidv4(),
-            taskId,
-            contextId,
-          },
-        },
-        final: true,
-      });
-      return;
     }
 
     const abortController = new AbortController();
@@ -163,117 +133,31 @@ class CoderAgentExecutor implements AgentExecutor {
     const cancellationCheckInterval = setInterval(() => {
       if (requestContext.isCancelled()) {
         abortController.abort();
-        // Also inform the taskToolSchedulerManager if a task is being cancelled externally
-        this.taskToolSchedulerManager.cancelTask(
-          taskId,
-          contextId,
-          eventBus,
-          'Cancelled due to external request',
-        );
         clearInterval(cancellationCheckInterval);
       }
     }, 500); // Check every 500ms
 
     try {
-      console.log('[CoderAgentExecutor] Sending initial prompt to Gemini...');
-      let currentStream = this.geminiClient.sendMessageStream(
-        [{ text: prompt }],
-        abortSignal,
-      );
-
-      let accumulatedContent = '';
-      let toolCallRequest = undefined;
-      let streamFinished = false;
-
-      while (!abortSignal.aborted && !streamFinished) {
-        toolCallRequest = undefined; // Reset for each turn
-        accumulatedContent = ''; // Reset for each turn
-
-        for await (const event of currentStream) {
-          if (abortSignal.aborted) break;
-
-          switch (event.type) {
-            case GeminiEventType.Content:
-              accumulatedContent += event.value;
-              break;
-            case GeminiEventType.ToolCallRequest:
-              console.log(
-                '[CoderAgentExecutor] Tool call request received:',
-                event.value,
-              );
-              toolCallRequest = event.value;
-              break;
-            case GeminiEventType.UserCancelled:
-            case GeminiEventType.Error:
-              console.error(
-                `[CoderAgentExecutor] Error or cancellation: ${
-                  event.type || 'User Cancelled'
-                }`,
-              );
-              eventBus.publish({
-                kind: 'status-update',
-                taskId,
-                contextId,
-                status: {
-                  state:
-                    event.type === GeminiEventType.Error
-                      ? schema.TaskState.Failed
-                      : schema.TaskState.Canceled,
-                },
-                final: true,
-              });
-              return; // Exit execute function on error/cancellation
-          }
-        }
-
-        if (accumulatedContent) {
-          eventBus.publish({
-            kind: 'message',
-            role: 'agent',
-            parts: [{ kind: 'text', text: accumulatedContent }],
-            messageId: uuidv4(),
-            taskId,
-            contextId,
-          });
-        }
-
-        if (toolCallRequest && !abortSignal.aborted) {
-          const completedToolCalls =
-            await this.taskToolSchedulerManager.scheduleToolCalls(
-              taskId,
-              contextId,
-              toolCallRequest,
-              eventBus,
-            );
-
-          const toolResults = completedToolCalls.flatMap(
-            (ctc) => ctc.response.responseParts,
-          );
-
-          console.log(
-            '[CoderAgentExecutor] Sending tool results back to Gemini...',
-          );
-          // Set the next stream to process as the response from sending tool results
-          currentStream = this.geminiClient.sendMessageStream(
-            toolResults,
-            abortSignal,
-          );
-        } else {
-          // If no tool call request was received, the stream is finished for this turn
-          streamFinished = true;
-        }
+      const task = this.tasks.get(taskId)!;
+      // Do a turn: accept user input, then respond.
+      console.log("processing user turn");
+      let agentEvents = task.acceptUserMessage(requestContext, abortSignal);
+      console.log("processing agent turn");
+      for await (const event of agentEvents) {
+        task.acceptAgentMessage(event, eventBus);
       }
-
-      if (!abortSignal.aborted) {
-        console.log('[CoderAgentExecutor] Task flow completed.');
+      // If we flush content here, it means that we completed a turn ending with the agent speaking, and we
+      // need to tell the client that it's their turn.
+      if (task.flushAccumulatedContent(eventBus)) {
         eventBus.publish({
-          kind: 'status-update',
-          taskId,
-          contextId,
-          status: { state: schema.TaskState.Completed }, // Use Completed for a successful flow
+          kind: "status-update",
+          taskId: taskId,
+          contextId: contextId,
+          status: { state: schema.TaskState.InputRequired },
           final: true,
-        });
+        })
       }
+      console.log("agent turn completed")
     } catch (error) {
       if (!abortSignal.aborted) {
         console.error('[CoderAgentExecutor] Error executing agent:', error);
@@ -298,12 +182,6 @@ class CoderAgentExecutor implements AgentExecutor {
           },
           final: true,
         });
-        this.taskToolSchedulerManager.cancelTask(
-          taskId,
-          contextId,
-          eventBus,
-          `Failed due to agent error: ${errorMessage}`,
-        );
       }
     } finally {
       clearInterval(cancellationCheckInterval);
@@ -313,12 +191,7 @@ class CoderAgentExecutor implements AgentExecutor {
 
 async function main() {
   loadEnvironment();
-  // 1. Create TaskStore
   const taskStore: TaskStore = new InMemoryTaskStore();
-
-  // 2. Create AgentExecutor
-  // Basic configuration for the server
-  // In a production environment, these would come from a more robust config system
   const configParams: ConfigParameters = {
     apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
     model: process.env.GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06', // Updated model
@@ -337,38 +210,26 @@ async function main() {
     // but coreTools can be specified if needed, e.g., coreTools: ['ReadFileTool', 'ShellTool']
   };
   const config = createServerConfig(configParams);
+  const agentExecutor: AgentExecutor = new CoderAgentExecutor(config);
 
-  // Create TaskToolSchedulerManager
-  const taskToolSchedulerManager = new TaskToolSchedulerManager(config);
-
-  // Pass TaskToolSchedulerManager to CoderAgentExecutor
-  const agentExecutor: AgentExecutor = new CoderAgentExecutor(
-    config,
-    taskToolSchedulerManager,
-  );
-
-  // 3. Create DefaultRequestHandler
   const requestHandler = new DefaultRequestHandler(
     coderAgentCard,
     taskStore,
     agentExecutor,
-    // true // waitForAgentOnTaskCancellation (optional param)
   );
 
-  // 4. Create and setup A2AExpressApp
   const appBuilder = new A2AExpressApp(requestHandler);
   const expressApp = appBuilder.setupRoutes(express(), '');
 
-  // 5. Start the server
   const PORT = process.env.CODER_AGENT_PORT || 41242; // Different port for coder agent
   expressApp.listen(PORT, () => {
     console.log(
-      `[CoderAgent] Server using new framework started on http://localhost:${PORT}`,
+      `[CoreAgent] Server using new framework started on http://localhost:${PORT}`,
     );
     console.log(
-      `[CoderAgent] Agent Card: http://localhost:${PORT}/.well-known/agent.json`,
+      `[CoreAgent] Agent Card: http://localhost:${PORT}/.well-known/agent.json`,
     );
-    console.log('[CoderAgent] Press Ctrl+C to stop the server');
+    console.log('[CoreAgent] Press Ctrl+C to stop the server');
   });
 }
 
