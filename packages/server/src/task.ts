@@ -15,7 +15,8 @@ import {
   ToolCall,
   ToolConfirmationOutcome,
   ToolCallRequestInfo,
-  Tool,
+  // Tool, // Unused import
+  ServerGeminiErrorEvent,
 } from '@gemini-code/core';
 import {
   TaskStatusUpdateEvent,
@@ -32,8 +33,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PartUnion } from '@google/genai';
 
-type ToolDef = Omit<Tool, 'config'>;
-
 export class Task {
   id: string;
   contextId: string;
@@ -44,7 +43,15 @@ export class Task {
   taskState: TaskState;
   accumulatedContent: string;
   eventBus: IExecutionEventBus;
-  
+
+  // For tool waiting logic
+  private pendingToolCallIds: Set<string> = new Set();
+  private toolCompletionPromise?: Promise<void>;
+  private toolCompletionNotifier?: {
+    resolve: () => void;
+    reject: (reason?: any) => void;
+  };
+
   constructor(
     id: string,
     contextId: string,
@@ -54,153 +61,327 @@ export class Task {
     this.id = id;
     this.contextId = contextId;
     this.config = config;
-    this.scheduler = this.createScheduler(this.id, contextId);
+    this.scheduler = this.createScheduler();
     this.geminiClient = new GeminiClient(this.config);
-    this.pendingToolConfirmationDetails = new Map<string, ToolCallConfirmationDetails>();
+    this.pendingToolConfirmationDetails = new Map<
+      string,
+      ToolCallConfirmationDetails
+    >();
     this.taskState = TaskState.Submitted;
-    this.accumulatedContent = "";
+    this.accumulatedContent = '';
     this.eventBus = eventBus;
+    this._resetToolCompletionPromise();
   }
 
-    private createScheduler(
-      taskId: string,
-      contextId: string,
-    ): CoreToolScheduler {
-        const scheduler = new CoreToolScheduler({
-          toolRegistry: this.config.getToolRegistry(),
-          outputUpdateHandler: (toolCallId: string, outputChunk: string) => {
-            console.log("Received output chunk for tool call " + toolCallId + ": " + outputChunk)
-            const artifact: Artifact = {
-              artifactId: `tool-${toolCallId}-output`,
-              parts: [
-                {
-                  kind: 'text',
-                  text: outputChunk,
-                } as Part,
-              ],
-            };
-            const artifactEvent: TaskArtifactUpdateEvent = {
-              kind: 'artifact-update',
-              taskId,
-              contextId,
-              artifact,
-              append: true,
-              lastChunk: false,
-            };
-            this.eventBus.publish(artifactEvent);
-          },
-          onAllToolCallsComplete: (completedToolCalls: CompletedToolCall[]) => {
-            console.log("All tool calls completed", completedToolCalls);
-            completedToolCalls.forEach((tc) => {
-              const statusMessage: Message = this.toolStatusMessage(tc, taskId, contextId);
-  
-              const statusEvent: TaskStatusUpdateEvent = {
-                kind: 'status-update',
-                taskId,
-                contextId,
-                status: {
-                  state: this.taskState,
-                  message: statusMessage,
-                  timestamp: new Date().toISOString(),
-                },
-                final: false,
-              };
-              this.eventBus.publish(statusEvent);
-            });
-          },
-          onToolCallsUpdate: (toolCalls: ToolCall[]) => {
-            console.log("Tool calls updated", toolCalls);
-            toolCalls.forEach((tc) => {
-              const statusMessage: Message = this.toolStatusMessage(tc, taskId, contextId);
-  
-              const statusEvent: TaskStatusUpdateEvent = {
-                kind: 'status-update',
-                taskId,
-                contextId,
-                status: {
-                  state: this.taskState,
-                  message: statusMessage,
-                  timestamp: new Date().toISOString(),
-                },
-                final: false,
-              };
-              this.eventBus.publish(statusEvent);
-            });
-          },
-        });
-        return scheduler;
+  private _resetToolCompletionPromise(): void {
+    this.toolCompletionPromise = new Promise((resolve, reject) => {
+      this.toolCompletionNotifier = { resolve, reject };
+    });
+    // If there are no pending calls when reset, resolve immediately.
+    if (this.pendingToolCallIds.size === 0 && this.toolCompletionNotifier) {
+      this.toolCompletionNotifier.resolve();
     }
-  private toolStatusMessage(tc: ToolCall, taskId: string, contextId: string) {
+  }
+
+  registerToolCall(toolCallId: string): void {
+    if (!this.pendingToolCallIds.has(toolCallId)) {
+      const wasEmpty = this.pendingToolCallIds.size === 0;
+      this.pendingToolCallIds.add(toolCallId);
+      if (wasEmpty) {
+        this._resetToolCompletionPromise();
+      }
+      console.log(
+        `[Task] Registered tool call: ${toolCallId}. Pending: ${this.pendingToolCallIds.size}`,
+      );
+    }
+  }
+
+  resolveToolCall(toolCallId: string): void {
+    if (this.pendingToolCallIds.has(toolCallId)) {
+      this.pendingToolCallIds.delete(toolCallId);
+      console.log(
+        `[Task] Resolved tool call: ${toolCallId}. Pending: ${this.pendingToolCallIds.size}`,
+      );
+      if (this.pendingToolCallIds.size === 0 && this.toolCompletionNotifier) {
+        this.toolCompletionNotifier.resolve();
+      }
+    }
+  }
+
+  async waitForPendingTools(): Promise<void> {
+    if (this.pendingToolCallIds.size === 0) {
+      return Promise.resolve();
+    }
+    console.log(
+      `[Task] Waiting for ${this.pendingToolCallIds.size} pending tool(s)...`,
+    );
+    return this.toolCompletionPromise;
+  }
+
+  cancelPendingTools(reason: string): void {
+    if (this.pendingToolCallIds.size > 0) {
+      console.log(
+        `[Task] Cancelling all ${this.pendingToolCallIds.size} pending tool calls. Reason: ${reason}`,
+      );
+    }
+    if (this.toolCompletionNotifier) {
+      this.toolCompletionNotifier.reject(new Error(reason));
+    }
+    this.pendingToolCallIds.clear();
+    // Reset the promise for any future operations, ensuring it's in a clean state.
+    this._resetToolCompletionPromise();
+  }
+
+  private _createTextMessage(
+    text: string,
+    role: 'agent' | 'user' = 'agent',
+  ): Message {
+    return {
+      kind: 'message',
+      role,
+      parts: [{ kind: 'text', text }],
+      messageId: uuidv4(),
+      taskId: this.id,
+      contextId: this.contextId,
+    };
+  }
+
+  private _createStatusUpdateEvent(
+    stateToReport: TaskState,
+    message?: Message,
+    final = false,
+    timestamp?: string,
+  ): TaskStatusUpdateEvent {
+    return {
+      kind: 'status-update',
+      taskId: this.id,
+      contextId: this.contextId,
+      status: {
+        state: stateToReport,
+        message, // Shorthand property
+        timestamp: timestamp || new Date().toISOString(),
+      },
+      final,
+    };
+  }
+
+  private _setTaskStateAndPublishUpdate(
+    newState: TaskState,
+    messageText?: string,
+    messageParts?: Part[], // For more complex messages
+    final = false,
+  ): void {
+    this.taskState = newState;
+    let message: Message | undefined;
+
+    if (messageText) {
+      message = this._createTextMessage(messageText);
+    } else if (messageParts) {
+      message = {
+        kind: 'message',
+        role: 'agent',
+        parts: messageParts,
+        messageId: uuidv4(),
+        taskId: this.id,
+        contextId: this.contextId,
+      };
+    }
+
+    const event = this._createStatusUpdateEvent(this.taskState, message, final);
+    this.eventBus.publish(event);
+  }
+
+  private _schedulerOutputUpdate(
+    toolCallId: string,
+    outputChunk: string,
+  ): void {
+    console.log(
+      '[Task] Scheduler output update for tool call ' +
+        toolCallId +
+        ': ' +
+        outputChunk,
+    );
+    const artifact: Artifact = {
+      artifactId: `tool-${toolCallId}-output`,
+      parts: [
+        {
+          kind: 'text',
+          text: outputChunk,
+        } as Part,
+      ],
+    };
+    const artifactEvent: TaskArtifactUpdateEvent = {
+      kind: 'artifact-update',
+      taskId: this.id,
+      contextId: this.contextId,
+      artifact,
+      append: true,
+      lastChunk: false,
+    };
+    this.eventBus.publish(artifactEvent);
+  }
+
+  private _schedulerAllToolCallsComplete(
+    completedToolCalls: CompletedToolCall[],
+  ): void {
+    console.log(
+      '[Task] All tool calls completed by scheduler (batch):',
+      completedToolCalls.map((tc) => tc.request.callId),
+    );
+    completedToolCalls.forEach((tc) => {
+      // Ensure resolution, though _schedulerToolCallsUpdate should handle terminal states.
+      this.resolveToolCall(tc.request.callId);
+      const statusMessage: Message = this.toolStatusMessage(
+        tc,
+        this.id,
+        this.contextId,
+      );
+      const event = this._createStatusUpdateEvent(
+        this.taskState,
+        statusMessage,
+        false,
+      );
+      this.eventBus.publish(event);
+    });
+  }
+
+  private _schedulerToolCallsUpdate(toolCalls: ToolCall[]): void {
+    console.log(
+      '[Task] Scheduler tool calls updated:',
+      toolCalls.map((tc) => `${tc.request.callId} (${tc.status})`),
+    );
+
+    const nonApprovalToolMessageParts: Part[] = [];
+    const approvalToolMessageParts: Part[] = [];
+    let isAwaitingApproval = false;
+    const taskStateForNonApprovalUpdates = this.taskState;
+
+    toolCalls.forEach((tc) => {
+      const toolSpecificMessage: Message = this.toolStatusMessage(
+        tc,
+        this.id,
+        this.contextId,
+      );
+
+      // Register tool call if it's new and being processed by scheduler
+      // (scheduled, executing, or awaiting_approval are good indicators)
+      if (['scheduled', 'executing', 'awaiting_approval'].includes(tc.status)) {
+        this.registerToolCall(tc.request.callId);
+      }
+
+      // Resolve tool call if it has reached a terminal state
+      if (['success', 'error', 'cancelled'].includes(tc.status)) {
+        this.resolveToolCall(tc.request.callId);
+      }
+
+      if (tc.status === 'awaiting_approval' && tc.confirmationDetails) {
+        this.pendingToolConfirmationDetails.set(
+          tc.request.callId,
+          tc.confirmationDetails,
+        );
+        isAwaitingApproval = true;
+        approvalToolMessageParts.push(...toolSpecificMessage.parts);
+      } else {
+        nonApprovalToolMessageParts.push(...toolSpecificMessage.parts);
+      }
+    });
+
+    if (nonApprovalToolMessageParts.length > 0) {
+      const message: Message = {
+        kind: 'message',
+        role: 'agent',
+        parts: nonApprovalToolMessageParts,
+        messageId: uuidv4(),
+        taskId: this.id,
+        contextId: this.contextId,
+      };
+      const event = this._createStatusUpdateEvent(
+        taskStateForNonApprovalUpdates,
+        message,
+        false,
+      );
+      this.eventBus.publish(event);
+    }
+
+    if (isAwaitingApproval) {
+      console.log(
+        '[Task] One or more tools require user confirmation. Setting task state to InputRequired by scheduler update.',
+      );
+      this.taskState = schema.TaskState.InputRequired; // State changes here
+
+      const messageParts =
+        approvalToolMessageParts.length > 0
+          ? approvalToolMessageParts
+          : [
+              {
+                kind: 'text',
+                text: 'Input required for tool execution.',
+              } as Part,
+            ];
+      const message: Message = {
+        kind: 'message',
+        role: 'agent',
+        parts: messageParts,
+        messageId: uuidv4(),
+        taskId: this.id,
+        contextId: this.contextId,
+      };
+      // This InputRequired is specific to tool approval, not end of turn.
+      // The agent.ts will send the final InputRequired after waiting.
+      const event = this._createStatusUpdateEvent(
+        this.taskState,
+        message,
+        true,
+      ); // final: true for this specific A2A interaction point
+      this.eventBus.publish(event);
+    }
+  }
+
+  private createScheduler(): CoreToolScheduler {
+    const scheduler = new CoreToolScheduler({
+      toolRegistry: this.config.getToolRegistry(),
+      outputUpdateHandler: this._schedulerOutputUpdate.bind(this),
+      onAllToolCallsComplete: this._schedulerAllToolCallsComplete.bind(this),
+      onToolCallsUpdate: this._schedulerToolCallsUpdate.bind(this),
+    });
+    return scheduler;
+  }
+
+  private toolStatusMessage(
+    tc: ToolCall,
+    taskId: string,
+    contextId: string,
+  ): Message {
     const messageParts: Part[] = [];
+    const dataPayload: Record<string, any> = {
+      request: tc.request as ToolCallRequestInfo,
+      status: tc.status,
+    };
+
     switch (tc.status) {
       case 'awaiting_approval':
-        messageParts.push({
-          kind: 'data', data: {
-            request: tc.request,
-            tool: tc.tool as ToolDef,
-            status: tc.status,
-            confirmationDetails: tc.confirmationDetails
-          }
-        } as Part);
-        break;
-      case 'cancelled':
-        messageParts.push({
-          kind: 'data', data: {
-            request: tc.request,
-            tool: tc.tool as ToolDef,
-            status: tc.status,
-          }
-        } as Part);
+        dataPayload.confirmationDetails = tc.confirmationDetails;
         break;
       case 'error':
-        messageParts.push({
-          kind: 'data', data: {
-            request: tc.request,
-            response: tc.response,
-            status: tc.status,
-          }
-        } as Part);
-        break;
-      case 'executing':
-        messageParts.push({
-          kind: 'data', data: {
-            request: tc.request,
-            tool: tc.tool as ToolDef,
-            status: tc.status,
-          }
-        } as Part);
-        break;
-      case 'scheduled':
-        messageParts.push({
-          kind: 'data', data: {
-            request: tc.request,
-            tool: tc.tool as ToolDef,
-            status: tc.status,
-          }
-        } as Part);
-        break;
-      case 'validating':
-        messageParts.push({
-          kind: 'data', data: {
-            request: tc.request,
-            tool: tc.tool as ToolDef,
-            status: tc.status,
-          }
-        } as Part);
-        break;
       case 'success':
-        messageParts.push({
-          kind: 'data', data: {
-            request: tc.request,
-            response: tc.response,
-            tool: tc.tool as ToolDef,
-            status: tc.status,
-          }
-        } as Part);
+        dataPayload.response = tc.response;
+        break;
+      case 'cancelled':
+      case 'executing':
+      case 'scheduled':
+      case 'validating':
+        // No additional properties needed for these statuses
+        break;
+      default:
         break;
     }
 
-    const statusMessage: Message = {
+    messageParts.push({
+      kind: 'data',
+      data: dataPayload,
+    } as Part);
+
+    return {
       kind: 'message',
       role: 'agent',
       parts: messageParts,
@@ -208,167 +389,221 @@ export class Task {
       taskId,
       contextId,
     };
-    return statusMessage;
   }
 
-  // Change the state and write to the A2A eventBus
-  async acceptAgentMessage(event: ServerGeminiStreamEvent, eventBus: IExecutionEventBus): Promise<void> {
+  async acceptAgentMessage(
+    event: ServerGeminiStreamEvent,
+    eventBus: IExecutionEventBus,
+  ): Promise<void> {
+    this.eventBus = eventBus; // Ensure eventBus is current
     switch (event.type) {
       case GeminiEventType.Content:
-        console.log("accumulating agent message")
+        console.log('[Task] Accumulating agent message content...');
         this.accumulatedContent += event.value;
         break;
       case GeminiEventType.ToolCallRequest:
-        console.log("received tool call request")
+        console.log('[Task] Received tool call request from LLM:', event.value);
         this.flushAccumulatedContent(eventBus);
-        this.taskState = schema.TaskState.Working;
-        eventBus.publish({
-          kind: 'status-update',
-          taskId: this.id,
-          contextId: this.contextId,
-          status: {
-            state: this.taskState,
-          },
-          final: false,
-        });
+        this._setTaskStateAndPublishUpdate(schema.TaskState.Working);
+        // The scheduler will call _schedulerToolCallsUpdate, which will register the tool.
         await this.scheduler.schedule(event.value);
         break;
       case GeminiEventType.ToolCallResponse:
-        console.log("received tool call response");
+        // This event type from ServerGeminiStreamEvent might be for when LLM *generates* a tool response part.
+        // The actual execution result comes via user message.
+        console.log(
+          '[Task] Received tool call response from LLM (part of generation):',
+          event.value,
+        );
         this.flushAccumulatedContent(eventBus);
-        this.taskState = schema.TaskState.Working;
-        eventBus.publish({
-          kind: 'status-update',
-          taskId: this.id,
-          contextId: this.contextId,
-          status: {
-            state: this.taskState,
-            message: {
-              messageId: uuidv4(),
-              kind: 'message',
-              role: 'agent',
-              parts: [{ kind: 'text', text: "Received tool call response" }],
-            },
-          },
-          final: false,
-        })
+        // this._setTaskStateAndPublishUpdate(schema.TaskState.Working, "LLM generated tool response part");
         break;
       case GeminiEventType.ToolCallConfirmation:
-        console.log("received tool call confirmation");
+        // This is when LLM requests confirmation, not when user provides it.
+        console.log(
+          '[Task] Received tool call confirmation request from LLM:',
+          event.value.request.callId,
+        );
         this.flushAccumulatedContent(eventBus);
-        this.taskState = schema.TaskState.Working;
-        this.pendingToolConfirmationDetails.set(event.value.request.callId, event.value.details);
-        eventBus.publish({
-          kind: 'status-update',
-          taskId: this.id,
-          contextId: this.contextId,
-          status: {
-            state: this.taskState,
-            message: {
-              messageId: uuidv4(),
-              kind: 'message',
-              role: 'agent',
-              parts: [{ kind: 'text', text: "Received tool call confirmation" }],
-            },
-          },
-          final: false,
-        })
+        this.pendingToolConfirmationDetails.set(
+          event.value.request.callId,
+          event.value.details,
+        );
+        // This will be handled by the scheduler and _schedulerToolCallsUpdate will set InputRequired if needed.
+        // No direct state change here, scheduler drives it.
         break;
       case GeminiEventType.UserCancelled:
-        console.log("received user cancelled event");
+        console.log('[Task] Received user cancelled event from LLM stream.');
         this.flushAccumulatedContent(eventBus);
-        this.taskState = schema.TaskState.Canceled;
-        eventBus.publish({
-          kind: 'status-update',
-          taskId: this.id,
-          contextId: this.contextId,
-          status: {
-            state: this.taskState,
-            message: {
-              messageId: uuidv4(),
-              kind: 'message',
-              role: 'agent',
-              parts: [{ kind: 'text', text: "Task cancelled by user" }],
-            }
-          },
-          final: true,
-        });
+        this.cancelPendingTools('User cancelled via LLM stream event');
+        this._setTaskStateAndPublishUpdate(
+          schema.TaskState.Canceled,
+          'Task cancelled by user',
+          undefined,
+          true,
+        );
         break;
       case GeminiEventType.Error:
-      default:
-        console.error("received error event");
+      default: {
+        // Block scope for lexical declaration
+        const errorEvent = event as ServerGeminiErrorEvent; // Type assertion
+        const errorMessage =
+          errorEvent.value?.message || 'Unknown error from LLM stream';
+        console.error(
+          '[Task] Received error event from LLM stream:',
+          errorMessage,
+        );
         this.flushAccumulatedContent(eventBus);
-        this.taskState = schema.TaskState.Failed;
-        eventBus.publish({
-          kind: 'status-update',
-          taskId: this.id,
-          contextId: this.contextId,
-          status: {
-            state: this.taskState,
-            message: {
-              messageId: uuidv4(),
-              kind: 'message',
-              role: 'agent',
-              parts: [{ kind: 'text', text: "Task failed" }],
-            }
-          },
-          final: true,
-        });
+        this.cancelPendingTools(`LLM stream error: ${errorMessage}`);
+        this._setTaskStateAndPublishUpdate(
+          schema.TaskState.Failed,
+          `Task failed: ${errorMessage}`,
+          undefined,
+          true,
+        );
         break;
-    }
-  }
-
-  acceptUserMessage(requestContext: RequestContext, aborted: AbortSignal): AsyncGenerator<ServerGeminiStreamEvent> {
-    console.log(requestContext);
-
-    const userMessage = requestContext.userMessage;
-    // gather all text parts and send to the agent.
-    let parts: PartUnion[] = [];
-    for (const part of userMessage.parts) {
-      switch (part.kind) {
-        case 'text':
-          parts.push({ text: part.text } as PartUnion);
-          break;
       }
     }
-
-    return this.geminiClient.sendMessageStream(parts, aborted);
-
-    // let toolCallRequestInfo: ToolCallRequestInfo[] = []; 
-    // for (const part of userMessage.parts) {
-    //   // Assume all data parts are tool call confirmation responses.
-    //   if (part.kind == "data") {
-    //     toolCallRequestInfo.push({
-    //       name: part.data["name"],
-    //       args: part.data["args"],
-    //       callId: part.data["callId"],
-    //     } as ToolCallRequestInfo);
-    //   }
-    // }
-
-    // // if this is in pending tool confirmation details, call callback
-    // //this.pendingToolConfirmationDetails.get("tool call ID")?.onConfirm(ToolConfirmationOutcome.ProceedOnce);
-
-    // this.scheduler.schedule(toolCallRequestInfo);
   }
 
-  // handleFirstUserMessage(requestContext: RequestContext, aborted: AbortSignal): AsyncGenerator<ServerGeminiStreamEvent> {
-  //   const userMessage = requestContext.userMessage;
-  //   return this.geminiClient.sendMessageStream(userMessage.parts, aborted);
-  // }
-  
+  private async _handleToolConfirmationPart(part: Part): Promise<boolean> {
+    if (
+      part.kind !== 'data' ||
+      !part.data ||
+      typeof part.data.callId !== 'string' ||
+      typeof part.data.outcome !== 'string'
+    ) {
+      return false;
+    }
+
+    const callId = part.data.callId as string;
+    const outcomeString = part.data.outcome as string;
+    let confirmationOutcome: ToolConfirmationOutcome | undefined;
+
+    if (outcomeString === 'ProceedOnce') {
+      confirmationOutcome = ToolConfirmationOutcome.ProceedOnce;
+    } else if (outcomeString === 'Cancel') {
+      confirmationOutcome = ToolConfirmationOutcome.Cancel;
+    } else {
+      console.warn(
+        `[Task] Unknown tool confirmation outcome: "${outcomeString}" for callId: ${callId}`,
+      );
+      return false;
+    }
+
+    const confirmationDetails = this.pendingToolConfirmationDetails.get(callId);
+    if (!confirmationDetails) {
+      console.warn(
+        `[Task] Received tool confirmation for unknown or already processed callId: ${callId}`,
+      );
+      return false;
+    }
+
+    console.log(
+      `[Task] Handling tool confirmation for callId: ${callId} with outcome: ${outcomeString}`,
+    );
+    try {
+      // This will trigger the scheduler to continue or cancel the specific tool.
+      // The scheduler's onToolCallsUpdate will then reflect the new state (e.g., executing or cancelled).
+      await confirmationDetails.onConfirm(confirmationOutcome);
+      this.pendingToolConfirmationDetails.delete(callId); // Remove once successfully passed to scheduler
+      // If outcome is Cancel, scheduler should update status to 'cancelled', which then resolves the tool.
+      // If ProceedOnce, scheduler updates to 'executing', then eventually 'success'/'error', which resolves.
+      return true;
+    } catch (error) {
+      console.error(
+        `[Task] Error during tool confirmation for callId ${callId}:`,
+        error,
+      );
+      // If confirming fails, we should probably mark this tool as failed.
+      this.resolveToolCall(callId); // Resolve it as it won't proceed.
+      const errorMessageText =
+        error instanceof Error
+          ? error.message
+          : `Error processing tool confirmation for ${callId}`;
+      const message = this._createTextMessage(errorMessageText);
+      const event = this._createStatusUpdateEvent(
+        schema.TaskState.Failed,
+        message,
+        false,
+      );
+      this.eventBus.publish(event);
+      return false;
+    }
+  }
+
+  async *acceptUserMessage(
+    requestContext: RequestContext,
+    aborted: AbortSignal,
+  ): AsyncGenerator<ServerGeminiStreamEvent> {
+    console.log('[Task] Processing user message:', requestContext.userMessage);
+
+    const userMessage = requestContext.userMessage;
+    const llmParts: PartUnion[] = [];
+    let anyConfirmationHandled = false;
+    let hasContentForLlm = false;
+
+    for (const part of userMessage.parts) {
+      const confirmationHandled = await this._handleToolConfirmationPart(part);
+      if (confirmationHandled) {
+        anyConfirmationHandled = true;
+        // If a confirmation was handled, the scheduler will now run the tool (or cancel it).
+        // We don't send anything to the LLM for this part.
+        // The subsequent tool execution will eventually lead to resolveToolCall.
+        continue;
+      }
+
+      if (part.kind === 'text') {
+        llmParts.push({ text: part.text });
+        hasContentForLlm = true;
+      }
+    }
+    if (hasContentForLlm) {
+      console.log('[Task] Sending new parts to LLM:', llmParts);
+      // Set task state to working as we are about to call LLM
+      this._setTaskStateAndPublishUpdate(schema.TaskState.Working);
+      yield* this.geminiClient.sendMessageStream(llmParts, aborted);
+    } else if (anyConfirmationHandled) {
+      console.log(
+        '[Task] User message only contained tool confirmations. Scheduler is active. No new input for LLM this turn.',
+      );
+      // Ensure task state reflects that scheduler might be working due to confirmation.
+      // If scheduler is active, it will emit its own status updates.
+      // If all pending tools were just confirmed, waitForPendingTools will handle the wait.
+      // If some tools are still pending approval, scheduler would have set InputRequired.
+      // If not, and no new text, we are just waiting.
+      if (
+        this.pendingToolCallIds.size > 0 &&
+        this.taskState !== schema.TaskState.InputRequired
+      ) {
+        this._setTaskStateAndPublishUpdate(schema.TaskState.Working); // Reflect potential background activity
+      }
+      yield* (async function* () {})(); // Yield nothing
+    } else {
+      console.log(
+        '[Task] No relevant parts in user message for LLM interaction or tool confirmation.',
+      );
+      // If there's no new text and no confirmations, and no pending tools,
+      // it implies we might need to signal input required if nothing else is happening.
+      // However, the agent.ts will make this determination after waitForPendingTools.
+      yield* (async function* () {})(); // Yield nothing
+    }
+  }
+
   flushAccumulatedContent(eventBus: IExecutionEventBus): boolean {
+    this.eventBus = eventBus; // Ensure eventBus is current
     if (this.accumulatedContent === '') {
       return false;
     }
-    eventBus.publish({
-        kind: 'message',
-        role: 'agent',
-        parts: [{ kind: 'text', text: this.accumulatedContent }],
-        messageId: uuidv4(),
-        taskId: this.id,
-        contextId: this.contextId,
-      });
+    console.log('[Task] Flushing accumulated content to event bus.');
+    this.eventBus.publish({
+      kind: 'message',
+      role: 'agent',
+      parts: [{ kind: 'text', text: this.accumulatedContent }],
+      messageId: uuidv4(),
+      taskId: this.id,
+      contextId: this.contextId,
+    });
     this.accumulatedContent = '';
     return true;
   }

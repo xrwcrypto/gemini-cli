@@ -5,8 +5,6 @@
  */
 
 import express from 'express';
-// For generating unique IDs (currently unused)
-// import { v4 as uuidv4 } from 'uuid';
 
 import {
   InMemoryTaskStore,
@@ -19,16 +17,16 @@ import {
   schema,
 } from '@gemini-code/a2alib'; // Import server components
 import {
-  GeminiClient,
+  // GeminiClient, // Not used directly in this file after changes
   createServerConfig,
   type ConfigParameters,
-  GeminiEventType,
+  // GeminiEventType, // Not used directly in this file after changes
   Config,
-  ToolConfirmationOutcome,
+  // ToolConfirmationOutcome, // Not used directly in this file after changes
   loadEnvironment,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
-import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js';
+// import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js'; // Not used for now
 import { Task } from './task.js';
 
 const coderAgentCard: schema.AgentCard = {
@@ -62,7 +60,7 @@ const coderAgentCard: schema.AgentCard = {
         'Create an HTML file with a basic button that alerts "Hello!" when clicked.',
       ],
       inputModes: ['text'],
-      outputModes: ['text', 'file'],
+      outputModes: ['text'],
     },
   ],
   supportsAuthenticatedExtendedCard: false,
@@ -75,9 +73,7 @@ class CoderAgentExecutor implements AgentExecutor {
   private baseConfig: Config;
   private tasks: Map<string, Task> = new Map();
 
-  constructor(
-    config: Config,
-  ) {
+  constructor(config: Config) {
     this.baseConfig = config;
   }
 
@@ -87,7 +83,7 @@ class CoderAgentExecutor implements AgentExecutor {
   ): Promise<void> {
     const userMessage = requestContext.userMessage;
     const existingTask = requestContext.task;
-    
+
     const taskId = existingTask?.id || uuidv4();
     const contextId =
       userMessage.contextId || existingTask?.contextId || uuidv4();
@@ -96,23 +92,14 @@ class CoderAgentExecutor implements AgentExecutor {
       `[CoderAgentExecutor] Processing message ${userMessage.messageId} for task ${taskId} (context: ${contextId})`,
     );
 
-    // Got a task that we weren't expecting.
-    if (existingTask && !this.tasks.has(taskId)) {
-      eventBus.publish({
-          kind: 'status-update',
-          taskId,
-          contextId,
-          status: { state: schema.TaskState.Failed },
-          final: true,
-        });
-      return;
-    }
+    let task: Task;
 
-    if (!existingTask) {
-      this.tasks.set(
-        taskId,
-        new Task(taskId, contextId, this.baseConfig, eventBus)
-      );
+    if (existingTask && this.tasks.has(taskId)) {
+      task = this.tasks.get(taskId)!;
+      task.eventBus = eventBus; // Update eventBus in case it changed (e.g. new SSE connection)
+    } else if (!existingTask) {
+      task = new Task(taskId, contextId, this.baseConfig, eventBus);
+      this.tasks.set(taskId, task);
       eventBus.publish({
         kind: 'task',
         id: taskId,
@@ -124,69 +111,168 @@ class CoderAgentExecutor implements AgentExecutor {
         history: [userMessage],
         metadata: userMessage.metadata,
       });
+    } else {
+      // Got a task ID for an existing task, but we don't have it in our map.
+      console.error(
+        `[CoderAgentExecutor] Received existing task ID ${taskId} but task not found in memory.`,
+      );
+      eventBus.publish({
+        kind: 'status-update',
+        taskId,
+        contextId,
+        status: {
+          state: schema.TaskState.Failed,
+          message: this._createTextMessage(
+            'Internal error: Task state lost.',
+            taskId,
+            contextId,
+          ),
+        },
+        final: true,
+      });
+      return;
     }
 
     const abortController = new AbortController();
     const abortSignal = abortController.signal;
 
-    // Polling for cancellation
     const cancellationCheckInterval = setInterval(() => {
       if (requestContext.isCancelled()) {
+        console.log(
+          `[CoderAgentExecutor] RequestContext cancelled for task ${taskId}. Aborting.`,
+        );
         abortController.abort();
+        task.cancelPendingTools('RequestContext cancelled');
         clearInterval(cancellationCheckInterval);
       }
-    }, 500); // Check every 500ms
+    }, 500);
 
     try {
-      const task = this.tasks.get(taskId)!;
-      task.eventBus = eventBus;
-      // Do a turn: accept user input, then respond.
-      console.log("processing user turn");
-      let agentEvents = task.acceptUserMessage(requestContext, abortSignal);
-      console.log("processing agent turn");
+      console.log(`[CoderAgentExecutor] Task ${taskId}: Processing user turn.`);
+      const agentEvents = task.acceptUserMessage(requestContext, abortSignal);
+
+      console.log(
+        `[CoderAgentExecutor] Task ${taskId}: Processing agent turn (LLM stream).`,
+      );
       for await (const event of agentEvents) {
-        task.acceptAgentMessage(event, eventBus);
+        if (abortSignal.aborted) {
+          console.log(
+            `[CoderAgentExecutor] Task ${taskId}: Aborted during agent event stream.`,
+          );
+          task.flushAccumulatedContent(eventBus);
+          throw new Error('Task aborted during agent event stream');
+        }
+        await task.acceptAgentMessage(event, eventBus);
       }
-      // If we flush content here, it means that we completed a turn ending with the agent speaking, and we
-      // need to tell the client that it's their turn.
-      if (task.flushAccumulatedContent(eventBus)) {
-        eventBus.publish({
-          kind: "status-update",
-          taskId: taskId,
-          contextId: contextId,
-          status: { state: schema.TaskState.InputRequired },
-          final: true,
-        })
+      task.flushAccumulatedContent(eventBus);
+
+      if (abortSignal.aborted) {
+        console.log(
+          `[CoderAgentExecutor] Task ${taskId}: Aborted after agent event stream.`,
+        );
+        throw new Error('Task aborted after agent event stream');
       }
-      console.log("agent turn completed")
-    } catch (error) {
-      if (!abortSignal.aborted) {
-        console.error('[CoderAgentExecutor] Error executing agent:', error);
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : 'Unknown error during agent execution';
+
+      console.log(
+        `[CoderAgentExecutor] Task ${taskId}: Waiting for pending tools if any.`,
+      );
+      await task.waitForPendingTools();
+      console.log(
+        `[CoderAgentExecutor] Task ${taskId}: All pending tools completed or none were pending.`,
+      );
+
+      if (abortSignal.aborted) {
+        throw new Error('Task aborted after waiting for tools');
+      }
+
+      if (
+        task.taskState !== schema.TaskState.InputRequired &&
+        task.taskState !== schema.TaskState.Canceled &&
+        task.taskState !== schema.TaskState.Failed
+      ) {
         eventBus.publish({
           kind: 'status-update',
           taskId,
           contextId,
-          status: {
-            state: schema.TaskState.Failed,
-            message: {
-              kind: 'message',
-              role: 'agent',
-              parts: [{ kind: 'text', text: errorMessage }],
-              messageId: uuidv4(),
-              taskId,
-              contextId,
-            },
-          },
+          status: { state: schema.TaskState.InputRequired },
           final: true,
         });
       }
+    } catch (error) {
+      clearInterval(cancellationCheckInterval); // Clear interval early on error
+      task.cancelPendingTools(
+        error instanceof Error ? error.message : 'Agent execution error',
+      );
+
+      if (
+        abortSignal.aborted &&
+        (error as Error)?.message?.includes('aborted')
+      ) {
+        if (
+          task.taskState !== schema.TaskState.Canceled &&
+          task.taskState !== schema.TaskState.Failed
+        ) {
+          eventBus.publish({
+            kind: 'status-update',
+            taskId,
+            contextId,
+            status: {
+              state: schema.TaskState.Canceled,
+              message: this._createTextMessage(
+                'Task execution was cancelled.',
+                taskId,
+                contextId,
+              ),
+            },
+            final: true,
+          });
+        }
+      } else {
+        console.error(
+          '[CoderAgentExecutor] Error executing agent for task',
+          taskId,
+          error,
+        );
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'Unknown error during agent execution';
+        if (task.taskState !== schema.TaskState.Failed) {
+          eventBus.publish({
+            kind: 'status-update',
+            taskId,
+            contextId,
+            status: {
+              state: schema.TaskState.Failed,
+              message: this._createTextMessage(errorMessage, taskId, contextId),
+            },
+            final: true,
+          });
+        }
+      }
     } finally {
       clearInterval(cancellationCheckInterval);
+      // Note: Do not remove the task from this.tasks map here.
+      // The task object holds history and state that might be needed for subsequent interactions
+      // or if the A2A client queries the task status later.
+      // Task cleanup/eviction would be a separate mechanism if needed (e.g., based on TTL or memory pressure).
     }
+  }
+
+  // Helper to create a simple text message for status updates
+  private _createTextMessage(
+    text: string,
+    taskId: string,
+    contextId: string,
+  ): schema.Message {
+    return {
+      kind: 'message',
+      role: 'agent',
+      parts: [{ kind: 'text', text }],
+      messageId: uuidv4(),
+      taskId,
+      contextId,
+    };
   }
 }
 
@@ -204,7 +290,6 @@ async function main() {
     userAgent: `GeminiA2AServer/0.1.0 Node.js/${process.version}`, // Basic user agent
     userMemory: '', // Server might manage memory differently or not at all initially
     geminiMdFileCount: 0,
-    // Ensure Vertex AI config is handled if necessary
     vertexai:
       process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' ? true : undefined,
     // tool related configs are omitted for now, assuming server won't use CLI's tool discovery
@@ -222,7 +307,7 @@ async function main() {
   const appBuilder = new A2AExpressApp(requestHandler);
   const expressApp = appBuilder.setupRoutes(express(), '');
 
-  const PORT = process.env.CODER_AGENT_PORT || 41242; // Different port for coder agent
+  const PORT = process.env.CODER_AGENT_PORT || 41242;
   expressApp.listen(PORT, () => {
     console.log(
       `[CoreAgent] Server using new framework started on http://localhost:${PORT}`,
