@@ -26,6 +26,7 @@ import {
   loadEnvironment,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
+import { CoderAgentEvent } from './types.js';
 // import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js'; // Not used for now
 import { Task } from './task.js';
 
@@ -122,13 +123,26 @@ class CoderAgentExecutor implements AgentExecutor {
         contextId,
         status: {
           state: schema.TaskState.Failed,
-          message: this._createTextMessage(
-            'Internal error: Task state lost.',
+          message: {
+            kind: 'message',
+            role: 'agent',
+            parts: [
+              {
+                kind: 'text',
+                text: 'Internal error: Task state lost.',
+              },
+            ],
+            messageId: uuidv4(),
             taskId,
             contextId,
-          ),
+          },
         },
         final: true,
+        metadata: {
+          coderAgent: {
+            kind: CoderAgentEvent.StateChangeEvent,
+          },
+        },
       });
       return;
     }
@@ -190,13 +204,13 @@ class CoderAgentExecutor implements AgentExecutor {
         task.taskState !== schema.TaskState.Canceled &&
         task.taskState !== schema.TaskState.Failed
       ) {
-        eventBus.publish({
-          kind: 'status-update',
-          taskId,
-          contextId,
-          status: { state: schema.TaskState.InputRequired },
-          final: true,
-        });
+        task.setTaskStateAndPublishUpdate(
+          schema.TaskState.InputRequired,
+          CoderAgentEvent.StateChangeEvent,
+          undefined,
+          undefined,
+          true,
+        );
       }
     } catch (error) {
       clearInterval(cancellationCheckInterval); // Clear interval early on error
@@ -212,20 +226,13 @@ class CoderAgentExecutor implements AgentExecutor {
           task.taskState !== schema.TaskState.Canceled &&
           task.taskState !== schema.TaskState.Failed
         ) {
-          eventBus.publish({
-            kind: 'status-update',
-            taskId,
-            contextId,
-            status: {
-              state: schema.TaskState.Canceled,
-              message: this._createTextMessage(
-                'Task execution was cancelled.',
-                taskId,
-                contextId,
-              ),
-            },
-            final: true,
-          });
+          task.setTaskStateAndPublishUpdate(
+            schema.TaskState.Canceled,
+            CoderAgentEvent.StateChangeEvent,
+            'Task execution was cancelled.',
+            undefined,
+            true,
+          );
         }
       } else {
         console.error(
@@ -238,16 +245,13 @@ class CoderAgentExecutor implements AgentExecutor {
             ? error.message
             : 'Unknown error during agent execution';
         if (task.taskState !== schema.TaskState.Failed) {
-          eventBus.publish({
-            kind: 'status-update',
-            taskId,
-            contextId,
-            status: {
-              state: schema.TaskState.Failed,
-              message: this._createTextMessage(errorMessage, taskId, contextId),
-            },
-            final: true,
-          });
+          task.setTaskStateAndPublishUpdate(
+            schema.TaskState.Failed,
+            CoderAgentEvent.StateChangeEvent,
+            errorMessage,
+            undefined,
+            true,
+          );
         }
       }
     } finally {
@@ -257,22 +261,6 @@ class CoderAgentExecutor implements AgentExecutor {
       // or if the A2A client queries the task status later.
       // Task cleanup/eviction would be a separate mechanism if needed (e.g., based on TTL or memory pressure).
     }
-  }
-
-  // Helper to create a simple text message for status updates
-  private _createTextMessage(
-    text: string,
-    taskId: string,
-    contextId: string,
-  ): schema.Message {
-    return {
-      kind: 'message',
-      role: 'agent',
-      parts: [{ kind: 'text', text }],
-      messageId: uuidv4(),
-      taskId,
-      contextId,
-    };
   }
 }
 

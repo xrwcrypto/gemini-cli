@@ -181,7 +181,7 @@ export class Task {
     };
   }
 
-  private _setTaskStateAndPublishUpdate(
+  public setTaskStateAndPublishUpdate(
     newState: TaskState,
     coderAgentEvent: CoderAgentEvent,
     messageText?: string,
@@ -425,7 +425,7 @@ export class Task {
       case GeminiEventType.ToolCallRequest:
         console.log('[Task] Received tool call request from LLM:', event.value);
         this.flushAccumulatedContent();
-        this._setTaskStateAndPublishUpdate(
+        this.setTaskStateAndPublishUpdate(
           schema.TaskState.Working,
           CoderAgentEvent.StateChangeEvent,
         );
@@ -460,7 +460,7 @@ export class Task {
         console.log('[Task] Received user cancelled event from LLM stream.');
         this.flushAccumulatedContent();
         this.cancelPendingTools('User cancelled via LLM stream event');
-        this._setTaskStateAndPublishUpdate(
+        this.setTaskStateAndPublishUpdate(
           schema.TaskState.Canceled,
           CoderAgentEvent.StateChangeEvent,
           'Task cancelled by user',
@@ -480,7 +480,7 @@ export class Task {
         );
         this.flushAccumulatedContent();
         this.cancelPendingTools(`LLM stream error: ${errorMessage}`);
-        this._setTaskStateAndPublishUpdate(
+        this.setTaskStateAndPublishUpdate(
           schema.TaskState.Failed,
           CoderAgentEvent.StateChangeEvent,
           `Task failed: ${errorMessage}`,
@@ -588,7 +588,7 @@ export class Task {
     if (hasContentForLlm) {
       console.log('[Task] Sending new parts to LLM:', llmParts);
       // Set task state to working as we are about to call LLM
-      this._setTaskStateAndPublishUpdate(
+      this.setTaskStateAndPublishUpdate(
         schema.TaskState.Working,
         CoderAgentEvent.StateChangeEvent,
       );
@@ -606,7 +606,7 @@ export class Task {
         this.pendingToolCallIds.size > 0 &&
         this.taskState !== schema.TaskState.InputRequired
       ) {
-        this._setTaskStateAndPublishUpdate(
+        this.setTaskStateAndPublishUpdate(
           schema.TaskState.Working,
           CoderAgentEvent.StateChangeEvent,
         ); // Reflect potential background activity
