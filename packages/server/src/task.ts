@@ -32,6 +32,7 @@ import {
 } from '@gemini-code/a2alib';
 import { v4 as uuidv4 } from 'uuid';
 
+import { CoderAgentEvent, CoderAgentMetadata } from './types.js';
 import { PartUnion } from '@google/genai';
 
 interface ToolStatusMessagePayload {
@@ -156,10 +157,16 @@ export class Task {
 
   private _createStatusUpdateEvent(
     stateToReport: TaskState,
+    coderAgentEvent: CoderAgentEvent,
     message?: Message,
     final = false,
     timestamp?: string,
   ): TaskStatusUpdateEvent {
+    const metadata: { coderAgent: CoderAgentMetadata } = {
+      coderAgent: {
+        kind: coderAgentEvent,
+      },
+    };
     return {
       kind: 'status-update',
       taskId: this.id,
@@ -170,11 +177,13 @@ export class Task {
         timestamp: timestamp || new Date().toISOString(),
       },
       final,
+      metadata,
     };
   }
 
   private _setTaskStateAndPublishUpdate(
     newState: TaskState,
+    coderAgentEvent: CoderAgentEvent,
     messageText?: string,
     messageParts?: Part[], // For more complex messages
     final = false,
@@ -195,7 +204,12 @@ export class Task {
       };
     }
 
-    const event = this._createStatusUpdateEvent(this.taskState, message, final);
+    const event = this._createStatusUpdateEvent(
+      this.taskState,
+      coderAgentEvent,
+      message,
+      final,
+    );
     this.eventBus.publish(event);
   }
 
@@ -246,6 +260,7 @@ export class Task {
       );
       const event = this._createStatusUpdateEvent(
         this.taskState,
+        CoderAgentEvent.ToolCallUpdateEvent,
         statusMessage,
         false,
       );
@@ -305,6 +320,7 @@ export class Task {
       };
       const event = this._createStatusUpdateEvent(
         taskStateForNonApprovalUpdates,
+        CoderAgentEvent.ToolCallUpdateEvent,
         message,
         false,
       );
@@ -338,6 +354,7 @@ export class Task {
       // The agent.ts will send the final InputRequired after waiting.
       const event = this._createStatusUpdateEvent(
         this.taskState,
+        CoderAgentEvent.ToolCallConfirmationEvent,
         message,
         true,
       ); // final: true for this specific A2A interaction point
@@ -408,7 +425,10 @@ export class Task {
       case GeminiEventType.ToolCallRequest:
         console.log('[Task] Received tool call request from LLM:', event.value);
         this.flushAccumulatedContent();
-        this._setTaskStateAndPublishUpdate(schema.TaskState.Working);
+        this._setTaskStateAndPublishUpdate(
+          schema.TaskState.Working,
+          CoderAgentEvent.StateChangeEvent,
+        );
         // The scheduler will call _schedulerToolCallsUpdate, which will register the tool.
         await this.scheduler.schedule(event.value);
         break;
@@ -442,6 +462,7 @@ export class Task {
         this.cancelPendingTools('User cancelled via LLM stream event');
         this._setTaskStateAndPublishUpdate(
           schema.TaskState.Canceled,
+          CoderAgentEvent.StateChangeEvent,
           'Task cancelled by user',
           undefined,
           true,
@@ -461,6 +482,7 @@ export class Task {
         this.cancelPendingTools(`LLM stream error: ${errorMessage}`);
         this._setTaskStateAndPublishUpdate(
           schema.TaskState.Failed,
+          CoderAgentEvent.StateChangeEvent,
           `Task failed: ${errorMessage}`,
           undefined,
           true,
@@ -527,7 +549,8 @@ export class Task {
           : `Error processing tool confirmation for ${callId}`;
       const message = this._createTextMessage(errorMessageText);
       const event = this._createStatusUpdateEvent(
-        schema.TaskState.Failed,
+        this.taskState,
+        CoderAgentEvent.ToolCallUpdateEvent,
         message,
         false,
       );
@@ -565,7 +588,10 @@ export class Task {
     if (hasContentForLlm) {
       console.log('[Task] Sending new parts to LLM:', llmParts);
       // Set task state to working as we are about to call LLM
-      this._setTaskStateAndPublishUpdate(schema.TaskState.Working);
+      this._setTaskStateAndPublishUpdate(
+        schema.TaskState.Working,
+        CoderAgentEvent.StateChangeEvent,
+      );
       yield* this.geminiClient.sendMessageStream(llmParts, aborted);
     } else if (anyConfirmationHandled) {
       console.log(
@@ -580,7 +606,10 @@ export class Task {
         this.pendingToolCallIds.size > 0 &&
         this.taskState !== schema.TaskState.InputRequired
       ) {
-        this._setTaskStateAndPublishUpdate(schema.TaskState.Working); // Reflect potential background activity
+        this._setTaskStateAndPublishUpdate(
+          schema.TaskState.Working,
+          CoderAgentEvent.StateChangeEvent,
+        ); // Reflect potential background activity
       }
       yield* (async function* () {})(); // Yield nothing
     } else {
@@ -599,14 +628,15 @@ export class Task {
       return false;
     }
     console.log('[Task] Flushing accumulated content to event bus.');
-    this.eventBus.publish({
-      kind: 'message',
-      role: 'agent',
-      parts: [{ kind: 'text', text: this.accumulatedContent }],
-      messageId: uuidv4(),
-      taskId: this.id,
-      contextId: this.contextId,
-    });
+    const message = this._createTextMessage(this.accumulatedContent);
+    this.eventBus.publish(
+      this._createStatusUpdateEvent(
+        this.taskState,
+        CoderAgentEvent.TextContentEvent,
+        message,
+        false,
+      ),
+    );
     this.accumulatedContent = '';
     return true;
   }
