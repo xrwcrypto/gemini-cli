@@ -24,7 +24,8 @@
     "@gemini-code/a2alib": "file:../a2alib",
     "@gemini-code/core": "0.1.0",
     "express": "^5.1.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

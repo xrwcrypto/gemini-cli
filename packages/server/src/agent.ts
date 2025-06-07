@@ -27,6 +27,7 @@ import {
   ApprovalMode,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from './logger.js';
 import { CoderAgentEvent } from './types.js';
 // import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js'; // Not used for now
 import { Task } from './task.js';
@@ -90,7 +91,7 @@ class CoderAgentExecutor implements AgentExecutor {
     const contextId =
       userMessage.contextId || existingTask?.contextId || uuidv4();
 
-    console.log(
+    logger.info(
       `[CoderAgentExecutor] Processing message ${userMessage.messageId} for task ${taskId} (context: ${contextId})`,
     );
 
@@ -115,7 +116,7 @@ class CoderAgentExecutor implements AgentExecutor {
       });
     } else {
       // Got a task ID for an existing task, but we don't have it in our map.
-      console.error(
+      logger.error(
         `[CoderAgentExecutor] Received existing task ID ${taskId} but task not found in memory.`,
       );
       eventBus.publish({
@@ -153,7 +154,7 @@ class CoderAgentExecutor implements AgentExecutor {
 
     const cancellationCheckInterval = setInterval(() => {
       if (requestContext.isCancelled()) {
-        console.log(
+        logger.info(
           `[CoderAgentExecutor] RequestContext cancelled for task ${taskId}. Aborting.`,
         );
         abortController.abort();
@@ -163,15 +164,15 @@ class CoderAgentExecutor implements AgentExecutor {
     }, 500);
 
     try {
-      console.log(`[CoderAgentExecutor] Task ${taskId}: Processing user turn.`);
+      logger.info(`[CoderAgentExecutor] Task ${taskId}: Processing user turn.`);
       const agentEvents = task.acceptUserMessage(requestContext, abortSignal);
 
-      console.log(
+      logger.info(
         `[CoderAgentExecutor] Task ${taskId}: Processing agent turn (LLM stream).`,
       );
       for await (const event of agentEvents) {
         if (abortSignal.aborted) {
-          console.log(
+          logger.info(
             `[CoderAgentExecutor] Task ${taskId}: Aborted during agent event stream.`,
           );
           task.flushAccumulatedContent();
@@ -182,17 +183,17 @@ class CoderAgentExecutor implements AgentExecutor {
       task.flushAccumulatedContent();
 
       if (abortSignal.aborted) {
-        console.log(
+        logger.info(
           `[CoderAgentExecutor] Task ${taskId}: Aborted after agent event stream.`,
         );
         throw new Error('Task aborted after agent event stream');
       }
 
-      console.log(
+      logger.info(
         `[CoderAgentExecutor] Task ${taskId}: Waiting for pending tools if any.`,
       );
       await task.waitForPendingTools();
-      console.log(
+      logger.info(
         `[CoderAgentExecutor] Task ${taskId}: All pending tools completed or none were pending.`,
       );
 
@@ -236,7 +237,7 @@ class CoderAgentExecutor implements AgentExecutor {
           );
         }
       } else {
-        console.error(
+        logger.error(
           '[CoderAgentExecutor] Error executing agent for task',
           taskId,
           error,
@@ -302,14 +303,14 @@ async function main() {
 
   const PORT = process.env.CODER_AGENT_PORT || 41242;
   expressApp.listen(PORT, () => {
-    console.log(
+    logger.info(
       `[CoreAgent] Server using new framework started on http://localhost:${PORT}`,
     );
-    console.log(
+    logger.info(
       `[CoreAgent] Agent Card: http://localhost:${PORT}/.well-known/agent.json`,
     );
-    console.log('[CoreAgent] Press Ctrl+C to stop the server');
+    logger.info('[CoreAgent] Press Ctrl+C to stop the server');
   });
 }
 
-main().catch(console.error);
+main().catch(logger.error);
