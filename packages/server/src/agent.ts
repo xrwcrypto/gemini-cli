@@ -24,6 +24,7 @@ import {
   Config,
   // ToolConfirmationOutcome, // Not used directly in this file after changes
   loadEnvironment,
+  ApprovalMode,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 import { CoderAgentEvent } from './types.js';
@@ -280,6 +281,10 @@ async function main() {
     geminiMdFileCount: 0,
     vertexai:
       process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' ? true : undefined,
+    approvalMode:
+      process.env.GEMINI_YOLO_MODE === 'true'
+        ? ApprovalMode.YOLO
+        : ApprovalMode.DEFAULT,
     // tool related configs are omitted for now, assuming server won't use CLI's tool discovery
     // but coreTools can be specified if needed, e.g., coreTools: ['ReadFileTool', 'ShellTool']
   };
