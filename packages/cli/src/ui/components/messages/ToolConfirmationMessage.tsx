@@ -4,13 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { DiffRenderer } from './DiffRenderer.js';
 import { Colors } from '../../colors.js';
 import {
   ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
+  ToolEditConfirmationDetails,
   ToolExecuteConfirmationDetails,
   ToolMcpConfirmationDetails,
 } from '@gemini-code/core';
@@ -27,12 +28,29 @@ export const ToolConfirmationMessage: React.FC<
   ToolConfirmationMessageProps
 > = ({ confirmationDetails }) => {
   const { onConfirm } = confirmationDetails;
+  const [idePromptDismissed, setIdePromptDismissed] = useState(false);
 
   useInput((_, key) => {
     if (key.escape) {
       onConfirm(ToolConfirmationOutcome.Cancel);
+    } else {
+      setIdePromptDismissed(true);
     }
   });
+
+  if (
+    confirmationDetails.type === 'edit' &&
+    (confirmationDetails as ToolEditConfirmationDetails).openedInIde &&
+    !idePromptDismissed
+  ) {
+    return (
+      <Box flexDirection="column" padding={1} minWidth="90%">
+        <Text>
+          I've opened the diff in VS Code. Press any key to continue...
+        </Text>
+      </Box>
+    );
+  }
 
   const handleSelect = (item: ToolConfirmationOutcome) => onConfirm(item);
 
@@ -138,3 +156,4 @@ export const ToolConfirmationMessage: React.FC<
     </Box>
   );
 };
+

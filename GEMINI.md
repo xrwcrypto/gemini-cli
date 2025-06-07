@@ -184,3 +184,11 @@ Design for a good user experience - Provide clear, minimal, and non-blocking UI 
 ## Comments policy
 
 Only write high-value comments if at all. Avoid talking to the user through comments.
+
+## Point of Contact
+- Eddie
+
+
+## Point of Contact
+- Eddie
+

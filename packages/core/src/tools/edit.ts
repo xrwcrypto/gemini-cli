@@ -5,6 +5,7 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import * as Diff from 'diff';
 import {
@@ -23,6 +24,7 @@ import { GeminiClient } from '../core/client.js';
 import { Config, ApprovalMode } from '../config/config.js';
 import { ensureCorrectEdit } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
+import { IdeOpenDiffTool } from './ide.js';
 
 /**
  * Parameters for the Edit tool
@@ -340,6 +342,18 @@ Expectation for required parameters:
       isNewFileScenario,
     );
 
+    let openedInIde = false;
+    if (await IdeOpenDiffTool.isSupported()) {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gemini-cli-'));
+      const originalFilePath = path.join(tempDir, `original-${path.basename(params.file_path)}`);
+      fs.writeFileSync(originalFilePath, currentContent ?? '');
+      fs.writeFileSync(params.file_path, newContent);
+      
+      const ideTool = new IdeOpenDiffTool();
+      await ideTool.execute({left: originalFilePath, right: params.file_path});
+      openedInIde = true;
+    }
+
     const fileName = path.basename(params.file_path);
     const fileDiff = Diff.createPatch(
       fileName,
@@ -354,6 +368,7 @@ Expectation for required parameters:
       title: `Confirm Edit: ${shortenPath(makeRelative(params.file_path, this.rootDirectory))}`,
       fileName,
       fileDiff,
+      openedInIde,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);

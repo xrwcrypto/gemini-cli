@@ -32,6 +32,8 @@ import {
   WebFetchTool,
   WebSearchTool,
   WriteFileTool,
+  IdeOpenDiffTool,
+  IdeOpenFileTool,
 } from '@gemini-code/core';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,6 +77,12 @@ export async function main() {
 
   const { config, modelWasSwitched, originalModelBeforeSwitch, finalModel } =
     await loadCliConfig(settings.merged, geminiIgnorePatterns);
+
+  if (await IdeOpenDiffTool.isSupported()) {
+    const toolRegistry = await config.getToolRegistry();
+    toolRegistry.registerTool(new IdeOpenDiffTool());
+    toolRegistry.registerTool(new IdeOpenFileTool());
+  }
 
   // Initialize centralized FileDiscoveryService
   await config.getFileService();

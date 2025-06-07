@@ -202,6 +202,7 @@ export interface ToolEditConfirmationDetails {
   onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
   fileName: string;
   fileDiff: string;
+  openedInIde?: boolean;
 }
 
 export interface ToolExecuteConfirmationDetails {
