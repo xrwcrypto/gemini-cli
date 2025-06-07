@@ -16,6 +16,7 @@ import {
   ToolConfirmationOutcome,
   ToolCallRequestInfo,
   ToolCallResponseInfo,
+  ApprovalMode,
   // Tool, // Unused import
   ServerGeminiErrorEvent,
 } from '@gemini-code/core';
@@ -31,6 +32,7 @@ import {
   schema,
 } from '@gemini-code/a2alib';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from './logger.js';
 
 import { CoderAgentEvent, CoderAgentMetadata } from './types.js';
 import { PartUnion } from '@google/genai';
@@ -99,7 +101,7 @@ export class Task {
       if (wasEmpty) {
         this._resetToolCompletionPromise();
       }
-      console.log(
+      logger.info(
         `[Task] Registered tool call: ${toolCallId}. Pending: ${this.pendingToolCallIds.size}`,
       );
     }
@@ -108,7 +110,7 @@ export class Task {
   resolveToolCall(toolCallId: string): void {
     if (this.pendingToolCallIds.has(toolCallId)) {
       this.pendingToolCallIds.delete(toolCallId);
-      console.log(
+      logger.info(
         `[Task] Resolved tool call: ${toolCallId}. Pending: ${this.pendingToolCallIds.size}`,
       );
       if (this.pendingToolCallIds.size === 0 && this.toolCompletionNotifier) {
@@ -121,7 +123,7 @@ export class Task {
     if (this.pendingToolCallIds.size === 0) {
       return Promise.resolve();
     }
-    console.log(
+    logger.info(
       `[Task] Waiting for ${this.pendingToolCallIds.size} pending tool(s)...`,
     );
     return this.toolCompletionPromise;
@@ -129,7 +131,7 @@ export class Task {
 
   cancelPendingTools(reason: string): void {
     if (this.pendingToolCallIds.size > 0) {
-      console.log(
+      logger.info(
         `[Task] Cancelling all ${this.pendingToolCallIds.size} pending tool calls. Reason: ${reason}`,
       );
     }
@@ -217,7 +219,7 @@ export class Task {
     toolCallId: string,
     outputChunk: string,
   ): void {
-    console.log(
+    logger.info(
       '[Task] Scheduler output update for tool call ' +
         toolCallId +
         ': ' +
@@ -246,7 +248,7 @@ export class Task {
   private _schedulerAllToolCallsComplete(
     completedToolCalls: CompletedToolCall[],
   ): void {
-    console.log(
+    logger.info(
       '[Task] All tool calls completed by scheduler (batch):',
       completedToolCalls.map((tc) => tc.request.callId),
     );
@@ -269,7 +271,7 @@ export class Task {
   }
 
   private _schedulerToolCallsUpdate(toolCalls: ToolCall[]): void {
-    console.log(
+    logger.info(
       '[Task] Scheduler tool calls updated:',
       toolCalls.map((tc) => `${tc.request.callId} (${tc.status})`),
     );
@@ -328,7 +330,19 @@ export class Task {
     }
 
     if (isAwaitingApproval) {
-      console.log(
+      if (this.config.getApprovalMode() === ApprovalMode.YOLO) {
+        logger.info(
+          '[Task] YOLO mode enabled. Auto-approving all tool calls.',
+        );
+        toolCalls.forEach((tc) => {
+          if (tc.status === 'awaiting_approval' && tc.confirmationDetails) {
+            tc.confirmationDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+            this.pendingToolConfirmationDetails.delete(tc.request.callId);
+          }
+        });
+        return;
+      }
+      logger.info(
         '[Task] One or more tools require user confirmation. Setting task state to InputRequired by scheduler update.',
       );
       this.taskState = schema.TaskState.InputRequired; // State changes here
@@ -419,11 +433,11 @@ export class Task {
   async acceptAgentMessage(event: ServerGeminiStreamEvent): Promise<void> {
     switch (event.type) {
       case GeminiEventType.Content:
-        console.log('[Task] Accumulating agent message content...');
+        logger.info('[Task] Accumulating agent message content...');
         this.accumulatedContent += event.value;
         break;
       case GeminiEventType.ToolCallRequest:
-        console.log('[Task] Received tool call request from LLM:', event.value);
+        logger.info('[Task] Received tool call request from LLM:', event.value);
         this.flushAccumulatedContent();
         this.setTaskStateAndPublishUpdate(
           schema.TaskState.Working,
@@ -435,7 +449,7 @@ export class Task {
       case GeminiEventType.ToolCallResponse:
         // This event type from ServerGeminiStreamEvent might be for when LLM *generates* a tool response part.
         // The actual execution result comes via user message.
-        console.log(
+        logger.info(
           '[Task] Received tool call response from LLM (part of generation):',
           event.value,
         );
@@ -444,7 +458,7 @@ export class Task {
         break;
       case GeminiEventType.ToolCallConfirmation:
         // This is when LLM requests confirmation, not when user provides it.
-        console.log(
+        logger.info(
           '[Task] Received tool call confirmation request from LLM:',
           event.value.request.callId,
         );
@@ -457,7 +471,7 @@ export class Task {
         // No direct state change here, scheduler drives it.
         break;
       case GeminiEventType.UserCancelled:
-        console.log('[Task] Received user cancelled event from LLM stream.');
+        logger.info('[Task] Received user cancelled event from LLM stream.');
         this.flushAccumulatedContent();
         this.cancelPendingTools('User cancelled via LLM stream event');
         this.setTaskStateAndPublishUpdate(
@@ -474,7 +488,7 @@ export class Task {
         const errorEvent = event as ServerGeminiErrorEvent; // Type assertion
         const errorMessage =
           errorEvent.value?.message || 'Unknown error from LLM stream';
-        console.error(
+        logger.error(
           '[Task] Received error event from LLM stream:',
           errorMessage,
         );
@@ -511,7 +525,7 @@ export class Task {
     } else if (outcomeString === 'Cancel') {
       confirmationOutcome = ToolConfirmationOutcome.Cancel;
     } else {
-      console.warn(
+      logger.warn(
         `[Task] Unknown tool confirmation outcome: "${outcomeString}" for callId: ${callId}`,
       );
       return false;
@@ -519,13 +533,13 @@ export class Task {
 
     const confirmationDetails = this.pendingToolConfirmationDetails.get(callId);
     if (!confirmationDetails) {
-      console.warn(
+      logger.warn(
         `[Task] Received tool confirmation for unknown or already processed callId: ${callId}`,
       );
       return false;
     }
 
-    console.log(
+    logger.info(
       `[Task] Handling tool confirmation for callId: ${callId} with outcome: ${outcomeString}`,
     );
     try {
@@ -537,7 +551,7 @@ export class Task {
       // If ProceedOnce, scheduler updates to 'executing', then eventually 'success'/'error', which resolves.
       return true;
     } catch (error) {
-      console.error(
+      logger.error(
         `[Task] Error during tool confirmation for callId ${callId}:`,
         error,
       );
@@ -563,7 +577,7 @@ export class Task {
     requestContext: RequestContext,
     aborted: AbortSignal,
   ): AsyncGenerator<ServerGeminiStreamEvent> {
-    console.log('[Task] Processing user message:', requestContext.userMessage);
+    logger.info('[Task] Processing user message:', requestContext.userMessage);
 
     const userMessage = requestContext.userMessage;
     const llmParts: PartUnion[] = [];
@@ -586,7 +600,7 @@ export class Task {
       }
     }
     if (hasContentForLlm) {
-      console.log('[Task] Sending new parts to LLM:', llmParts);
+      logger.info('[Task] Sending new parts to LLM:', llmParts);
       // Set task state to working as we are about to call LLM
       this.setTaskStateAndPublishUpdate(
         schema.TaskState.Working,
@@ -594,7 +608,7 @@ export class Task {
       );
       yield* this.geminiClient.sendMessageStream(llmParts, aborted);
     } else if (anyConfirmationHandled) {
-      console.log(
+      logger.info(
         '[Task] User message only contained tool confirmations. Scheduler is active. No new input for LLM this turn.',
       );
       // Ensure task state reflects that scheduler might be working due to confirmation.
@@ -613,7 +627,7 @@ export class Task {
       }
       yield* (async function* () {})(); // Yield nothing
     } else {
-      console.log(
+      logger.info(
         '[Task] No relevant parts in user message for LLM interaction or tool confirmation.',
       );
       // If there's no new text and no confirmations, and no pending tools,
@@ -627,7 +641,7 @@ export class Task {
     if (this.accumulatedContent === '') {
       return false;
     }
-    console.log('[Task] Flushing accumulated content to event bus.');
+    logger.info('[Task] Flushing accumulated content to event bus.');
     const message = this._createTextMessage(this.accumulatedContent);
     this.eventBus.publish(
       this._createStatusUpdateEvent(
