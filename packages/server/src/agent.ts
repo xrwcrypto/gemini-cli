@@ -29,6 +29,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger.js';
 import { CoderAgentEvent, StateChange, AgentSettings } from './types.js';
+import { loadSettings } from './config.js';
 // import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js'; // Not used for now
 import { Task } from './task.js';
 
@@ -305,6 +306,7 @@ class CoderAgentExecutor implements AgentExecutor {
 
 async function main() {
   loadEnvironment();
+  const settings = loadSettings();
   const taskStore: TaskStore = new InMemoryTaskStore();
   const configParams: ConfigParameters = {
     apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
@@ -323,10 +325,11 @@ async function main() {
       process.env.GEMINI_YOLO_MODE === 'true'
         ? ApprovalMode.YOLO
         : ApprovalMode.DEFAULT,
+    mcpServers: settings.mcpServers,
     // tool related configs are omitted for now, assuming server won't use CLI's tool discovery
     // but coreTools can be specified if needed, e.g., coreTools: ['ReadFileTool', 'ShellTool']
   };
-  const config = createServerConfig(configParams);
+  const config = await createServerConfig(configParams);
   const agentExecutor: AgentExecutor = new CoderAgentExecutor(config);
 
   const requestHandler = new DefaultRequestHandler(
