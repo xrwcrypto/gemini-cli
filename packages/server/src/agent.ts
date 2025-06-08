@@ -74,12 +74,9 @@ const coderAgentCard: schema.AgentCard = {
  * CoderAgentExecutor implements the agent's core logic for code generation.
  */
 class CoderAgentExecutor implements AgentExecutor {
-  private baseConfig: Config;
   private tasks: Map<string, Task> = new Map();
 
-  constructor(config: Config) {
-    this.baseConfig = config;
-  }
+  constructor() {}
 
   async execute(
     requestContext: RequestContext,
@@ -97,13 +94,33 @@ class CoderAgentExecutor implements AgentExecutor {
     );
 
     let task: Task;
-    let taskConfig = this.baseConfig;
 
     if (existingTask && this.tasks.has(taskId)) {
       task = this.tasks.get(taskId)!;
       task.eventBus = eventBus; // Update eventBus in case it changed (e.g. new SSE connection)
     } else if (!existingTask) {
       const agentSettings = userMessage.metadata?.coderAgent as AgentSettings;
+      const settings = loadSettings();
+      const configParams: ConfigParameters = {
+        apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+        model: process.env.GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06',
+        sandbox: false, // Sandbox might not be relevant for a server-side agent
+        targetDir: process.cwd(), // Or a specific directory the agent operates on
+        debugMode: process.env.DEBUG === 'true' || false,
+        question: '', // Not used in server mode directly like CLI
+        fullContext: false, // Server might have different context needs
+        userAgent: `GeminiA2AServer/0.1.0 Node.js/${process.version}`, // Basic user agent
+        userMemory: '', // Server might manage memory differently or not at all initially
+        geminiMdFileCount: 0,
+        vertexai:
+          process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' ? true : undefined,
+        approvalMode:
+          process.env.GEMINI_YOLO_MODE === 'true'
+            ? ApprovalMode.YOLO
+            : ApprovalMode.DEFAULT,
+        mcpServers: settings.mcpServers,
+      };
+
       if (
         agentSettings &&
         agentSettings.kind === CoderAgentEvent.StateAgentSettingsEvent
@@ -112,24 +129,10 @@ class CoderAgentExecutor implements AgentExecutor {
           `[CoderAgentExecutor] Received agent settings. Overriding workspace path to: ${agentSettings.workspacePath}`,
         );
         process.chdir(agentSettings.workspacePath);
-        const configParams: ConfigParameters = {
-          apiKey: this.baseConfig.getApiKey(),
-          model: this.baseConfig.getModel(),
-          sandbox: this.baseConfig.getSandbox(),
-          targetDir: agentSettings.workspacePath,
-          debugMode: this.baseConfig.getDebugMode(),
-          question: '',
-          fullContext: false,
-          userAgent: this.baseConfig.getUserAgent(),
-          userMemory: '',
-          geminiMdFileCount: 0,
-          vertexai: this.baseConfig.getVertexAI(),
-          approvalMode: this.baseConfig.getApprovalMode(),
-          mcpServers: this.baseConfig.getMcpServers(),
-        };
-        taskConfig = createServerConfig(configParams);
+        configParams.targetDir = agentSettings.workspacePath;
       }
 
+      const taskConfig = await createServerConfig(configParams);
       task = new Task(taskId, contextId, taskConfig, eventBus);
       this.tasks.set(taskId, task);
       eventBus.publish({
@@ -307,31 +310,8 @@ class CoderAgentExecutor implements AgentExecutor {
 
 async function main() {
   loadEnvironment();
-  const settings = loadSettings();
   const taskStore: TaskStore = new InMemoryTaskStore();
-  const configParams: ConfigParameters = {
-    apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06', // Updated model
-    sandbox: false, // Sandbox might not be relevant for a server-side agent
-    targetDir: process.cwd(), // Or a specific directory the agent operates on
-    debugMode: process.env.DEBUG === 'true' || false,
-    question: '', // Not used in server mode directly like CLI
-    fullContext: false, // Server might have different context needs
-    userAgent: `GeminiA2AServer/0.1.0 Node.js/${process.version}`, // Basic user agent
-    userMemory: '', // Server might manage memory differently or not at all initially
-    geminiMdFileCount: 0,
-    vertexai:
-      process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' ? true : undefined,
-    approvalMode:
-      process.env.GEMINI_YOLO_MODE === 'true'
-        ? ApprovalMode.YOLO
-        : ApprovalMode.DEFAULT,
-    mcpServers: settings.mcpServers,
-    // tool related configs are omitted for now, assuming server won't use CLI's tool discovery
-    // but coreTools can be specified if needed, e.g., coreTools: ['ReadFileTool', 'ShellTool']
-  };
-  const config = await createServerConfig(configParams);
-  const agentExecutor: AgentExecutor = new CoderAgentExecutor(config);
+  const agentExecutor: AgentExecutor = new CoderAgentExecutor();
 
   const requestHandler = new DefaultRequestHandler(
     coderAgentCard,
