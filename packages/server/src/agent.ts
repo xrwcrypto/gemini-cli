@@ -233,6 +233,19 @@ class CoderAgentExecutor implements AgentExecutor {
         throw new Error('Task aborted after waiting for tools');
       }
 
+      const agentEventsAfterTools = task.sendCompletedToolsToLlm(abortSignal);
+      for await (const event of agentEventsAfterTools) {
+        if (abortSignal.aborted) {
+          logger.info(
+            `[CoderAgentExecutor] Task ${taskId}: Aborted during agent event stream after tools.`,
+          );
+          task.flushAccumulatedContent();
+          throw new Error('Task aborted during agent event stream after tools');
+        }
+        await task.acceptAgentMessage(event);
+      }
+      task.flushAccumulatedContent();
+
       if (
         task.taskState !== schema.TaskState.InputRequired &&
         task.taskState !== schema.TaskState.Canceled &&

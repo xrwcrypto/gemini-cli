@@ -252,9 +252,9 @@ export class Task {
     this.eventBus.publish(artifactEvent);
   }
 
-  private _schedulerAllToolCallsComplete(
+  private async _schedulerAllToolCallsComplete(
     completedToolCalls: CompletedToolCall[],
-  ): void {
+  ): Promise<void> {
     logger.info(
       '[Task] All tool calls completed by scheduler (batch):',
       completedToolCalls.map((tc) => tc.request.callId),
@@ -279,6 +279,14 @@ export class Task {
       );
       this.eventBus.publish(event);
     });
+
+    // Immediately send the tool responses to the LLM.
+    const abortController = new AbortController();
+    const agentEvents = this.sendCompletedToolsToLlm(abortController.signal);
+    for await (const event of agentEvents) {
+      await this.acceptAgentMessage(event);
+    }
+    this.flushAccumulatedContent();
   }
 
   private _schedulerToolCallsUpdate(toolCalls: ToolCall[]): void {
@@ -596,6 +604,40 @@ export class Task {
     }
   }
 
+  async *sendCompletedToolsToLlm(
+    aborted: AbortSignal,
+  ): AsyncGenerator<ServerGeminiStreamEvent> {
+    if (this.completedToolCalls.length === 0) {
+      yield* (async function* () {})(); // Yield nothing
+      return;
+    }
+
+    const llmParts: PartUnion[] = [];
+    logger.info(
+      `[Task] Feeding ${this.completedToolCalls.length} tool responses to LLM.`,
+    );
+    for (const completedToolCall of this.completedToolCalls) {
+      logger.info(
+        `[Task] Adding tool response for "${completedToolCall.request.name}" (callId: ${completedToolCall.request.callId}) to LLM input.`,
+      );
+      const responseParts = completedToolCall.response.responseParts;
+      if (Array.isArray(responseParts)) {
+        llmParts.push(...responseParts);
+      } else {
+        llmParts.push(responseParts);
+      }
+    }
+    this.completedToolCalls = [];
+
+    logger.info('[Task] Sending new parts to LLM:', llmParts);
+    const stateChange: StateChange = {
+      kind: CoderAgentEvent.StateChangeEvent,
+    };
+    // Set task state to working as we are about to call LLM
+    this.setTaskStateAndPublishUpdate(schema.TaskState.Working, stateChange);
+    yield* this.geminiClient.sendMessageStream(llmParts, aborted);
+  }
+
   async *acceptUserMessage(
     requestContext: RequestContext,
     aborted: AbortSignal,
@@ -606,25 +648,6 @@ export class Task {
     const llmParts: PartUnion[] = [];
     let anyConfirmationHandled = false;
     let hasContentForLlm = false;
-
-    if (this.completedToolCalls.length > 0) {
-      logger.info(
-        `[Task] Feeding ${this.completedToolCalls.length} tool responses to LLM.`,
-      );
-      for (const completedToolCall of this.completedToolCalls) {
-        logger.info(
-          `[Task] Adding tool response for "${completedToolCall.request.name}" (callId: ${completedToolCall.request.callId}) to LLM input.`,
-        );
-        const responseParts = completedToolCall.response.responseParts;
-        if (Array.isArray(responseParts)) {
-          llmParts.push(...responseParts);
-        } else {
-          llmParts.push(responseParts);
-        }
-      }
-      this.completedToolCalls = [];
-      hasContentForLlm = true;
-    }
 
     for (const part of userMessage.parts) {
       const confirmationHandled = await this._handleToolConfirmationPart(part);
