@@ -279,14 +279,6 @@ export class Task {
       );
       this.eventBus.publish(event);
     });
-
-    // Immediately send the tool responses to the LLM.
-    const abortController = new AbortController();
-    const agentEvents = this.sendCompletedToolsToLlm(abortController.signal);
-    for await (const event of agentEvents) {
-      await this.acceptAgentMessage(event);
-    }
-    this.flushAccumulatedContent();
   }
 
   private _schedulerToolCallsUpdate(toolCalls: ToolCall[]): void {

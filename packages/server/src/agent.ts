@@ -196,55 +196,66 @@ class CoderAgentExecutor implements AgentExecutor {
     }, 500);
 
     try {
+      let agentTurnActive = true;
+
+      // Initial user message processing
       logger.info(`[CoderAgentExecutor] Task ${taskId}: Processing user turn.`);
-      const agentEvents = task.acceptUserMessage(requestContext, abortSignal);
+      let agentEvents = task.acceptUserMessage(requestContext, abortSignal);
 
-      logger.info(
-        `[CoderAgentExecutor] Task ${taskId}: Processing agent turn (LLM stream).`,
-      );
-      for await (const event of agentEvents) {
+      while (agentTurnActive) {
         if (abortSignal.aborted) {
-          logger.info(
-            `[CoderAgentExecutor] Task ${taskId}: Aborted during agent event stream.`,
-          );
-          task.flushAccumulatedContent();
-          throw new Error('Task aborted during agent event stream');
+          throw new Error('Task aborted during agent turn loop.');
         }
-        await task.acceptAgentMessage(event);
-      }
-      task.flushAccumulatedContent();
 
-      if (abortSignal.aborted) {
         logger.info(
-          `[CoderAgentExecutor] Task ${taskId}: Aborted after agent event stream.`,
+          `[CoderAgentExecutor] Task ${taskId}: Processing agent turn (LLM stream).`,
         );
-        throw new Error('Task aborted after agent event stream');
-      }
+        let hasGeneratedContent = false;
+        for await (const event of agentEvents) {
+          hasGeneratedContent = true;
+          if (abortSignal.aborted) {
+            logger.info(
+              `[CoderAgentExecutor] Task ${taskId}: Aborted during agent event stream.`,
+            );
+            task.flushAccumulatedContent();
+            throw new Error('Task aborted during agent event stream');
+          }
+          await task.acceptAgentMessage(event);
+        }
+        task.flushAccumulatedContent();
 
-      logger.info(
-        `[CoderAgentExecutor] Task ${taskId}: Waiting for pending tools if any.`,
-      );
-      await task.waitForPendingTools();
-      logger.info(
-        `[CoderAgentExecutor] Task ${taskId}: All pending tools completed or none were pending.`,
-      );
-
-      if (abortSignal.aborted) {
-        throw new Error('Task aborted after waiting for tools');
-      }
-
-      const agentEventsAfterTools = task.sendCompletedToolsToLlm(abortSignal);
-      for await (const event of agentEventsAfterTools) {
         if (abortSignal.aborted) {
           logger.info(
-            `[CoderAgentExecutor] Task ${taskId}: Aborted during agent event stream after tools.`,
+            `[CoderAgentExecutor] Task ${taskId}: Aborted after agent event stream.`,
           );
-          task.flushAccumulatedContent();
-          throw new Error('Task aborted during agent event stream after tools');
+          throw new Error('Task aborted after agent event stream');
         }
-        await task.acceptAgentMessage(event);
+
+        logger.info(
+          `[CoderAgentExecutor] Task ${taskId}: Waiting for pending tools if any.`,
+        );
+        await task.waitForPendingTools();
+        logger.info(
+          `[CoderAgentExecutor] Task ${taskId}: All pending tools completed or none were pending.`,
+        );
+
+        if (abortSignal.aborted) {
+          throw new Error('Task aborted after waiting for tools');
+        }
+
+        if (task.completedToolCalls.length > 0) {
+          logger.info(
+            `[CoderAgentExecutor] Task ${taskId}: Found ${task.completedToolCalls.length} completed tool calls. Sending results back to LLM.`,
+          );
+          agentEvents = task.sendCompletedToolsToLlm(abortSignal);
+          // Continue the loop to process the LLM response to the tool results.
+        } else {
+          logger.info(
+            `[CoderAgentExecutor] Task ${taskId}: No more tool calls to process. Ending agent turn.`,
+          );
+          agentTurnActive = false;
+        }
       }
-      task.flushAccumulatedContent();
 
       if (
         task.taskState !== schema.TaskState.InputRequired &&
