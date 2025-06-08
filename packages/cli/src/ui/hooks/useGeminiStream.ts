@@ -143,10 +143,15 @@ export const useGeminiStream = (
     return StreamingState.Idle;
   }, [isResponding, toolCalls]);
 
+  useEffect(() => {
+    if (streamingState === StreamingState.Idle) {
+      abortControllerRef.current = null;
+    }
+  }, [streamingState]);
+
   useInput((_input, key) => {
     if (streamingState !== StreamingState.Idle && key.escape) {
       abortControllerRef.current?.abort();
-      cancelAllToolCalls(); // Also cancel any pending/executing tool calls
     }
   });
 
@@ -191,7 +196,7 @@ export const useGeminiStream = (
               name: toolName,
               args: toolArgs,
             };
-            scheduleToolCalls([toolCallRequest]);
+            scheduleToolCalls([toolCallRequest], abortSignal);
           }
           return { queryToSend: null, shouldProceed: false }; // Handled by scheduling the tool
         }
@@ -365,6 +370,7 @@ export const useGeminiStream = (
     async (
       stream: AsyncIterable<GeminiEvent>,
       userMessageTimestamp: number,
+      signal: AbortSignal,
     ): Promise<StreamProcessingStatus> => {
       let geminiMessageBuffer = '';
       const toolCallRequests: ToolCallRequestInfo[] = [];
@@ -401,7 +407,7 @@ export const useGeminiStream = (
         }
       }
       if (toolCallRequests.length > 0) {
-        scheduleToolCalls(toolCallRequests);
+        scheduleToolCalls(toolCallRequests, signal);
       }
       return StreamProcessingStatus.Completed;
     },
@@ -453,6 +459,7 @@ export const useGeminiStream = (
         const processingStatus = await processGeminiStreamEvents(
           stream,
           userMessageTimestamp,
+          abortSignal,
         );
 
         if (processingStatus === StreamProcessingStatus.UserCancelled) {
@@ -476,7 +483,6 @@ export const useGeminiStream = (
           );
         }
       } finally {
-        abortControllerRef.current = null; // Always reset
         setIsResponding(false);
       }
     },

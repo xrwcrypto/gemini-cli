@@ -32,6 +32,7 @@ import {
 
 export type ScheduleFn = (
   request: ToolCallRequestInfo | ToolCallRequestInfo[],
+  signal: AbortSignal,
 ) => void;
 export type CancelFn = (reason?: string) => void;
 export type MarkToolsAsSubmittedFn = (callIds: string[]) => void;
@@ -172,8 +173,11 @@ export function useReactToolScheduler(
   );
 
   const schedule: ScheduleFn = useCallback(
-    async (request: ToolCallRequestInfo | ToolCallRequestInfo[]) => {
-      scheduler.schedule(request);
+    async (
+      request: ToolCallRequestInfo | ToolCallRequestInfo[],
+      signal: AbortSignal,
+    ) => {
+      scheduler.schedule(request, signal);
     },
     [scheduler],
   );
