@@ -28,7 +28,7 @@ import {
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger.js';
-import { CoderAgentEvent, StateChange } from './types.js';
+import { CoderAgentEvent, StateChange, AgentSettings } from './types.js';
 // import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js'; // Not used for now
 import { Task } from './task.js';
 
@@ -96,12 +96,39 @@ class CoderAgentExecutor implements AgentExecutor {
     );
 
     let task: Task;
+    let taskConfig = this.baseConfig;
 
     if (existingTask && this.tasks.has(taskId)) {
       task = this.tasks.get(taskId)!;
       task.eventBus = eventBus; // Update eventBus in case it changed (e.g. new SSE connection)
     } else if (!existingTask) {
-      task = new Task(taskId, contextId, this.baseConfig, eventBus);
+      const agentSettings = userMessage.metadata?.coderAgent as AgentSettings;
+      if (
+        agentSettings &&
+        agentSettings.kind === CoderAgentEvent.StateAgentSettingsEvent
+      ) {
+        logger.info(
+          `[CoderAgentExecutor] Received agent settings. Overriding workspace path to: ${agentSettings.workspacePath}`,
+        );
+        process.chdir(agentSettings.workspacePath);
+        const configParams: ConfigParameters = {
+          apiKey: this.baseConfig.getApiKey(),
+          model: this.baseConfig.getModel(),
+          sandbox: this.baseConfig.getSandbox(),
+          targetDir: agentSettings.workspacePath,
+          debugMode: this.baseConfig.getDebugMode(),
+          question: '',
+          fullContext: false,
+          userAgent: this.baseConfig.getUserAgent(),
+          userMemory: '',
+          geminiMdFileCount: 0,
+          vertexai: this.baseConfig.getVertexAI(),
+          approvalMode: this.baseConfig.getApprovalMode(),
+        };
+        taskConfig = createServerConfig(configParams);
+      }
+
+      task = new Task(taskId, contextId, taskConfig, eventBus);
       this.tasks.set(taskId, task);
       eventBus.publish({
         kind: 'task',
