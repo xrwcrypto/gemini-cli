@@ -125,6 +125,7 @@ class CoderAgentExecutor implements AgentExecutor {
           geminiMdFileCount: 0,
           vertexai: this.baseConfig.getVertexAI(),
           approvalMode: this.baseConfig.getApprovalMode(),
+          mcpServers: this.baseConfig.getMcpServers(),
         };
         taskConfig = createServerConfig(configParams);
       }
