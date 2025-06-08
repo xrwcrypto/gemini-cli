@@ -21,7 +21,6 @@ import {
   createServerConfig,
   type ConfigParameters,
   // GeminiEventType, // Not used directly in this file after changes
-  Config,
   // ToolConfirmationOutcome, // Not used directly in this file after changes
   loadEnvironment,
   ApprovalMode,

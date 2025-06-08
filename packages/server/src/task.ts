@@ -61,6 +61,7 @@ export class Task {
   taskState: TaskState;
   accumulatedContent: string;
   eventBus: IExecutionEventBus;
+  completedToolCalls: CompletedToolCall[];
 
   // For tool waiting logic
   private pendingToolCallIds: Set<string> = new Set();
@@ -88,6 +89,7 @@ export class Task {
     this.taskState = TaskState.Submitted;
     this.accumulatedContent = '';
     this.eventBus = eventBus;
+    this.completedToolCalls = [];
     this._resetToolCompletionPromise();
   }
 
@@ -257,6 +259,7 @@ export class Task {
       '[Task] All tool calls completed by scheduler (batch):',
       completedToolCalls.map((tc) => tc.request.callId),
     );
+    this.completedToolCalls.push(...completedToolCalls);
     completedToolCalls.forEach((tc) => {
       // Ensure resolution, though _schedulerToolCallsUpdate should handle terminal states.
       this.resolveToolCall(tc.request.callId);
@@ -604,6 +607,25 @@ export class Task {
     let anyConfirmationHandled = false;
     let hasContentForLlm = false;
 
+    if (this.completedToolCalls.length > 0) {
+      logger.info(
+        `[Task] Feeding ${this.completedToolCalls.length} tool responses to LLM.`,
+      );
+      for (const completedToolCall of this.completedToolCalls) {
+        logger.info(
+          `[Task] Adding tool response for "${completedToolCall.request.name}" (callId: ${completedToolCall.request.callId}) to LLM input.`,
+        );
+        const responseParts = completedToolCall.response.responseParts;
+        if (Array.isArray(responseParts)) {
+          llmParts.push(...responseParts);
+        } else {
+          llmParts.push(responseParts);
+        }
+      }
+      this.completedToolCalls = [];
+      hasContentForLlm = true;
+    }
+
     for (const part of userMessage.parts) {
       const confirmationHandled = await this._handleToolConfirmationPart(part);
       if (confirmationHandled) {
@@ -619,6 +641,7 @@ export class Task {
         hasContentForLlm = true;
       }
     }
+
     if (hasContentForLlm) {
       logger.info('[Task] Sending new parts to LLM:', llmParts);
       const stateChange: StateChange = {
