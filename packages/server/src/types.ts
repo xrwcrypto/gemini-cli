@@ -23,8 +23,36 @@ export enum CoderAgentEvent {
    * An event that indicates a change in the task's execution state.
    */
   StateChangeEvent = 'state-change',
+  /**
+   * An user-sent event to initiate the agent.
+   */
+  StateAgentSettingsEvent = 'agent-settings',
 }
 
-export interface CoderAgentMetadata {
-  kind: CoderAgentEvent;
+export interface AgentSettings {
+  kind: CoderAgentEvent.StateAgentSettingsEvent;
+  workspacePath: string;
 }
+
+export interface ToolCallConfirmation {
+  kind: CoderAgentEvent.ToolCallConfirmationEvent;
+}
+
+export interface ToolCallUpdate {
+  kind: CoderAgentEvent.ToolCallUpdateEvent;
+}
+
+export interface TextContent {
+  kind: CoderAgentEvent.TextContentEvent;
+}
+
+export interface StateChange {
+  kind: CoderAgentEvent.StateChangeEvent;
+}
+
+export type CoderAgentMessage =
+  | AgentSettings
+  | ToolCallConfirmation
+  | ToolCallUpdate
+  | TextContent
+  | StateChange;

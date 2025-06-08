@@ -28,7 +28,7 @@ import {
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger.js';
-import { CoderAgentEvent } from './types.js';
+import { CoderAgentEvent, StateChange } from './types.js';
 // import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js'; // Not used for now
 import { Task } from './task.js';
 
@@ -119,6 +119,9 @@ class CoderAgentExecutor implements AgentExecutor {
       logger.error(
         `[CoderAgentExecutor] Received existing task ID ${taskId} but task not found in memory.`,
       );
+      const stateChange: StateChange = {
+        kind: CoderAgentEvent.StateChangeEvent,
+      };
       eventBus.publish({
         kind: 'status-update',
         taskId,
@@ -141,9 +144,7 @@ class CoderAgentExecutor implements AgentExecutor {
         },
         final: true,
         metadata: {
-          coderAgent: {
-            kind: CoderAgentEvent.StateChangeEvent,
-          },
+          coderAgent: stateChange,
         },
       });
       return;
@@ -206,9 +207,12 @@ class CoderAgentExecutor implements AgentExecutor {
         task.taskState !== schema.TaskState.Canceled &&
         task.taskState !== schema.TaskState.Failed
       ) {
+        const stateChange: StateChange = {
+          kind: CoderAgentEvent.StateChangeEvent,
+        };
         task.setTaskStateAndPublishUpdate(
           schema.TaskState.InputRequired,
-          CoderAgentEvent.StateChangeEvent,
+          stateChange,
           undefined,
           undefined,
           true,
@@ -228,9 +232,12 @@ class CoderAgentExecutor implements AgentExecutor {
           task.taskState !== schema.TaskState.Canceled &&
           task.taskState !== schema.TaskState.Failed
         ) {
+          const stateChange: StateChange = {
+            kind: CoderAgentEvent.StateChangeEvent,
+          };
           task.setTaskStateAndPublishUpdate(
             schema.TaskState.Canceled,
-            CoderAgentEvent.StateChangeEvent,
+            stateChange,
             'Task execution was cancelled.',
             undefined,
             true,
@@ -247,9 +254,12 @@ class CoderAgentExecutor implements AgentExecutor {
             ? error.message
             : 'Unknown error during agent execution';
         if (task.taskState !== schema.TaskState.Failed) {
+          const stateChange: StateChange = {
+            kind: CoderAgentEvent.StateChangeEvent,
+          };
           task.setTaskStateAndPublishUpdate(
             schema.TaskState.Failed,
-            CoderAgentEvent.StateChangeEvent,
+            stateChange,
             errorMessage,
             undefined,
             true,

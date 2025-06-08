@@ -34,7 +34,14 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger.js';
 
-import { CoderAgentEvent, CoderAgentMetadata } from './types.js';
+import {
+  CoderAgentEvent,
+  CoderAgentMessage,
+  StateChange,
+  ToolCallConfirmation,
+  ToolCallUpdate,
+  TextContent,
+} from './types.js';
 import { PartUnion } from '@google/genai';
 
 interface ToolStatusMessagePayload {
@@ -159,15 +166,13 @@ export class Task {
 
   private _createStatusUpdateEvent(
     stateToReport: TaskState,
-    coderAgentEvent: CoderAgentEvent,
+    coderAgentMessage: CoderAgentMessage,
     message?: Message,
     final = false,
     timestamp?: string,
   ): TaskStatusUpdateEvent {
-    const metadata: { coderAgent: CoderAgentMetadata } = {
-      coderAgent: {
-        kind: coderAgentEvent,
-      },
+    const metadata: { coderAgent: CoderAgentMessage } = {
+      coderAgent: coderAgentMessage,
     };
     return {
       kind: 'status-update',
@@ -183,9 +188,9 @@ export class Task {
     };
   }
 
-  public setTaskStateAndPublishUpdate(
+  setTaskStateAndPublishUpdate(
     newState: TaskState,
-    coderAgentEvent: CoderAgentEvent,
+    coderAgentMessage: CoderAgentMessage,
     messageText?: string,
     messageParts?: Part[], // For more complex messages
     final = false,
@@ -208,7 +213,7 @@ export class Task {
 
     const event = this._createStatusUpdateEvent(
       this.taskState,
-      coderAgentEvent,
+      coderAgentMessage,
       message,
       final,
     );
@@ -260,9 +265,12 @@ export class Task {
         this.id,
         this.contextId,
       );
+      const toolCallUpdate: ToolCallUpdate = {
+        kind: CoderAgentEvent.ToolCallUpdateEvent,
+      };
       const event = this._createStatusUpdateEvent(
         this.taskState,
-        CoderAgentEvent.ToolCallUpdateEvent,
+        toolCallUpdate,
         statusMessage,
         false,
       );
@@ -320,9 +328,12 @@ export class Task {
         taskId: this.id,
         contextId: this.contextId,
       };
+      const toolCallUpdate: ToolCallUpdate = {
+        kind: CoderAgentEvent.ToolCallUpdateEvent,
+      };
       const event = this._createStatusUpdateEvent(
         taskStateForNonApprovalUpdates,
-        CoderAgentEvent.ToolCallUpdateEvent,
+        toolCallUpdate,
         message,
         false,
       );
@@ -331,12 +342,12 @@ export class Task {
 
     if (isAwaitingApproval) {
       if (this.config.getApprovalMode() === ApprovalMode.YOLO) {
-        logger.info(
-          '[Task] YOLO mode enabled. Auto-approving all tool calls.',
-        );
+        logger.info('[Task] YOLO mode enabled. Auto-approving all tool calls.');
         toolCalls.forEach((tc) => {
           if (tc.status === 'awaiting_approval' && tc.confirmationDetails) {
-            tc.confirmationDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+            tc.confirmationDetails.onConfirm(
+              ToolConfirmationOutcome.ProceedOnce,
+            );
             this.pendingToolConfirmationDetails.delete(tc.request.callId);
           }
         });
@@ -364,11 +375,14 @@ export class Task {
         taskId: this.id,
         contextId: this.contextId,
       };
+      const toolCallConfirmation: ToolCallConfirmation = {
+        kind: CoderAgentEvent.ToolCallConfirmationEvent,
+      };
       // This InputRequired is specific to tool approval, not end of turn.
       // The agent.ts will send the final InputRequired after waiting.
       const event = this._createStatusUpdateEvent(
         this.taskState,
-        CoderAgentEvent.ToolCallConfirmationEvent,
+        toolCallConfirmation,
         message,
         true,
       ); // final: true for this specific A2A interaction point
@@ -431,6 +445,9 @@ export class Task {
   }
 
   async acceptAgentMessage(event: ServerGeminiStreamEvent): Promise<void> {
+    const stateChange: StateChange = {
+      kind: CoderAgentEvent.StateChangeEvent,
+    };
     switch (event.type) {
       case GeminiEventType.Content:
         logger.info('[Task] Accumulating agent message content...');
@@ -441,7 +458,7 @@ export class Task {
         this.flushAccumulatedContent();
         this.setTaskStateAndPublishUpdate(
           schema.TaskState.Working,
-          CoderAgentEvent.StateChangeEvent,
+          stateChange,
         );
         // The scheduler will call _schedulerToolCallsUpdate, which will register the tool.
         await this.scheduler.schedule(event.value);
@@ -476,7 +493,7 @@ export class Task {
         this.cancelPendingTools('User cancelled via LLM stream event');
         this.setTaskStateAndPublishUpdate(
           schema.TaskState.Canceled,
-          CoderAgentEvent.StateChangeEvent,
+          stateChange,
           'Task cancelled by user',
           undefined,
           true,
@@ -496,7 +513,7 @@ export class Task {
         this.cancelPendingTools(`LLM stream error: ${errorMessage}`);
         this.setTaskStateAndPublishUpdate(
           schema.TaskState.Failed,
-          CoderAgentEvent.StateChangeEvent,
+          stateChange,
           `Task failed: ${errorMessage}`,
           undefined,
           true,
@@ -562,9 +579,12 @@ export class Task {
           ? error.message
           : `Error processing tool confirmation for ${callId}`;
       const message = this._createTextMessage(errorMessageText);
+      const toolCallUpdate: ToolCallUpdate = {
+        kind: CoderAgentEvent.ToolCallUpdateEvent,
+      };
       const event = this._createStatusUpdateEvent(
         this.taskState,
-        CoderAgentEvent.ToolCallUpdateEvent,
+        toolCallUpdate,
         message,
         false,
       );
@@ -601,11 +621,11 @@ export class Task {
     }
     if (hasContentForLlm) {
       logger.info('[Task] Sending new parts to LLM:', llmParts);
+      const stateChange: StateChange = {
+        kind: CoderAgentEvent.StateChangeEvent,
+      };
       // Set task state to working as we are about to call LLM
-      this.setTaskStateAndPublishUpdate(
-        schema.TaskState.Working,
-        CoderAgentEvent.StateChangeEvent,
-      );
+      this.setTaskStateAndPublishUpdate(schema.TaskState.Working, stateChange);
       yield* this.geminiClient.sendMessageStream(llmParts, aborted);
     } else if (anyConfirmationHandled) {
       logger.info(
@@ -620,9 +640,12 @@ export class Task {
         this.pendingToolCallIds.size > 0 &&
         this.taskState !== schema.TaskState.InputRequired
       ) {
+        const stateChange: StateChange = {
+          kind: CoderAgentEvent.StateChangeEvent,
+        };
         this.setTaskStateAndPublishUpdate(
           schema.TaskState.Working,
-          CoderAgentEvent.StateChangeEvent,
+          stateChange,
         ); // Reflect potential background activity
       }
       yield* (async function* () {})(); // Yield nothing
@@ -643,10 +666,13 @@ export class Task {
     }
     logger.info('[Task] Flushing accumulated content to event bus.');
     const message = this._createTextMessage(this.accumulatedContent);
+    const textContent: TextContent = {
+      kind: CoderAgentEvent.TextContentEvent,
+    };
     this.eventBus.publish(
       this._createStatusUpdateEvent(
         this.taskState,
-        CoderAgentEvent.TextContentEvent,
+        textContent,
         message,
         false,
       ),
