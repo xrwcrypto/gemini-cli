@@ -43,6 +43,7 @@ export interface Settings {
   // Git-aware file filtering settings
   fileFiltering?: {
     respectGitIgnore?: boolean;
+    respectAIExclude?: boolean;
   };
 
   // UI setting. Does not display the ANSI-controlled terminal title.

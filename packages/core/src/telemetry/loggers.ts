@@ -89,6 +89,8 @@ export function logCliConfiguration(config: Config): void {
     log_user_prompts_enabled: config.getTelemetryLogUserPromptsEnabled(),
     file_filtering_respect_git_ignore:
       config.getFileFilteringRespectGitIgnore(),
+    file_filtering_respect_ai_exclude:
+      config.getFileFilteringRespectAIExclude(),
     debug_mode: config.getDebugMode(),
     mcp_servers: mcpServers ? Object.keys(mcpServers).join(',') : '',
   };

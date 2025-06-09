@@ -71,6 +71,10 @@ export interface GlobToolParams {
    * Whether to respect .gitignore patterns (optional, defaults to true)
    */
   respect_git_ignore?: boolean;
+  /**
+   * Whether to respect .aiexclude patterns (optional, defaults to true)
+   */
+  respect_ai_exclude?: boolean;
 }
 
 /**
@@ -110,6 +114,11 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
           respect_git_ignore: {
             description:
               'Optional: Whether to respect .gitignore patterns when finding files. Only available in git repositories. Defaults to true.',
+            type: 'boolean',
+          },
+          respect_ai_exclude: {
+            description:
+              'Optional: Whether to respect .aiexclude patterns when finding files. Defaults to true.',
             type: 'boolean',
           },
         },
@@ -221,6 +230,10 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
       const respectGitIgnore =
         params.respect_git_ignore ??
         this.config.getFileFilteringRespectGitIgnore();
+      const respectAIExclude =
+        params.respect_ai_exclude ??
+        this.config.getFileFilteringRespectAIExclude();
+      const respectIgnore = respectGitIgnore || respectAIExclude;
       const fileDiscovery = await this.config.getFileService();
 
       const entries = (await glob(params.pattern, {
@@ -235,16 +248,17 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
         signal,
       })) as GlobPath[];
 
-      // Apply git-aware filtering if enabled and in git repository
+      // Apply filtering if enabled
       let filteredEntries = entries;
-      let gitIgnoredCount = 0;
+      let ignoredCount = 0;
 
-      if (respectGitIgnore && fileDiscovery.isGitRepository()) {
+      if (respectIgnore) {
         const relativePaths = entries.map((p) =>
           path.relative(this.rootDirectory, p.fullpath()),
         );
         const filteredRelativePaths = fileDiscovery.filterFiles(relativePaths, {
           respectGitIgnore,
+          respectAIExclude,
         });
         const filteredAbsolutePaths = new Set(
           filteredRelativePaths.map((p) => path.resolve(this.rootDirectory, p)),
@@ -253,13 +267,13 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
         filteredEntries = entries.filter((entry) =>
           filteredAbsolutePaths.has(entry.fullpath()),
         );
-        gitIgnoredCount = entries.length - filteredEntries.length;
+        ignoredCount = entries.length - filteredEntries.length;
       }
 
       if (!filteredEntries || filteredEntries.length === 0) {
         let message = `No files found matching pattern "${params.pattern}" within ${searchDirAbsolute}.`;
-        if (gitIgnoredCount > 0) {
-          message += ` (${gitIgnoredCount} files were git-ignored)`;
+        if (ignoredCount > 0) {
+          message += ` (${ignoredCount} files were ignored)`;
         }
         return {
           llmContent: message,
@@ -285,8 +299,8 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
       const fileCount = sortedAbsolutePaths.length;
 
       let resultMessage = `Found ${fileCount} file(s) matching "${params.pattern}" within ${searchDirAbsolute}`;
-      if (gitIgnoredCount > 0) {
-        resultMessage += ` (${gitIgnoredCount} additional files were git-ignored)`;
+      if (ignoredCount > 0) {
+        resultMessage += ` (${ignoredCount} additional files were ignored)`;
       }
       resultMessage += `, sorted by modification time (newest first):\n${fileListDescription}`;
 

@@ -5,7 +5,6 @@
  */
 
 import path from 'path';
-import micromatch from 'micromatch';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { BaseTool, ToolResult } from './tools.js';
@@ -37,11 +36,10 @@ export interface ReadFileToolParams {
  */
 export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
   static readonly Name: string = 'read_file';
-  private readonly geminiIgnorePatterns: string[];
 
   constructor(
     private rootDirectory: string,
-    config: Config,
+    private config: Config,
   ) {
     super(
       ReadFileTool.Name,
@@ -70,7 +68,6 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
       },
     );
     this.rootDirectory = path.resolve(rootDirectory);
-    this.geminiIgnorePatterns = config.getGeminiIgnorePatterns() || [];
   }
 
   validateToolParams(params: ReadFileToolParams): string | null {
@@ -97,18 +94,6 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
       return 'Limit must be a positive number';
     }
 
-    // Check against .geminiignore patterns
-    if (this.geminiIgnorePatterns.length > 0) {
-      const relativePath = makeRelative(params.path, this.rootDirectory);
-      if (micromatch.isMatch(relativePath, this.geminiIgnorePatterns)) {
-        // Get patterns that matched to show in the error message
-        const matchingPatterns = this.geminiIgnorePatterns.filter((p) =>
-          micromatch.isMatch(relativePath, p),
-        );
-        return `File path '${shortenPath(relativePath)}' is ignored by the following .geminiignore pattern(s):\n\n${matchingPatterns.join('\n')}`;
-      }
-    }
-
     return null;
   }
 
@@ -133,6 +118,16 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
       return {
         llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
         returnDisplay: validationError,
+      };
+    }
+
+    const fileDiscovery = await this.config.getFileService();
+    if (fileDiscovery.shouldIgnoreFile(params.path)) {
+      const error =
+        'Error: The file was ignored by at least one of the ignore patterns.';
+      return {
+        llmContent: error,
+        returnDisplay: error,
       };
     }
 

@@ -103,8 +103,8 @@ export function makeRelative(
   targetPath: string,
   rootDirectory: string,
 ): string {
-  const resolvedTargetPath = path.resolve(targetPath);
   const resolvedRootDirectory = path.resolve(rootDirectory);
+  const resolvedTargetPath = path.resolve(resolvedRootDirectory, targetPath);
 
   const relativePath = path.relative(resolvedRootDirectory, resolvedTargetPath);
 

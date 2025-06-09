@@ -22,10 +22,14 @@ describe('GlobTool', () => {
   const mockConfig = {
     getFileService: async () => {
       const service = new FileDiscoveryService(tempRootDir);
-      await service.initialize({ respectGitIgnore: true });
+      await service.initialize({
+        respectGitIgnore: true,
+        respectAIExclude: true,
+      });
       return service;
     },
     getFileFilteringRespectGitIgnore: () => true,
+    getFileFilteringRespectAIExclude: () => true,
   } as Partial<Config> as Config;
 
   beforeEach(async () => {

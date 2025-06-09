@@ -137,6 +137,8 @@ export async function handleAtCommand({
   // Get centralized file discovery service
   const fileDiscovery = await config.getFileService();
   const respectGitIgnore = config.getFileFilteringRespectGitIgnore();
+  const respectAIExclude = config.getFileFilteringRespectAIExclude();
+  const respectIgnore = respectGitIgnore || respectAIExclude;
 
   const pathSpecsToRead: string[] = [];
   const atPathToResolvedSpecMap = new Map<string, string>();
@@ -181,10 +183,10 @@ export async function handleAtCommand({
       return { processedQuery: null, shouldProceed: false };
     }
 
-    // Check if path should be ignored by git
+    // Check if path should be ignored
     if (fileDiscovery.shouldIgnoreFile(pathName)) {
-      const reason = respectGitIgnore
-        ? 'git-ignored and will be skipped'
+      const reason = respectIgnore
+        ? 'ignored and will be skipped'
         : 'ignored by custom patterns';
       onDebugMessage(`Path ${pathName} is ${reason}.`);
       ignoredPaths.push(pathName);
@@ -322,7 +324,7 @@ export async function handleAtCommand({
 
   // Inform user about ignored paths
   if (ignoredPaths.length > 0) {
-    const ignoreType = respectGitIgnore ? 'git-ignored' : 'custom-ignored';
+    const ignoreType = respectIgnore ? 'patterns-ignored' : 'custom-ignored';
     onDebugMessage(
       `Ignored ${ignoredPaths.length} ${ignoreType} files: ${ignoredPaths.join(', ')}`,
     );
@@ -350,6 +352,7 @@ export async function handleAtCommand({
   const toolArgs = {
     paths: pathSpecsToRead,
     respectGitIgnore, // Use configuration setting
+    respectAIExclude, // Use configuration setting
   };
   let toolCallDisplay: IndividualToolCallDisplay;
 

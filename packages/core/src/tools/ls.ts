@@ -29,6 +29,10 @@ export interface LSToolParams {
    * Whether to respect .gitignore patterns (optional, defaults to true)
    */
   respect_git_ignore?: boolean;
+  /**
+   * Whether to respect .aiexclude patterns (optional, defaults to true)
+   */
+  respect_ai_exclude?: boolean;
 }
 
 /**
@@ -96,6 +100,11 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
           respect_git_ignore: {
             description:
               'Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.',
+            type: 'boolean',
+          },
+          respect_ai_exclude: {
+            description:
+              'Optional: Whether to respect .aiexclude patterns when listing files. Defaults to true.',
             type: 'boolean',
           },
         },
@@ -233,10 +242,14 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       const respectGitIgnore =
         params.respect_git_ignore ??
         this.config.getFileFilteringRespectGitIgnore();
+      const respectAIExclude =
+        params.respect_ai_exclude ??
+        this.config.getFileFilteringRespectAIExclude();
+      const respectIgnore = respectGitIgnore || respectAIExclude;
       const fileDiscovery = await this.config.getFileService();
 
       const entries: FileEntry[] = [];
-      let gitIgnoredCount = 0;
+      let ignoredCount = 0;
 
       if (files.length === 0) {
         // Changed error message to be more neutral for LLM
@@ -254,13 +267,9 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         const fullPath = path.join(params.path, file);
         const relativePath = path.relative(this.rootDirectory, fullPath);
 
-        // Check if this file should be git-ignored (only in git repositories)
-        if (
-          respectGitIgnore &&
-          fileDiscovery.isGitRepository() &&
-          fileDiscovery.shouldIgnoreFile(relativePath)
-        ) {
-          gitIgnoredCount++;
+        // Check if this file should be ignored
+        if (respectIgnore && fileDiscovery.shouldIgnoreFile(relativePath)) {
+          ignoredCount++;
           continue;
         }
 
@@ -293,13 +302,13 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         .join('\n');
 
       let resultMessage = `Directory listing for ${params.path}:\n${directoryContent}`;
-      if (gitIgnoredCount > 0) {
-        resultMessage += `\n\n(${gitIgnoredCount} items were git-ignored)`;
+      if (ignoredCount > 0) {
+        resultMessage += `\n\n(${ignoredCount} items were ignored)`;
       }
 
       let displayMessage = `Listed ${entries.length} item(s).`;
-      if (gitIgnoredCount > 0) {
-        displayMessage += ` (${gitIgnoredCount} git-ignored)`;
+      if (ignoredCount > 0) {
+        displayMessage += ` (${ignoredCount} ignored)`;
       }
 
       return {

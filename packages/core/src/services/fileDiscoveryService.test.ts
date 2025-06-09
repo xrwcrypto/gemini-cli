@@ -8,9 +8,13 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mocked } from 'vitest';
 import { FileDiscoveryService } from './fileDiscoveryService.js';
 import { GitIgnoreParser } from '../utils/gitIgnoreParser.js';
+import { AIExcludeParser } from '../utils/aiExcludeParser.js';
 
 // Mock the GitIgnoreParser
 vi.mock('../utils/gitIgnoreParser.js');
+
+// Mock the AIExcludeParser
+vi.mock('../utils/aiExcludeParser.js');
 
 // Mock gitUtils module
 vi.mock('../utils/gitUtils.js', () => ({
@@ -21,6 +25,7 @@ vi.mock('../utils/gitUtils.js', () => ({
 describe('FileDiscoveryService', () => {
   let service: FileDiscoveryService;
   let mockGitIgnoreParser: Mocked<GitIgnoreParser>;
+  let mockAIExcludeParser: Mocked<AIExcludeParser>;
   const mockProjectRoot = '/test/project';
 
   beforeEach(() => {
@@ -29,11 +34,15 @@ describe('FileDiscoveryService', () => {
     mockGitIgnoreParser = {
       initialize: vi.fn(),
       isIgnored: vi.fn(),
-      getIgnoredPatterns: vi.fn(() => ['.git/**', 'node_modules/**']),
-      parseGitIgnoreContent: vi.fn(),
     } as unknown as Mocked<GitIgnoreParser>;
 
+    mockAIExcludeParser = {
+      initialize: vi.fn(),
+      isIgnored: vi.fn(),
+    } as unknown as Mocked<AIExcludeParser>;
+
     vi.mocked(GitIgnoreParser).mockImplementation(() => mockGitIgnoreParser);
+    vi.mocked(AIExcludeParser).mockImplementation(() => mockAIExcludeParser);
     vi.clearAllMocks();
   });
 
@@ -42,11 +51,12 @@ describe('FileDiscoveryService', () => {
   });
 
   describe('initialization', () => {
-    it('should initialize git ignore parser by default', async () => {
+    it('should initialize git ignore and aiexclude parsers by default', async () => {
       await service.initialize();
 
       expect(GitIgnoreParser).toHaveBeenCalledWith(mockProjectRoot);
       expect(mockGitIgnoreParser.initialize).toHaveBeenCalled();
+      expect(mockAIExcludeParser.initialize).toHaveBeenCalled();
     });
 
     it('should not initialize git ignore parser when respectGitIgnore is false', async () => {
@@ -54,6 +64,13 @@ describe('FileDiscoveryService', () => {
 
       expect(GitIgnoreParser).not.toHaveBeenCalled();
       expect(mockGitIgnoreParser.initialize).not.toHaveBeenCalled();
+    });
+
+    it('should not initialize ai exclude parser when respectAIExclude is false', async () => {
+      await service.initialize({ respectAIExclude: false });
+
+      expect(AIExcludeParser).not.toHaveBeenCalled();
+      expect(mockAIExcludeParser.initialize).not.toHaveBeenCalled();
     });
 
     it('should handle initialization errors gracefully', async () => {
@@ -71,7 +88,21 @@ describe('FileDiscoveryService', () => {
         (path: string) =>
           path.includes('node_modules') || path.includes('.git'),
       );
+      mockAIExcludeParser.isIgnored.mockImplementation(
+        (path: string) =>
+          path.includes('.aiexclude') || path.includes('foo.ts'),
+      );
       await service.initialize();
+    });
+
+    it('should filter out geminiIgnored files', () => {
+      const files = ['src/index.ts', 'bar.ts', 'barfoo.ts'];
+
+      const filtered = service.filterFiles(files, {
+        geminiIgnorePatterns: ['bar*'],
+      });
+
+      expect(filtered).toEqual(['src/index.ts']);
     });
 
     it('should filter out git-ignored files by default', () => {
@@ -88,6 +119,14 @@ describe('FileDiscoveryService', () => {
       expect(filtered).toEqual(['src/index.ts', 'README.md', 'dist/bundle.js']);
     });
 
+    it('should filter out ai-excluded files by default', () => {
+      const files = ['src/index.ts', 'foo.ts', '.aiexclude'];
+
+      const filtered = service.filterFiles(files);
+
+      expect(filtered).toEqual(['src/index.ts']);
+    });
+
     it('should not filter files when respectGitIgnore is false', () => {
       const files = [
         'src/index.ts',
@@ -96,6 +135,14 @@ describe('FileDiscoveryService', () => {
       ];
 
       const filtered = service.filterFiles(files, { respectGitIgnore: false });
+
+      expect(filtered).toEqual(files);
+    });
+
+    it('should not filter files when respectAIExclude is false', () => {
+      const files = ['src/index.ts', 'foo.ts', '.aiexclude'];
+
+      const filtered = service.filterFiles(files, { respectAIExclude: false });
 
       expect(filtered).toEqual(files);
     });
@@ -111,6 +158,10 @@ describe('FileDiscoveryService', () => {
       mockGitIgnoreParser.isIgnored.mockImplementation((path: string) =>
         path.includes('node_modules'),
       );
+      mockAIExcludeParser.isIgnored.mockImplementation(
+        (path: string) =>
+          path.includes('.aiexclude') || path.includes('foo.ts'),
+      );
       await service.initialize();
     });
 
@@ -124,10 +175,26 @@ describe('FileDiscoveryService', () => {
       expect(service.shouldIgnoreFile('src/index.ts')).toBe(false);
     });
 
+    it('should return true for aiexcluded files', () => {
+      expect(service.shouldIgnoreFile('foo.ts')).toBe(true);
+    });
+
+    it('should return false for non-aiexcluded files', () => {
+      expect(service.shouldIgnoreFile('src/index.ts')).toBe(false);
+    });
+
     it('should return false when respectGitIgnore is false', () => {
       expect(
         service.shouldIgnoreFile('node_modules/package/index.js', {
           respectGitIgnore: false,
+        }),
+      ).toBe(false);
+    });
+
+    it('should return false when resepctAIExclude is false', () => {
+      expect(
+        service.shouldIgnoreFile('foo.ts', {
+          respectAIExclude: false,
         }),
       ).toBe(false);
     });
@@ -137,6 +204,11 @@ describe('FileDiscoveryService', () => {
       expect(
         uninitializedService.shouldIgnoreFile('node_modules/package/index.js'),
       ).toBe(false);
+    });
+
+    it('should return false when ai exclude parser is not initialized', async () => {
+      const uninitializedService = new FileDiscoveryService(mockProjectRoot);
+      expect(uninitializedService.shouldIgnoreFile('foo.ts')).toBe(false);
     });
   });
 

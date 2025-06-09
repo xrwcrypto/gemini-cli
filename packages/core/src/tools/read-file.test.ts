@@ -6,6 +6,7 @@
 
 import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
 import { ReadFileTool, ReadFileToolParams } from './read-file.js';
+import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import * as fileUtils from '../utils/fileUtils.js';
 import path from 'path';
 import os from 'os';
@@ -35,7 +36,15 @@ describe('ReadFileTool', () => {
       path.join(os.tmpdir(), 'read-file-tool-root-'),
     );
     const mockConfigInstance = {
-      getGeminiIgnorePatterns: () => ['**/foo.bar', 'foo.baz', 'foo.*'],
+      getFileService: async () => {
+        const service = new FileDiscoveryService(tempRootDir);
+        await service.initialize({
+          respectGitIgnore: true,
+          respectAIExclude: true,
+          geminiIgnorePatterns: ['**/foo.bar', 'foo.baz', 'foo.*'],
+        });
+        return service;
+      },
     } as Config;
     tool = new ReadFileTool(tempRootDir, mockConfigInstance);
     mockProcessSingleFileContent.mockReset();
@@ -234,9 +243,7 @@ describe('ReadFileTool', () => {
         path: path.join(tempRootDir, 'foo.bar'),
       };
       const result = await tool.execute(params, abortSignal);
-      expect(result.returnDisplay).toContain('foo.bar');
-      expect(result.returnDisplay).toContain('foo.*');
-      expect(result.returnDisplay).not.toContain('foo.baz');
+      expect(result.returnDisplay).toContain('file was ignored');
     });
   });
 });

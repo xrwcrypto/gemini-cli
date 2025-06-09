@@ -60,11 +60,13 @@ describe('Configuration Integration Tests', () => {
         targetDir: tempDir,
         debugMode: false,
         fileFilteringRespectGitIgnore: undefined, // Should default to true
+        fileFilteringRespectAIExclude: undefined, // Should default to true
       };
 
       const config = new Config(configParams);
 
       expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(true);
     });
 
     it('should load custom file filtering settings from configuration', async () => {
@@ -76,11 +78,13 @@ describe('Configuration Integration Tests', () => {
         targetDir: tempDir,
         debugMode: false,
         fileFilteringRespectGitIgnore: false,
+        fileFilteringRespectAIExclude: false,
       };
 
       const config = new Config(configParams);
 
       expect(config.getFileFilteringRespectGitIgnore()).toBe(false);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(false);
     });
 
     it('should merge user and workspace file filtering settings', async () => {
@@ -92,11 +96,13 @@ describe('Configuration Integration Tests', () => {
         targetDir: tempDir,
         debugMode: false,
         fileFilteringRespectGitIgnore: true,
+        fileFilteringRespectAIExclude: true,
       };
 
       const config = new Config(configParams);
 
       expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(true);
     });
   });
 
@@ -110,12 +116,14 @@ describe('Configuration Integration Tests', () => {
         targetDir: tempDir,
         debugMode: false,
         fileFilteringRespectGitIgnore: false,
+        fileFilteringRespectAIExclude: false,
       };
 
       const config = new Config(configParams);
 
       // Specified settings should be applied
       expect(config.getFileFilteringRespectGitIgnore()).toBe(false);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(false);
     });
 
     it('should handle empty configuration objects gracefully', async () => {
@@ -127,12 +135,14 @@ describe('Configuration Integration Tests', () => {
         targetDir: tempDir,
         debugMode: false,
         fileFilteringRespectGitIgnore: undefined,
+        fileFilteringRespectAIExclude: undefined,
       };
 
       const config = new Config(configParams);
 
       // All settings should use defaults
       expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(true);
     });
 
     it('should handle missing configuration sections gracefully', async () => {
@@ -150,6 +160,7 @@ describe('Configuration Integration Tests', () => {
 
       // All git-aware settings should use defaults
       expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(true);
     });
   });
 
@@ -163,11 +174,13 @@ describe('Configuration Integration Tests', () => {
         targetDir: tempDir,
         debugMode: false,
         fileFilteringRespectGitIgnore: true,
+        fileFilteringRespectAIExclude: true,
       };
 
       const config = new Config(configParams);
 
       expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(true);
     });
 
     it('should handle a CI/CD environment configuration', async () => {
@@ -179,11 +192,13 @@ describe('Configuration Integration Tests', () => {
         targetDir: tempDir,
         debugMode: false,
         fileFilteringRespectGitIgnore: false, // CI might need to see all files
+        fileFilteringRespectAIExclude: false, // CI might need to see all files
       };
 
       const config = new Config(configParams);
 
       expect(config.getFileFilteringRespectGitIgnore()).toBe(false);
+      expect(config.getFileFilteringRespectAIExclude()).toBe(false);
     });
   });
 });

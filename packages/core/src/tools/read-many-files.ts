@@ -60,6 +60,11 @@ export interface ReadManyFilesParams {
    * Optional. Whether to respect .gitignore patterns. Defaults to true.
    */
   respect_git_ignore?: boolean;
+
+  /**
+   * Optional. Whether to respect .aiexclude patterns. Defaults to true.
+   */
+  respect_ai_exclude?: boolean;
 }
 
 /**
@@ -171,6 +176,12 @@ export class ReadManyFilesTool extends BaseTool<
             'Optional. Whether to respect .gitignore patterns when discovering files. Only available in git repositories. Defaults to true.',
           default: true,
         },
+        respect_ai_exclude: {
+          type: 'boolean',
+          description:
+            'Optional. Whether to respect .aiexclude patterns when discovering files. Defaults to true.',
+          default: true,
+        },
       },
       required: ['paths'],
     };
@@ -265,6 +276,13 @@ Use this tool when the user's query implies needing the content of several files
       }
     }
 
+    if (params.respect_git_ignore) {
+      excludeDesc += ` Additional files may be excluded based on .gitignore.`;
+    }
+    if (params.respect_ai_exclude) {
+      excludeDesc += ` Additional files may be excluded based on .aiexclude.`;
+    }
+
     return `Will attempt to read and concatenate files ${pathDesc}. ${excludeDesc}. File encoding: ${DEFAULT_ENCODING}. Separator: "${DEFAULT_OUTPUT_SEPARATOR_FORMAT.replace('{filePath}', 'path/to/file.ext')}".`;
   }
 
@@ -286,10 +304,14 @@ Use this tool when the user's query implies needing the content of several files
       exclude = [],
       useDefaultExcludes = true,
       respect_git_ignore = true,
+      respect_ai_exclude = true,
     } = params;
 
     const respectGitIgnore =
       respect_git_ignore ?? this.config.getFileFilteringRespectGitIgnore();
+    const respectAIExclude =
+      respect_ai_exclude ?? this.config.getFileFilteringRespectAIExclude();
+    const respectIgnore = respectGitIgnore || respectAIExclude;
 
     // Get centralized file discovery service
     const fileDiscovery = await this.config.getFileService();
@@ -323,20 +345,20 @@ Use this tool when the user's query implies needing the content of several files
         signal,
       });
 
-      // Apply git-aware filtering if enabled and in git repository
-      const filteredEntries =
-        respectGitIgnore && fileDiscovery.isGitRepository()
-          ? fileDiscovery
-              .filterFiles(
-                entries.map((p) => path.relative(toolBaseDir, p)),
-                {
-                  respectGitIgnore,
-                },
-              )
-              .map((p) => path.resolve(toolBaseDir, p))
-          : entries;
+      // Apply filtering if enabled
+      const filteredEntries = respectIgnore
+        ? fileDiscovery
+            .filterFiles(
+              entries.map((p) => path.relative(toolBaseDir, p)),
+              {
+                respectGitIgnore,
+                respectAIExclude,
+              },
+            )
+            .map((p) => path.resolve(toolBaseDir, p))
+        : entries;
 
-      let gitIgnoredCount = 0;
+      let ignoredCount = 0;
       for (const absoluteFilePath of entries) {
         // Security check: ensure the glob library didn't return something outside targetDir.
         if (!absoluteFilePath.startsWith(toolBaseDir)) {
@@ -347,26 +369,22 @@ Use this tool when the user's query implies needing the content of several files
           continue;
         }
 
-        // Check if this file was filtered out by git ignore
-        if (
-          respectGitIgnore &&
-          fileDiscovery.isGitRepository() &&
-          !filteredEntries.includes(absoluteFilePath)
-        ) {
-          gitIgnoredCount++;
+        // Check if this file was filtered out
+        if (respectIgnore && !filteredEntries.includes(absoluteFilePath)) {
+          ignoredCount++;
           continue;
         }
 
         filesToConsider.add(absoluteFilePath);
       }
 
-      // Add info about git-ignored files if any were filtered
-      if (gitIgnoredCount > 0) {
-        const reason = respectGitIgnore
-          ? 'git-ignored'
+      // Add info about ignored files if any were filtered
+      if (ignoredCount > 0) {
+        const reason = respectIgnore
+          ? 'ignored'
           : 'filtered by custom ignore patterns';
         skippedFiles.push({
-          path: `${gitIgnoredCount} file(s)`,
+          path: `${ignoredCount} file(s)`,
           reason,
         });
       }

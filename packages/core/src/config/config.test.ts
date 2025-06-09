@@ -106,15 +106,18 @@ describe('Server Config (config.ts)', () => {
   it('should set default file filtering settings when not provided', () => {
     const config = new Config(baseParams);
     expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
+    expect(config.getFileFilteringRespectAIExclude()).toBe(true);
   });
 
   it('should set custom file filtering settings when provided', () => {
     const paramsWithFileFiltering: ConfigParameters = {
       ...baseParams,
       fileFilteringRespectGitIgnore: false,
+      fileFilteringRespectAIExclude: false,
     };
     const config = new Config(paramsWithFileFiltering);
     expect(config.getFileFilteringRespectGitIgnore()).toBe(false);
+    expect(config.getFileFilteringRespectAIExclude()).toBe(false);
   });
 
   it('Config constructor should set telemetry to true when provided as true', () => {

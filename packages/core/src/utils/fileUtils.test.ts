@@ -25,6 +25,7 @@ import {
   isBinaryFile,
   detectFileType,
   processSingleFileContent,
+  normalizeFilePath,
 } from './fileUtils.js';
 
 vi.mock('mime-types', () => ({
@@ -426,6 +427,60 @@ describe('fileUtils', () => {
         '[File content partially truncated: some lines exceeded maximum length of 2000 characters.]',
       );
       expect(result.isTruncated).toBe(true);
+    });
+  });
+
+  describe('normalizeFilePath', () => {
+    it('should return filePath as is when both args are relative', async () => {
+      let n = normalizeFilePath('', '');
+      expect(n).toBe('');
+
+      n = normalizeFilePath('.', '.');
+      expect(n).toBe('.');
+
+      n = normalizeFilePath('foo', 'foo');
+      expect(n).toBe('foo');
+
+      n = normalizeFilePath('foo/bar.txt', 'foo/bar.txt');
+      expect(n).toBe('foo/bar.txt');
+
+      n = normalizeFilePath('.', 'foo/bar.txt');
+
+      expect(n).toBe('foo/bar.txt');
+      n = normalizeFilePath('', 'foo/bar.txt');
+      expect(n).toBe('foo/bar.txt');
+    });
+
+    it('should return filePath as is when parent is absolute and filePath is relative', async () => {
+      let n = normalizeFilePath('/foo', 'bar');
+      expect(n).toBe('bar');
+
+      n = normalizeFilePath('/foo', 'bar/baz');
+      expect(n).toBe('bar/baz');
+
+      n = normalizeFilePath('/foo', '.');
+      expect(n).toBe('.');
+
+      n = normalizeFilePath('/foo', '');
+      expect(n).toBe('');
+    });
+
+    it('should return a relative path based on working directory when parent is relative and filePath is absolute', async () => {
+      // get the path of the root directory relative to the working directory
+      const prefix = path.relative('.', '/');
+      const n = normalizeFilePath('foo', '/foo/bar');
+      expect(n).toBe(prefix + '/..' + '/foo/bar');
+    });
+
+    it('should return a relative path when both args are absolute paths', async () => {
+      let n = normalizeFilePath('/foo', '/foo/bar');
+      expect(n).toBe('bar');
+
+      n = normalizeFilePath('/foo', '/bar/baz');
+      expect(n).toBe('../bar/baz');
+
+      n = normalizeFilePath('/foo', '/foo/fooo/bar');
+      expect(n).toBe('fooo/bar');
     });
   });
 });

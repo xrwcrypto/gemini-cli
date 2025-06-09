@@ -62,6 +62,7 @@ describe('loggers', () => {
         }),
         getTelemetryLogUserPromptsEnabled: () => true,
         getFileFilteringRespectGitIgnore: () => true,
+        getFileFilteringRespectAIExclude: () => true,
         getDebugMode: () => true,
         getMcpServers: () => ({
           'test-server': {
@@ -89,6 +90,7 @@ describe('loggers', () => {
           code_assist_enabled: false,
           log_user_prompts_enabled: true,
           file_filtering_respect_git_ignore: true,
+          file_filtering_respect_ai_exclude: true,
           debug_mode: true,
           mcp_servers: 'test-server',
         },

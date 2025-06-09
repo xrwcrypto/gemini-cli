@@ -81,6 +81,7 @@ export interface ConfigParameters {
   telemetryLogUserPromptsEnabled?: boolean;
   telemetryOtlpEndpoint?: string;
   fileFilteringRespectGitIgnore?: boolean;
+  fileFilteringRespectAIExclude?: boolean;
   checkpoint?: boolean;
   proxy?: string;
   cwd: string;
@@ -113,6 +114,7 @@ export class Config {
   private readonly geminiClient: GeminiClient;
   private readonly geminiIgnorePatterns: string[] = [];
   private readonly fileFilteringRespectGitIgnore: boolean;
+  private readonly fileFilteringRespectAIExclude: boolean;
   private fileDiscoveryService: FileDiscoveryService | null = null;
   private gitService: GitService | undefined = undefined;
   private readonly checkpoint: boolean;
@@ -147,6 +149,8 @@ export class Config {
       params.telemetryOtlpEndpoint ?? 'http://localhost:4317';
     this.fileFilteringRespectGitIgnore =
       params.fileFilteringRespectGitIgnore ?? true;
+    this.fileFilteringRespectAIExclude =
+      params.fileFilteringRespectAIExclude ?? true;
     this.checkpoint = params.checkpoint ?? false;
     this.proxy = params.proxy;
     this.cwd = params.cwd ?? process.cwd();
@@ -293,6 +297,10 @@ export class Config {
     return this.fileFilteringRespectGitIgnore;
   }
 
+  getFileFilteringRespectAIExclude(): boolean {
+    return this.fileFilteringRespectAIExclude;
+  }
+
   getCheckpointEnabled(): boolean {
     return this.checkpoint;
   }
@@ -310,6 +318,7 @@ export class Config {
       this.fileDiscoveryService = new FileDiscoveryService(this.targetDir);
       await this.fileDiscoveryService.initialize({
         respectGitIgnore: this.fileFilteringRespectGitIgnore,
+        respectAIExclude: this.fileFilteringRespectAIExclude,
       });
     }
     return this.fileDiscoveryService;

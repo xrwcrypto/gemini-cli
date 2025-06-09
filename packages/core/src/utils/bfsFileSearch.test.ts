@@ -5,7 +5,7 @@
  */
 
 import { Dirent, PathLike } from 'fs';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, Mocked } from 'vitest';
 import * as fs from 'fs/promises';
 import * as gitUtils from './gitUtils.js';
 import { bfsFileSearch } from './bfsFileSearch.js';
@@ -13,6 +13,7 @@ import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 
 vi.mock('fs/promises');
 vi.mock('./gitUtils.js');
+vi.mock('../services/fileDiscoveryService.js');
 
 const createMockDirent = (name: string, isFile: boolean): Dirent => {
   const dirent = new Dirent();
@@ -119,6 +120,11 @@ describe('bfsFileSearch', () => {
     const mockGitUtils = vi.mocked(gitUtils);
     mockGitUtils.isGitRepository.mockReturnValue(true);
     const mockReaddir = mockFs.readdir as unknown as ReaddirWithFileTypes;
+    const mockFileService: Mocked<FileDiscoveryService> = {
+      shouldIgnoreFile: vi.fn(
+        (p) => p.includes('.gitignore') || p.includes('subdir2'),
+      ),
+    } as unknown as Mocked<FileDiscoveryService>;
     vi.mocked(mockReaddir).mockImplementation(async (dir) => {
       if (dir === '/test') {
         return [

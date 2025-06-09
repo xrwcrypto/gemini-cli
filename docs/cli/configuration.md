@@ -46,13 +46,15 @@ When you create a `.gemini/settings.json` file for project-specific settings, or
 
 - **`fileFiltering`** (object, optional):
 
-  - **Description:** Controls git-aware file filtering behavior for @ commands and file discovery tools.
+  - **Description:** Controls file filtering behavior for @ commands and file discovery tools.
   - **Properties:**
     - **`respectGitIgnore`** (boolean, default: `true`): Whether to respect .gitignore patterns when discovering files. When enabled, git-ignored files (like `node_modules/`, `dist/`, `.env`) are automatically excluded from @ commands and file listing operations.
+    - **`respectAIExclude`** (boolean, default: `true`): Whether to respect .aiexclude patterns when discovering files.
   - **Example:**
     ```json
     "fileFiltering": {
       "respectGitIgnore": true,
+      "respectAIExclude": true,
     }
     ```
 
@@ -214,6 +216,24 @@ The CLI automatically loads environment variables from an `.env` file. The loadi
 - **`CODE_ASSIST_ENDPOINT`**:
   - Specifies the endpoint for the code assist server.
   - This is useful for development and testing.
+
+Additionally, file filtering patterns are sourced from the following files:
+
+- .geminiignore at the root of the workspace.
+- .gitignore at the root of the workspace if enabled (see fileFiltering in settings).
+- .aiexclude at the root of the workspace if enabled (see fileFiltering in settings).
+
+The .geminiignore file follows a format similar to .gitignore:
+
+- Each line specifies a glob pattern.
+- Lines are trimmed of leading and trailing whitespace.
+- Blank lines (after trimming) are ignored.
+- Lines starting with a pound sign (#) (after trimming) are treated as comments and ignored.
+- Patterns are case-sensitive and follow standard glob syntax.
+- If a # character appears elsewhere in a line (not at the start after trimming), it is considered part of the glob pattern.
+
+The .aiexclude file follows the format defined in
+https://cloud.google.com/gemini/docs/codeassist/create-aiexclude-file#write_an_aiexclude_file
 
 ## 3. Command-Line Arguments
 

@@ -6,14 +6,12 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import ignore, { type Ignore } from 'ignore';
+import ignore, { Ignore } from 'ignore';
+import { IgnoreFilter } from './ignoreFilter.js';
 import { isGitRepository } from './gitUtils.js';
+import { normalizeFilePath } from './fileUtils.js';
 
-export interface GitIgnoreFilter {
-  isIgnored(filePath: string): boolean;
-}
-
-export class GitIgnoreParser implements GitIgnoreFilter {
+export class GitIgnoreParser implements IgnoreFilter {
   private projectRoot: string;
   private isGitRepo: boolean = false;
   private ig: Ignore = ignore();
@@ -54,17 +52,9 @@ export class GitIgnoreParser implements GitIgnoreFilter {
       return false;
     }
 
-    const relativePath = path.isAbsolute(filePath)
-      ? path.relative(this.projectRoot, filePath)
-      : filePath;
-
-    if (relativePath === '' || relativePath.startsWith('..')) {
+    const normalizedPath = normalizeFilePath(this.projectRoot, filePath);
+    if (normalizedPath === '' || normalizedPath.startsWith('..')) {
       return false;
-    }
-
-    let normalizedPath = relativePath.replace(/\\/g, '/');
-    if (normalizedPath.startsWith('./')) {
-      normalizedPath = normalizedPath.substring(2);
     }
 
     const ignored = this.ig.ignores(normalizedPath);

@@ -278,3 +278,26 @@ export async function processSingleFileContent(
     };
   }
 }
+
+/**
+ * Returns filePath as a relative path to parent with forward slashes instead of backslashes if any.
+ * The returned path may be empty, includes backtracking (..), or relative to parent without the leading ./ if any.
+ * The returned path is effectively what is needed to traverse from parent to filePath.
+ *   - If both args are relative, they are assumed to be siblings in the working directory (the result is always filePath as is).
+ *   - If parent is relative and filePath is absolute, the result is relative to path.join(process.cwd(), parent).
+ *   - If both args are absolute, the result includes backtracking to the first shared ancestor.
+ * @param parent: parent file path to normalize against.
+ * @param filePath: the file path to normalize.
+ * @returns a normalized file path.
+ */
+export function normalizeFilePath(parent: string, filePath: string): string {
+  const relativePath = path.isAbsolute(filePath)
+    ? path.relative(parent, filePath)
+    : filePath;
+
+  let normalizedPath = relativePath.replace(/\\/g, '/');
+  if (normalizedPath.startsWith('./')) {
+    normalizedPath = normalizedPath.substring(2);
+  }
+  return normalizedPath;
+}
