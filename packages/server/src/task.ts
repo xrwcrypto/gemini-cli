@@ -448,6 +448,18 @@ export class Task {
     };
   }
 
+  async scheduleToolCalls(requests: ToolCallRequestInfo[]): Promise<void> {
+    if (requests.length === 0) {
+      return;
+    }
+    logger.info(`[Task] Scheduling batch of ${requests.length} tool calls.`);
+    const stateChange: StateChange = {
+      kind: CoderAgentEvent.StateChangeEvent,
+    };
+    this.setTaskStateAndPublishUpdate(schema.TaskState.Working, stateChange);
+    await this.scheduler.schedule(requests);
+  }
+
   async acceptAgentMessage(event: ServerGeminiStreamEvent): Promise<void> {
     const stateChange: StateChange = {
       kind: CoderAgentEvent.StateChangeEvent,
@@ -458,14 +470,11 @@ export class Task {
         this.accumulatedContent += event.value;
         break;
       case GeminiEventType.ToolCallRequest:
-        logger.info('[Task] Received tool call request from LLM:', event.value);
-        this.flushAccumulatedContent();
-        this.setTaskStateAndPublishUpdate(
-          schema.TaskState.Working,
-          stateChange,
+        // This is now handled by the agent loop, which collects all requests
+        // and calls scheduleToolCalls once.
+        logger.warn(
+          '[Task] A single tool call request was passed to acceptAgentMessage. This should be handled in a batch by the agent. Ignoring.',
         );
-        // The scheduler will call _schedulerToolCallsUpdate, which will register the tool.
-        await this.scheduler.schedule(event.value);
         break;
       case GeminiEventType.ToolCallResponse:
         // This event type from ServerGeminiStreamEvent might be for when LLM *generates* a tool response part.

@@ -17,19 +17,18 @@ import {
   schema,
 } from '@gemini-code/a2alib'; // Import server components
 import {
-  // GeminiClient, // Not used directly in this file after changes
   createServerConfig,
   type ConfigParameters,
-  // GeminiEventType, // Not used directly in this file after changes
-  // ToolConfirmationOutcome, // Not used directly in this file after changes
+  GeminiEventType,
   loadEnvironment,
   ApprovalMode,
+  ToolCallRequestInfo,
+  ServerGeminiToolCallRequestEvent,
 } from '@gemini-code/core';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger.js';
 import { CoderAgentEvent, StateChange, AgentSettings } from './types.js';
 import { loadSettings } from './config.js';
-// import { TaskToolSchedulerManager } from './task_tool_scheduler_manager.js'; // Not used for now
 import { Task } from './task.js';
 
 const coderAgentCard: schema.AgentCard = {
@@ -211,7 +210,15 @@ class CoderAgentExecutor implements AgentExecutor {
           `[CoderAgentExecutor] Task ${taskId}: Processing agent turn (LLM stream).`,
         );
         let hasGeneratedContent = false;
+        const toolCallRequests: ToolCallRequestInfo[] = [];
         for await (const event of agentEvents) {
+          if (event.type === GeminiEventType.ToolCallRequest) {
+            toolCallRequests.push(
+              (event as ServerGeminiToolCallRequestEvent).value,
+            );
+            continue;
+          }
+
           hasGeneratedContent = true;
           if (abortSignal.aborted) {
             logger.info(
@@ -223,6 +230,14 @@ class CoderAgentExecutor implements AgentExecutor {
           await task.acceptAgentMessage(event);
         }
         task.flushAccumulatedContent();
+
+        if (toolCallRequests.length > 0) {
+          logger.info(
+            `[CoderAgentExecutor] Task ${taskId}: Found ${toolCallRequests.length} tool call requests. Scheduling as a batch.`,
+          );
+          task.flushAccumulatedContent();
+          await task.scheduleToolCalls(toolCallRequests);
+        }
 
         if (abortSignal.aborted) {
           logger.info(
