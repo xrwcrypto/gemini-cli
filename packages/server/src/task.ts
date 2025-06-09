@@ -268,16 +268,17 @@ export class Task {
         this.id,
         this.contextId,
       );
-      const toolCallUpdate: ToolCallUpdate = {
-        kind: CoderAgentEvent.ToolCallUpdateEvent,
-      };
-      const event = this._createStatusUpdateEvent(
-        this.taskState,
-        toolCallUpdate,
-        statusMessage,
-        false,
-      );
-      this.eventBus.publish(event);
+      // This is already covered by ToolCallsUpdate
+      // const toolCallUpdate: ToolCallUpdate = {
+      //   kind: CoderAgentEvent.ToolCallUpdateEvent,
+      // };
+      // const event = this._createStatusUpdateEvent(
+      //   this.taskState,
+      //   toolCallUpdate,
+      //   statusMessage,
+      //   false,
+      // );
+      // this.eventBus.publish(event);
     });
   }
 
