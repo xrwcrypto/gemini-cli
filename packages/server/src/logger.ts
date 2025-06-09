@@ -5,6 +5,9 @@
  */
 
 import winston from 'winston';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -17,10 +20,19 @@ const logger = winston.createLogger({
 });
 
 if (process.env.NODE_ENV !== 'production') {
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'geminiagent'));
+  logger.info(`Logs will be written to ${logDir}`);
   logger.add(
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({
+      filename: path.join(logDir, 'error.log'),
+      level: 'error',
+    }),
   );
-  logger.add(new winston.transports.File({ filename: 'combined.log' }));
+  logger.add(
+    new winston.transports.File({
+      filename: path.join(logDir, 'combined.log'),
+    }),
+  );
 }
 
 export { logger };
