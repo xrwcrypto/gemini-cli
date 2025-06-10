@@ -8,7 +8,7 @@ import * as fs from 'fs';
 
 // Store the extension context and server manager
 let extensionContext: vscode.ExtensionContext;
-let serverManager: ServerManager;
+let serverManager: ServerManager | null;
 let statusBarManager: StatusBarManager;
 let activeTerminal: vscode.Terminal | undefined;
 
@@ -18,22 +18,44 @@ let activeTerminal: vscode.Terminal | undefined;
  * This method is called when the extension is activated
  */
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('Gemini CLI VS Code extension is now active!');
-    console.log('Extension context:', context);
-    console.log('Extension path:', context.extensionPath);
-    
-    // Show activation message
-    vscode.window.showInformationMessage('Gemini CLI extension activated!');
-    
-    extensionContext = context;
-    (global as any).extensionContext = context;
+    try {
+        console.log('=== GEMINI EXTENSION ACTIVATION START ===');
+        console.log('Activation called at:', new Date().toISOString());
+        console.log('Extension context:', context);
+        console.log('Extension path:', context.extensionPath);
+        
+        // Show activation message
+        vscode.window.showInformationMessage('Gemini CLI extension activated!');
+        
+        extensionContext = context;
+        (global as any).extensionContext = context;
 
-    // Initialize managers
-    serverManager = new ServerManager(context);
-    statusBarManager = new StatusBarManager();
-    
-    context.subscriptions.push(serverManager);
-    context.subscriptions.push(statusBarManager);
+        // Initialize managers with detailed logging
+        console.log('About to initialize StatusBarManager...');
+        try {
+            statusBarManager = new StatusBarManager();
+            console.log('StatusBarManager initialized successfully');
+        } catch (e: any) {
+            console.error('Failed to initialize StatusBarManager:', e);
+            throw e;
+        }
+        
+        console.log('About to initialize ServerManager...');
+        try {
+            serverManager = new ServerManager(context);
+            console.log('ServerManager initialized successfully');
+        } catch (e: any) {
+            console.error('Failed to initialize ServerManager:', e);
+            console.error('Error stack:', e.stack);
+            vscode.window.showErrorMessage(`Failed to initialize ServerManager: ${e.message}`);
+            // Don't throw - continue without server
+            serverManager = null;
+        }
+        
+        context.subscriptions.push(statusBarManager);
+        if (serverManager) {
+            context.subscriptions.push(serverManager);
+        }
 
     // Register commands with better error handling
     const registerCommand = (commandId: string, handler: (...args: any[]) => any) => {
@@ -85,7 +107,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Auto-start server if configured
     const config = vscode.workspace.getConfiguration('gemini');
-    if (config.get<boolean>('autoConnect', true)) {
+    if (config.get<boolean>('autoConnect', true) && serverManager) {
         statusBarManager.updateConnectionStatus('connecting');
         try {
             await serverManager.start();
@@ -112,11 +134,19 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     
     console.log('Extension activation completed successfully');
+    console.log('=== GEMINI EXTENSION ACTIVATION END ===');
     
     // Return an object with our API if needed by other extensions
     return {
         executeGeminiCommand
     };
+    } catch (error: any) {
+        console.error('=== EXTENSION ACTIVATION ERROR ===');
+        console.error('Error during activation:', error);
+        console.error('Error stack:', error.stack);
+        vscode.window.showErrorMessage(`Gemini extension activation error: ${error.message}`);
+        throw error;
+    }
 }
 
 /**
@@ -382,6 +412,11 @@ async function executeGeminiCommand(prompt: string) {
 }
 
 async function showServerStatus() {
+    if (!serverManager) {
+        vscode.window.showInformationMessage('Server manager not initialized');
+        return;
+    }
+    
     const status = serverManager.getStatus();
     
     if (status.isRunning) {
@@ -631,6 +666,11 @@ function showTerminal() {
 }
 
 async function reconnect() {
+    if (!serverManager) {
+        vscode.window.showInformationMessage('Server manager not initialized');
+        return;
+    }
+    
     statusBarManager.updateConnectionStatus('connecting');
     try {
         await serverManager.stop();

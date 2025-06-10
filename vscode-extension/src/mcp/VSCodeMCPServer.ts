@@ -1,18 +1,27 @@
 import * as vscode from 'vscode';
-import { Server } from '@modelcontextprotocol/sdk/server/index';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio';
-import {
-    CallToolRequestSchema,
-    ListToolsRequestSchema,
-    Tool,
-} from '@modelcontextprotocol/sdk/types';
+import { MCPImports } from './mcp-imports';
 
 export class VSCodeMCPServer {
-    private server: Server;
-    private transport?: StdioServerTransport;
+    private server: any;
+    private transport?: any;
+    private Server: any;
+    private StdioServerTransport: any;
+    private CallToolRequestSchema: any;
+    private ListToolsRequestSchema: any;
     
     constructor() {
-        this.server = new Server(
+        // Constructor will be empty - initialization happens in init()
+    }
+    
+    async init() {
+        // Load MCP modules
+        this.Server = await MCPImports.getServer();
+        this.StdioServerTransport = await MCPImports.getStdioServerTransport();
+        const types = await MCPImports.getTypes();
+        this.CallToolRequestSchema = types.CallToolRequestSchema;
+        this.ListToolsRequestSchema = types.ListToolsRequestSchema;
+        
+        this.server = new this.Server(
             {
                 name: 'vscode-gemini-mcp',
                 version: '1.0.0',
@@ -29,14 +38,14 @@ export class VSCodeMCPServer {
 
     private setupHandlers() {
         // Handle tool listing
-        this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+        this.server.setRequestHandler(this.ListToolsRequestSchema, async () => {
             return {
                 tools: this.getAvailableTools(),
             };
         });
 
         // Handle tool execution
-        this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        this.server.setRequestHandler(this.CallToolRequestSchema, async (request: any) => {
             const { name, arguments: args } = request.params;
             
             try {
@@ -63,7 +72,7 @@ export class VSCodeMCPServer {
         });
     }
 
-    private getAvailableTools(): Tool[] {
+    private getAvailableTools(): any[] {
         return [
             {
                 name: 'vscode.openFile',
@@ -367,7 +376,10 @@ export class VSCodeMCPServer {
     }
 
     async start(): Promise<void> {
-        this.transport = new StdioServerTransport();
+        if (!this.server) {
+            await this.init();
+        }
+        this.transport = new this.StdioServerTransport();
         await this.server.connect(this.transport);
         console.log('MCP Server started');
     }

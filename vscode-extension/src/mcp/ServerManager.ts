@@ -35,6 +35,7 @@ export class ServerManager {
             
             // Create server instance
             this.server = new VSCodeMCPServer();
+            // Server initialization happens in start()
             
             // Start server in a separate process
             const serverScriptPath = path.join(
