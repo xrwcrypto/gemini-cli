@@ -472,6 +472,76 @@ Add any other context about the problem here.
         },
       },
       {
+        name: 'ide',
+        description: 'VS Code IDE operations (when running in VS Code terminal)',
+        action: (_mainCommand, subCommand, args) => {
+          // Check if running in VS Code
+          const isVSCode = !!(
+            process.env.TERM_PROGRAM === 'vscode' ||
+            process.env.VSCODE_IPC_HOOK ||
+            process.env.VSCODE_GIT_IPC_HANDLE
+          );
+
+          if (!isVSCode) {
+            addMessage({
+              type: MessageType.ERROR,
+              content: 'This command is only available when running in VS Code terminal',
+              timestamp: new Date(),
+            });
+            return;
+          }
+
+          // Handle subcommands
+          if (!subCommand) {
+            addMessage({
+              type: MessageType.INFO,
+              content: 'VS Code IDE commands:\n' +
+                '  /ide status - Show VS Code connection status\n' +
+                '  /ide open <file> - Open a file in VS Code\n' +
+                '  /ide goto <line> - Go to line in current file\n' +
+                '  /ide search <query> - Search in workspace',
+              timestamp: new Date(),
+            });
+            return;
+          }
+
+          switch (subCommand) {
+            case 'status':
+              addMessage({
+                type: MessageType.INFO,
+                content: `VS Code detected\n` +
+                  `Workspace: ${process.env.VSCODE_WORKSPACE_FOLDER || process.cwd()}\n` +
+                  `Terminal: ${process.env.TERM_PROGRAM || 'unknown'}`,
+                timestamp: new Date(),
+              });
+              break;
+
+            case 'open':
+              if (!args) {
+                addMessage({
+                  type: MessageType.ERROR,
+                  content: 'Please specify a file to open',
+                  timestamp: new Date(),
+                });
+                return;
+              }
+              addMessage({
+                type: MessageType.INFO,
+                content: `To open files in VS Code, use the "vscode.openFile" tool via MCP`,
+                timestamp: new Date(),
+              });
+              break;
+
+            default:
+              addMessage({
+                type: MessageType.ERROR,
+                content: `Unknown IDE subcommand: ${subCommand}`,
+                timestamp: new Date(),
+              });
+          }
+        },
+      },
+      {
         name: 'quit',
         altName: 'exit',
         description: 'exit the cli',

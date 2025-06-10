@@ -143,7 +143,7 @@ export async function loadCliConfig(
 
   const contentGeneratorConfig = await createContentGeneratorConfig(argv);
 
-  return new Config({
+  const config = new Config({
     contentGeneratorConfig,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: argv.sandbox ?? settings.sandbox ?? argv.yolo ?? false,
@@ -173,6 +173,8 @@ export async function loadCliConfig(
       settings.fileFiltering?.allowBuildArtifacts,
     enableModifyWithExternalEditors: settings.enableModifyWithExternalEditors,
   });
+
+  return config;
 }
 
 async function createContentGeneratorConfig(
