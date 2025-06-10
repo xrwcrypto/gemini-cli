@@ -5,7 +5,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Content, Models, GenerateContentConfig, Part } from '@google/genai';
+import {
+  Content,
+  Models,
+  GenerateContentConfig,
+  Part,
+  GenerateContentResponse,
+} from '@google/genai';
 import { GeminiChat } from './geminiChat.js';
 import { Config } from '../config/config.js';
 
@@ -35,6 +41,58 @@ describe('GeminiChat', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe('sendMessage', () => {
+    it('should call generateContent with the correct parameters', async () => {
+      const response: GenerateContentResponse = {
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'response' }],
+              role: 'model',
+            },
+          },
+        ],
+      };
+      vi.mocked(mockModelsModule.generateContent).mockResolvedValue(response);
+
+      await chat.sendMessage({ message: 'hello' });
+
+      expect(mockModelsModule.generateContent).toHaveBeenCalledWith({
+        model: 'gemini-pro',
+        contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
+        config: {},
+      });
+    });
+  });
+
+  describe('sendMessageStream', () => {
+    it('should call generateContentStream with the correct parameters', async () => {
+      const response: AsyncGenerator<GenerateContentResponse> = (async function* () {
+        yield {
+          candidates: [
+            {
+              content: {
+                parts: [{ text: 'response' }],
+                role: 'model',
+              },
+            },
+          ],
+        };
+      })();
+      vi.mocked(mockModelsModule.generateContentStream).mockResolvedValue(
+        response,
+      );
+
+      await chat.sendMessageStream({ message: 'hello' });
+
+      expect(mockModelsModule.generateContentStream).toHaveBeenCalledWith({
+        model: 'gemini-pro',
+        contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
+        config: {},
+      });
+    });
   });
 
   describe('recordHistory', () => {
