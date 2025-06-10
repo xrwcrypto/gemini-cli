@@ -34,13 +34,41 @@ When running Gemini CLI from a VS Code terminal, you can use these `/ide` comman
 - `/ide notify <message> [type]` - Show a notification in VS Code
 - `/ide status <text>` - Update the status bar
 
-**Note**: The MCP server needs 2-3 seconds to initialize when first starting the CLI. If you get a "not connected" message, wait a moment and try again.
+**Important**: 
+- The extension automatically sets environment variables for new terminals
+- If you already have a terminal open, you'll need to create a new one after installing the extension
+- The MCP server needs 2-3 seconds to initialize when first starting the CLI
+- Use `/mcp` to check server connection status
 
 ## Keyboard Shortcuts
 
 - `Cmd/Ctrl+Shift+G`: Launch Gemini with current file
 - `Cmd/Ctrl+Shift+Alt+G`: Send selection to Gemini
 - `Cmd/Ctrl+K G`: Show Gemini command palette
+
+## Troubleshooting
+
+### /ide commands not working
+
+1. **Create a new terminal**: The extension sets environment variables for new terminals. If you had a terminal open before installing the extension, close it and create a new one.
+
+2. **Check environment variables**: Run this in your terminal to verify:
+   ```bash
+   echo $GEMINI_VSCODE_EXTENSION
+   echo $GEMINI_VSCODE_EXTENSION_PATH
+   ```
+   Both should have values if the extension is working correctly.
+
+3. **Use the command palette**: Instead of manually running `gemini`, use:
+   - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+   - Type "Gemini: Start Session"
+
+4. **Manual workaround**: If needed, set the variables manually:
+   ```bash
+   export GEMINI_VSCODE_EXTENSION=1
+   export GEMINI_VSCODE_EXTENSION_PATH="$HOME/.vscode/extensions/gemini-cli.gemini-cli-vscode-0.1.0"
+   gemini
+   ```
 
 ## Development
 

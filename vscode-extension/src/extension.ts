@@ -57,6 +57,21 @@ export async function activate(context: vscode.ExtensionContext) {
             context.subscriptions.push(serverManager);
         }
 
+    // Set environment variables for all terminals
+    // This ensures any terminal in VS Code can use the /ide commands
+    const terminalEnv = {
+        GEMINI_VSCODE_EXTENSION: '1',
+        GEMINI_VSCODE_EXTENSION_PATH: context.extensionPath,
+        VSCODE_WORKSPACE_FOLDER: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+    };
+
+    // Update terminal environment for new terminals
+    context.environmentVariableCollection.clear();
+    for (const [key, value] of Object.entries(terminalEnv)) {
+        context.environmentVariableCollection.replace(key, value);
+    }
+    console.log('Set terminal environment variables for Gemini CLI integration');
+
     // Register commands with better error handling
     const registerCommand = (commandId: string, handler: (...args: any[]) => any) => {
         try {
