@@ -103,6 +103,42 @@
         "title": "Gemini: Open in Gemini CLI",
         "category": "Gemini CLI",
         "icon": "$(terminal)"
+      },
+      {
+        "command": "gemini.sendQuery",
+        "title": "Gemini: Send Query",
+        "category": "Gemini CLI",
+        "icon": "$(send)"
+      },
+      {
+        "command": "gemini.showQuickInput",
+        "title": "Gemini: Quick Input",
+        "category": "Gemini CLI",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "gemini.showQuickQuery",
+        "title": "Gemini: Quick Query",
+        "category": "Gemini CLI",
+        "icon": "$(search)"
+      },
+      {
+        "command": "gemini.showTokenUsage",
+        "title": "Gemini: Show Token Usage",
+        "category": "Gemini CLI",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "gemini.showTerminal",
+        "title": "Gemini: Show Terminal",
+        "category": "Gemini CLI",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "gemini.reconnect",
+        "title": "Gemini: Reconnect Server",
+        "category": "Gemini CLI",
+        "icon": "$(sync)"
       }
     ],
     "keybindings": [
@@ -122,6 +158,12 @@
         "command": "gemini.showCommandPalette",
         "key": "ctrl+k g",
         "mac": "cmd+k g"
+      },
+      {
+        "command": "gemini.showQuickQuery",
+        "key": "ctrl+shift+space",
+        "mac": "cmd+shift+space",
+        "when": "editorTextFocus"
       }
     ],
     "menus": {

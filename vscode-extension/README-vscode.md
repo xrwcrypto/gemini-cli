@@ -28,11 +28,21 @@ Right-click in the editor or file explorer to access Gemini CLI commands:
 - **Generate Tests for File** - Create tests for the entire file
 - **Open in Gemini CLI** - Start a conversation about the file
 
+## Status Bar
+
+The extension adds multiple status bar items:
+
+- **Connection Status** - Shows MCP server status (connected/disconnected/error)
+- **Session Status** - Indicates if a Gemini CLI terminal is active
+- **Token Usage** - Displays current token consumption with color coding
+- **Quick Actions** - One-click access to Gemini commands (sparkle icon)
+
 ## Keyboard Shortcuts
 
 - **Cmd+Shift+G** (Mac) / **Ctrl+Shift+G** (Windows/Linux): Launch Gemini with current file context
 - **Cmd+Shift+Alt+G** (Mac) / **Ctrl+Shift+Alt+G** (Windows/Linux): Send selected text to Gemini
 - **Cmd+K G** (Mac) / **Ctrl+K G** (Windows/Linux): Show Gemini command palette
+- **Cmd+Shift+Space** (Mac) / **Ctrl+Shift+Space** (Windows/Linux): Quick query input
 
 ## Commands
 
@@ -46,6 +56,12 @@ All commands are available through the Command Palette (Cmd+Shift+P / Ctrl+Shift
 - **Gemini: Generate Tests** - Generate unit tests for your code
 - **Gemini: Refactor Code** - Get refactoring suggestions
 - **Gemini: Show Server Status** - Check MCP server connection status
+- **Gemini: Send Query** - Send a custom query to Gemini
+- **Gemini: Quick Input** - Open input box for Gemini queries
+- **Gemini: Quick Query** - Access recent queries and common actions
+- **Gemini: Show Token Usage** - View detailed token consumption
+- **Gemini: Show Terminal** - Focus on the Gemini CLI terminal
+- **Gemini: Reconnect Server** - Restart the MCP server connection
 
 ## MCP Server Integration
 

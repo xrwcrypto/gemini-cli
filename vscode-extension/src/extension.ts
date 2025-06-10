@@ -1,12 +1,18 @@
 import * as vscode from 'vscode';
 import { ServerManager } from './mcp/ServerManager.js';
+import { StatusBarManager } from './ui/StatusBarManager.js';
+import { QuickInput } from './ui/QuickInput.js';
+import { NotificationManager } from './ui/NotificationManager.js';
 import * as path from 'path';
 import * as fs from 'fs';
 
 // Store the extension context and server manager
 let extensionContext: vscode.ExtensionContext;
 let serverManager: ServerManager;
+let statusBarManager: StatusBarManager;
 let activeTerminal: vscode.Terminal | undefined;
+
+// Make context available globally for QuickInput (will be set in activate)
 
 /**
  * This method is called when the extension is activated
@@ -15,10 +21,14 @@ export async function activate(context: vscode.ExtensionContext) {
     console.log('Gemini CLI VS Code extension is now active!');
     
     extensionContext = context;
+    (global as any).extensionContext = context;
 
-    // Initialize MCP server manager
+    // Initialize managers
     serverManager = new ServerManager(context);
+    statusBarManager = new StatusBarManager();
+    
     context.subscriptions.push(serverManager);
+    context.subscriptions.push(statusBarManager);
 
     // Register commands
     const commands = [
@@ -35,6 +45,12 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('gemini.analyzeFile', analyzeFile),
         vscode.commands.registerCommand('gemini.generateTestsForFile', generateTestsForFile),
         vscode.commands.registerCommand('gemini.openInGemini', openInGemini),
+        vscode.commands.registerCommand('gemini.sendQuery', sendQuery),
+        vscode.commands.registerCommand('gemini.showQuickInput', () => QuickInput.showGeminiInput()),
+        vscode.commands.registerCommand('gemini.showQuickQuery', () => QuickInput.showQuickQuery()),
+        vscode.commands.registerCommand('gemini.showTokenUsage', showTokenUsage),
+        vscode.commands.registerCommand('gemini.showTerminal', showTerminal),
+        vscode.commands.registerCommand('gemini.reconnect', reconnect),
     ];
 
     // Add all commands to subscriptions
@@ -43,13 +59,30 @@ export async function activate(context: vscode.ExtensionContext) {
     // Auto-start server if configured
     const config = vscode.workspace.getConfiguration('gemini');
     if (config.get<boolean>('autoConnect', true)) {
+        statusBarManager.updateConnectionStatus('connecting');
         try {
             await serverManager.start();
-            vscode.window.showInformationMessage('Gemini MCP server started');
+            statusBarManager.updateConnectionStatus('connected');
+            NotificationManager.showConnectionStatus(true);
         } catch (error) {
+            statusBarManager.updateConnectionStatus('error');
             vscode.window.showErrorMessage(`Failed to start Gemini MCP server: ${error}`);
         }
     }
+    
+    // Listen for terminal events
+    vscode.window.onDidOpenTerminal(terminal => {
+        if (terminal.name === 'Gemini CLI') {
+            statusBarManager.updateSessionStatus(true);
+        }
+    });
+    
+    vscode.window.onDidCloseTerminal(terminal => {
+        if (terminal === activeTerminal) {
+            activeTerminal = undefined;
+            statusBarManager.updateSessionStatus(false);
+        }
+    });
 }
 
 /**
@@ -490,4 +523,88 @@ async function openInGemini(uri: vscode.Uri) {
     
     activeTerminal.sendText(message);
     vscode.window.showInformationMessage(`Opened ${fileName} context in Gemini CLI`);
+}
+
+// New UI command implementations
+
+async function sendQuery(query?: string) {
+    // If no query provided, show input box
+    if (!query) {
+        query = await QuickInput.showGeminiInput();
+        if (!query) {
+            return;
+        }
+    }
+
+    // Ensure we have a terminal
+    if (!activeTerminal) {
+        await startSession();
+        // Wait a bit for the CLI to start
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    if (!activeTerminal) {
+        vscode.window.showErrorMessage('Failed to start Gemini CLI session');
+        return;
+    }
+
+    // Show the terminal
+    activeTerminal.show();
+    
+    // Send the query
+    activeTerminal.sendText(query);
+    
+    // Save to recent queries
+    const recent = extensionContext.globalState.get<string[]>('gemini.recentQueries', []);
+    const updated = [query, ...recent.filter(q => q !== query)].slice(0, 5);
+    extensionContext.globalState.update('gemini.recentQueries', updated);
+}
+
+async function showTokenUsage() {
+    // This would normally get real token usage from the CLI
+    // For now, show mock data
+    const usage = {
+        session: {
+            used: 12345,
+            limit: 100000
+        },
+        daily: {
+            used: 45678,
+            limit: 1000000
+        }
+    };
+
+    const items = [
+        `Session: ${usage.session.used.toLocaleString()} / ${usage.session.limit.toLocaleString()} (${Math.round(usage.session.used / usage.session.limit * 100)}%)`,
+        `Daily: ${usage.daily.used.toLocaleString()} / ${usage.daily.limit.toLocaleString()} (${Math.round(usage.daily.used / usage.daily.limit * 100)}%)`
+    ];
+
+    const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Token Usage Information'
+    });
+
+    if (selected) {
+        vscode.window.showInformationMessage(`Token Usage: ${selected}`);
+    }
+}
+
+function showTerminal() {
+    if (activeTerminal) {
+        activeTerminal.show();
+    } else {
+        vscode.window.showInformationMessage('No active Gemini CLI session. Start one with Cmd+Shift+G');
+    }
+}
+
+async function reconnect() {
+    statusBarManager.updateConnectionStatus('connecting');
+    try {
+        await serverManager.stop();
+        await serverManager.start();
+        statusBarManager.updateConnectionStatus('connected');
+        NotificationManager.showConnectionStatus(true);
+    } catch (error) {
+        statusBarManager.updateConnectionStatus('error');
+        vscode.window.showErrorMessage(`Failed to reconnect: ${error}`);
+    }
 }
