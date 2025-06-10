@@ -1,0 +1,87 @@
+# Gemini CLI for VS Code
+
+Deep VS Code integration for Gemini CLI - your AI-powered coding assistant.
+
+## Features
+
+- **🚀 Quick Launch**: Start Gemini CLI sessions directly from VS Code
+- **📝 Context-Aware**: Send code context and selections to Gemini CLI
+- **⌨️ Keyboard Shortcuts**: Quick access to common AI actions
+- **🔧 MCP Integration**: Automatic VS Code tool integration via Model Context Protocol
+- **💡 Smart Commands**: Explain code, generate tests, refactor, and more
+
+## Keyboard Shortcuts
+
+- **Cmd+Shift+G** (Mac) / **Ctrl+Shift+G** (Windows/Linux): Launch Gemini with current file context
+- **Cmd+Shift+Alt+G** (Mac) / **Ctrl+Shift+Alt+G** (Windows/Linux): Send selected text to Gemini
+- **Cmd+K G** (Mac) / **Ctrl+K G** (Windows/Linux): Show Gemini command palette
+
+## Commands
+
+All commands are available through the Command Palette (Cmd+Shift+P / Ctrl+Shift+P):
+
+- **Gemini: Start CLI Session** - Open a new terminal with Gemini CLI
+- **Gemini: Launch with Current File Context** - Start Gemini with context from the current file
+- **Gemini: Send Selected Text** - Send the selected code to Gemini
+- **Gemini: Show Command Palette** - Quick access to common Gemini actions
+- **Gemini: Explain Code** - Get an explanation of the current code
+- **Gemini: Generate Tests** - Generate unit tests for your code
+- **Gemini: Refactor Code** - Get refactoring suggestions
+- **Gemini: Show Server Status** - Check MCP server connection status
+
+## MCP Server Integration
+
+The extension automatically starts an MCP (Model Context Protocol) server that provides VS Code-specific tools to Gemini CLI:
+
+- **vscode.openFile** - Open files in the editor
+- **vscode.getActiveFile** - Get information about the currently active file
+- **vscode.getOpenFiles** - List all open files
+- **vscode.getWorkspaceFolders** - Get workspace information
+- **vscode.showNotification** - Display VS Code notifications
+- **vscode.updateStatusBar** - Update the status bar
+
+## Usage
+
+1. **Start a Session**: Use Cmd+Shift+G to launch Gemini CLI with your current file context
+2. **Send Code**: Select code and press Cmd+Shift+Alt+G to send it to Gemini
+3. **Quick Actions**: Press Cmd+K G to access common actions like explaining code or generating tests
+4. **IDE Commands**: In the Gemini CLI terminal, use `/ide` commands:
+   - `/ide status` - Check VS Code integration status
+   - `/ide open <file>` - Open a file in VS Code
+   - `/ide search <query>` - Search in workspace
+   - `/ide files` - List open files
+   - `/ide active` - Get active file info
+
+## Requirements
+
+- VS Code 1.85.0 or higher
+- Gemini CLI installed globally (`npm install -g @gemini-cli/cli`)
+
+## Settings
+
+Configure the extension through VS Code settings:
+
+- `gemini.enabled`: Enable/disable Gemini CLI integration
+- `gemini.autoConnect`: Automatically connect to Gemini CLI when VS Code starts
+- `gemini.mcpServer.port`: MCP server port (default: auto)
+
+## Installation
+
+1. Install from the VS Code Marketplace (search for "Gemini CLI")
+2. Or install manually:
+   ```bash
+   cd vscode-extension
+   npm install
+   npm run package
+   code --install-extension gemini-cli-vscode-*.vsix
+   ```
+
+## Troubleshooting
+
+- **MCP Server not starting**: Check the Output panel (View > Output > Gemini MCP Server)
+- **Commands not working**: Ensure Gemini CLI is installed globally
+- **No VS Code tools in CLI**: Check `/mcp` command in Gemini CLI to verify server connection
+
+## License
+
+Apache-2.0

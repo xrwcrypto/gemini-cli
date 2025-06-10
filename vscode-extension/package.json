@@ -55,6 +55,24 @@
         "command": "gemini.showServerStatus",
         "title": "Gemini: Show Server Status",
         "category": "Gemini CLI"
+      },
+      {
+        "command": "gemini.explainCode",
+        "title": "Gemini: Explain Code",
+        "category": "Gemini CLI",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "gemini.generateTests",
+        "title": "Gemini: Generate Tests",
+        "category": "Gemini CLI",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "gemini.refactorCode",
+        "title": "Gemini: Refactor Code",
+        "category": "Gemini CLI",
+        "icon": "$(tools)"
       }
     ],
     "keybindings": [
@@ -136,6 +154,7 @@
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "20.x",
+    "@types/sinon": "^17.0.3",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
@@ -145,6 +164,7 @@
     "eslint": "^8.56.0",
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
+    "sinon": "^17.0.1",
     "typescript": "^5.3.3"
   },
   "dependencies": {
