@@ -1,0 +1,144 @@
+{
+  "name": "gemini-cli-vscode",
+  "displayName": "Gemini CLI for VS Code",
+  "description": "Deep VS Code integration for Gemini CLI - AI-powered coding assistant",
+  "version": "0.1.0",
+  "publisher": "gemini-cli",
+  "private": true,
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/google-gemini/gemini-cli"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "gemini",
+    "ai",
+    "assistant",
+    "copilot",
+    "code-generation"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gemini.startSession",
+        "title": "Gemini: Start CLI Session",
+        "category": "Gemini CLI"
+      },
+      {
+        "command": "gemini.launchWithContext",
+        "title": "Gemini: Launch with Current File Context",
+        "category": "Gemini CLI"
+      },
+      {
+        "command": "gemini.sendSelection",
+        "title": "Gemini: Send Selected Text",
+        "category": "Gemini CLI"
+      },
+      {
+        "command": "gemini.showCommandPalette",
+        "title": "Gemini: Show Command Palette",
+        "category": "Gemini CLI"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "gemini.launchWithContext",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "gemini.sendSelection",
+        "key": "ctrl+shift+alt+g",
+        "mac": "cmd+shift+alt+g",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "gemini.showCommandPalette",
+        "key": "ctrl+k g",
+        "mac": "cmd+k g"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "gemini.editorSubmenu",
+          "group": "gemini",
+          "when": "editorTextFocus"
+        }
+      ],
+      "explorer/context": [
+        {
+          "submenu": "gemini.explorerSubmenu",
+          "group": "gemini"
+        }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "gemini.editorSubmenu",
+        "label": "Gemini CLI"
+      },
+      {
+        "id": "gemini.explorerSubmenu",
+        "label": "Gemini CLI"
+      }
+    ],
+    "configuration": {
+      "title": "Gemini CLI",
+      "properties": {
+        "gemini.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Gemini CLI integration"
+        },
+        "gemini.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect to Gemini CLI when VS Code starts"
+        },
+        "gemini.mcpServer.port": {
+          "type": ["string", "number"],
+          "default": "auto",
+          "description": "MCP server port (use 'auto' for automatic assignment)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

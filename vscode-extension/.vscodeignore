@@ -1,0 +1,11 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.vscodeignore
+**/tsconfig.json
+**/*.map
+**/*.ts
+**/.eslintrc*
+node_modules/**
+!node_modules/@modelcontextprotocol/**
