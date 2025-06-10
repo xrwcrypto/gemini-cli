@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as dotenv from 'dotenv';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import process from 'node:process';
@@ -23,7 +22,6 @@ import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { GeminiClient } from '../core/client.js';
-import { GEMINI_CONFIG_DIR as GEMINI_DIR } from '../tools/memoryTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
 import { initializeTelemetry } from '../telemetry/index.js';
@@ -78,10 +76,13 @@ export interface ConfigParameters {
   accessibility?: AccessibilitySettings;
   telemetry?: boolean;
   telemetryLogUserPromptsEnabled?: boolean;
+  telemetryOtlpEndpoint?: string;
   fileFilteringRespectGitIgnore?: boolean;
   fileFilteringAllowBuildArtifacts?: boolean;
   enableModifyWithExternalEditors?: boolean;
   checkpoint?: boolean;
+  proxy?: string;
+  cwd?: string;
 }
 
 export class Config {
@@ -115,6 +116,8 @@ export class Config {
   private fileDiscoveryService: FileDiscoveryService | null = null;
   private gitService: GitService | undefined = undefined;
   private readonly checkpoint: boolean;
+  private readonly proxy: string | undefined;
+  private readonly cwd: string;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -139,7 +142,7 @@ export class Config {
     this.telemetryLogUserPromptsEnabled =
       params.telemetryLogUserPromptsEnabled ?? true;
     this.telemetryOtlpEndpoint =
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4317';
+      params.telemetryOtlpEndpoint ?? 'http://localhost:4317';
     this.fileFilteringRespectGitIgnore =
       params.fileFilteringRespectGitIgnore ?? true;
     this.fileFilteringAllowBuildArtifacts =
@@ -147,6 +150,8 @@ export class Config {
     this.enableModifyWithExternalEditors =
       params.enableModifyWithExternalEditors ?? false;
     this.checkpoint = params.checkpoint ?? false;
+    this.proxy = params.proxy;
+    this.cwd = params.cwd ?? process.cwd();
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -298,6 +303,14 @@ export class Config {
     return this.checkpoint;
   }
 
+  getProxy(): string | undefined {
+    return this.proxy;
+  }
+
+  getWorkingDir(): string {
+    return this.cwd;
+  }
+
   async getFileService(): Promise<FileDiscoveryService> {
     if (!this.fileDiscoveryService) {
       this.fileDiscoveryService = new FileDiscoveryService(this.targetDir);
@@ -315,42 +328,6 @@ export class Config {
       await this.gitService.initialize();
     }
     return this.gitService;
-  }
-}
-
-function findEnvFile(startDir: string): string | null {
-  let currentDir = path.resolve(startDir);
-  while (true) {
-    // prefer gemini-specific .env under GEMINI_DIR
-    const geminiEnvPath = path.join(currentDir, GEMINI_DIR, '.env');
-    if (fs.existsSync(geminiEnvPath)) {
-      return geminiEnvPath;
-    }
-    const envPath = path.join(currentDir, '.env');
-    if (fs.existsSync(envPath)) {
-      return envPath;
-    }
-    const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir || !parentDir) {
-      // check .env under home as fallback, again preferring gemini-specific .env
-      const homeGeminiEnvPath = path.join(os.homedir(), GEMINI_DIR, '.env');
-      if (fs.existsSync(homeGeminiEnvPath)) {
-        return homeGeminiEnvPath;
-      }
-      const homeEnvPath = path.join(os.homedir(), '.env');
-      if (fs.existsSync(homeEnvPath)) {
-        return homeEnvPath;
-      }
-      return null;
-    }
-    currentDir = parentDir;
-  }
-}
-
-export function loadEnvironment(): void {
-  const envFilePath = findEnvFile(process.cwd());
-  if (envFilePath) {
-    dotenv.config({ path: envFilePath });
   }
 }
 

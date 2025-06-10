@@ -115,6 +115,8 @@ describe('Gemini Client (client.ts)', () => {
         getUserMemory: vi.fn().mockReturnValue(''),
         getFullContext: vi.fn().mockReturnValue(false),
         getSessionId: vi.fn().mockReturnValue('test-session-id'),
+        getProxy: vi.fn().mockReturnValue(undefined),
+        getWorkingDir: vi.fn().mockReturnValue('/test/dir'),
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return mock as any;
