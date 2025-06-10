@@ -191,8 +191,18 @@ async function startSession() {
     }
 
     // Launch Gemini CLI
-    // TODO: Make this configurable - for now assume it's installed globally
-    activeTerminal.sendText('gemini');
+    // Check if we're in the gemini-cli development directory
+    const isDevEnvironment = vscode.workspace.workspaceFolders?.some(folder => 
+        folder.uri.fsPath.includes('gemini-cli')
+    );
+    
+    if (isDevEnvironment) {
+        // Use the local development version
+        activeTerminal.sendText('npm start');
+    } else {
+        // Use the globally installed version
+        activeTerminal.sendText('gemini');
+    }
 
     // Listen for terminal close
     const terminalCloseListener = vscode.window.onDidCloseTerminal(closedTerminal => {

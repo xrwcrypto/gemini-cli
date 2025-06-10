@@ -21,20 +21,21 @@ export function getVSCodeMCPServer(): Record<string, MCPServerConfig> | null {
     path.join(process.env.HOME || '', '.vscode/extensions/gemini-cli-vscode-*');
 
   return {
-    vscode: {
-      command: process.execPath || 'node',
-      args: [
-        path.join(extensionPath, 'dist/mcp/server-entry.js')
-      ],
-      env: {
+    vscode: new MCPServerConfig(
+      process.execPath || 'node',
+      [path.join(extensionPath, 'dist/mcp/server-entry.js')],
+      {
         VSCODE_WORKSPACE_FOLDER: process.env.VSCODE_WORKSPACE_FOLDER || process.cwd(),
         // Pass through VS Code environment variables
         ...Object.fromEntries(
           Object.entries(process.env).filter(([key]) => key.startsWith('VSCODE_'))
         )
       },
-      description: 'VS Code integration via MCP',
-      transport: 'stdio' as const,
-    }
+      undefined, // cwd
+      undefined, // url
+      undefined, // timeout
+      undefined, // trust
+      'VS Code integration via MCP' // description
+    )
   };
 }
