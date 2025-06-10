@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import { LSTool } from '../tools/ls.js';
@@ -16,7 +15,7 @@ import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { ShellTool } from '../tools/shell.js';
 import { WriteFileTool } from '../tools/write-file.js';
 import process from 'node:process';
-import { execSync } from 'node:child_process';
+import { isGitRepository } from '../utils/gitUtils.js';
 import { MemoryTool, GEMINI_CONFIG_DIR } from '../tools/memoryTool.js';
 
 export function getCoreSystemPrompt(userMemory?: string): string {
@@ -68,7 +67,12 @@ When asked to refactor code, follow this specialized sequence to ensure safety a
 2.  **Analyze Scope and Impact:** Use '${GlobTool.Name}' and '${GrepTool.Name}' to identify not just the target code, but also where it is used and what other parts of the system it might affect. State your understanding of the scope.
 3.  **Propose a Detailed Plan:** Formulate a step-by-step plan. For each step, specify the change to be made and the verification that will follow. The plan must include a final verification step using the project's tests, linter, and type checker. Present this plan to the user for approval before proceeding.
 4.  **Execute and Verify Incrementally:** Implement the plan one step at a time. After each significant change, re-run relevant tests or linters if possible. This helps catch errors early.
-5.  **Offer Checkpoint Commit:** After a self-contained part of the plan is successfully completed and verified, offer to commit the changes. Propose a clear, descriptive commit message based on the completed step. For example: "This step is complete and all checks are passing. Would you like me to commit these changes as a checkpoint?"
+${(function () {
+  if (isGitRepository(process.cwd())) {
+    return `5.  **Offer Checkpoint Commit:** After a self-contained part of the plan is successfully completed and verified, offer to commit the changes. Propose a clear, descriptive commit message based on the completed step. For example: "This step is complete and all checks are passing. Would you like me to commit these changes as a checkpoint?"`;
+  }
+  return '';
+})()}
 6.  **Final Validation:** After all changes are complete, execute the full suite of verification commands specified in the project memory (e.g., 'npm run test', 'npm run typecheck', 'npm run preflight'). Do not consider the task complete until all checks pass.
 
 ## New Applications
@@ -141,17 +145,7 @@ You are running outside of a sandbox container, directly on the user's system. F
 })()}
 
 ${(function () {
-  // note git repo can change so we need to check every time system prompt is generated
-  const isWindows = os.platform() === 'win32';
-  const devNull = isWindows ? 'NUL' : '/dev/null';
-  const gitRootCmd = `git rev-parse --show-toplevel 2>${devNull}`;
-  let gitRoot = '';
-  try {
-    gitRoot = execSync(gitRootCmd)?.toString()?.trim();
-  } catch (_e) {
-    // ignore
-  }
-  if (gitRoot) {
+  if (isGitRepository(process.cwd())) {
     return `
 # Git Repository
 - The current working (project) directory is being managed by a git repository.
@@ -218,7 +212,12 @@ The file has been refactored. Now, running final verification to ensure correctn
 (After verification passes)
 The refactoring of 'src/auth.py' to use 'requests' is complete and all checks are passing. This represents a stable checkpoint.
 
-Would you like me to commit these changes with the message "refactor(auth): migrate from urllib to requests"?
+${(function () {
+  if (isGitRepository(process.cwd())) {
+    return `Would you like me to commit these changes with the message "refactor(auth): migrate from urllib to requests"?`;
+  }
+  return '';
+})()}
 </example>
 
 <example>
