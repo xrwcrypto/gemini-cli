@@ -31,6 +31,13 @@ export function createIDECommandAction(
 ) {
   const installVSCodeExtension = async (addMessage: (message: Message) => void) => {
     try {
+      // Debug environment
+      console.log('[DEBUG] VS Code environment check:');
+      console.log('  TERM_PROGRAM:', process.env.TERM_PROGRAM);
+      console.log('  VSCODE_GIT_IPC_HANDLE:', process.env.VSCODE_GIT_IPC_HANDLE);
+      console.log('  VSCODE_INJECTION:', process.env.VSCODE_INJECTION);
+      console.log('  GEMINI_VSCODE_EXTENSION:', process.env.GEMINI_VSCODE_EXTENSION);
+      
       // Check if running in VS Code terminal - be more lenient
       const isVSCodeTerminal = process.env.TERM_PROGRAM === 'vscode' || 
                                process.env.VSCODE_GIT_IPC_HANDLE ||
@@ -203,11 +210,17 @@ export function createIDECommandAction(
     subCommand?: string,
     args?: string,
   ): Promise<IDECommandActionReturn | void> => {
-    // Check if running in VS Code terminal
+    // For install command, skip the VS Code check
+    if (subCommand === 'install') {
+      await installVSCodeExtension(addMessage);
+      return;
+    }
+    
+    // Check if running in VS Code terminal for other commands
     if (!process.env.GEMINI_VSCODE_EXTENSION) {
       addMessage({
         type: MessageType.ERROR,
-        content: 'This command is only available when running in VS Code terminal.\nPlease run Gemini CLI from the VS Code integrated terminal.',
+        content: 'This command requires the VS Code extension to be active.\nPlease run Gemini CLI from the VS Code integrated terminal after installing the extension.',
         timestamp: new Date(),
       });
       return;
@@ -391,10 +404,6 @@ export function createIDECommandAction(
           toolArgs: { text: args },
         };
 
-      case 'install':
-        // Install the bundled VS Code extension
-        await installVSCodeExtension(addMessage);
-        return;
 
       case 'help':
       case undefined:
