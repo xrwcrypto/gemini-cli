@@ -3,6 +3,7 @@ import { ServerManager } from './mcp/ServerManager';
 import { StatusBarManager } from './ui/StatusBarManager';
 import { QuickInput } from './ui/QuickInput';
 import { NotificationManager } from './ui/NotificationManager';
+import { IPCServer } from './mcp/IPCServer';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -10,6 +11,7 @@ import * as fs from 'fs';
 let extensionContext: vscode.ExtensionContext;
 let serverManager: ServerManager | null;
 let statusBarManager: StatusBarManager;
+let ipcServer: IPCServer;
 let activeTerminal: vscode.Terminal | undefined;
 
 // Make context available globally for QuickInput (will be set in activate)
@@ -56,6 +58,18 @@ export async function activate(context: vscode.ExtensionContext) {
         if (serverManager) {
             context.subscriptions.push(serverManager);
         }
+
+    // Start IPC server for MCP communication
+    console.log('Starting IPC server for MCP communication...');
+    try {
+        ipcServer = new IPCServer(context, statusBarManager);
+        await ipcServer.start();
+        context.subscriptions.push(ipcServer);
+        console.log('IPC server started successfully');
+    } catch (e: any) {
+        console.error('Failed to start IPC server:', e);
+        vscode.window.showErrorMessage(`Failed to start IPC server: ${e.message}`);
+    }
 
     // Set environment variables for all terminals
     // This ensures any terminal in VS Code can use the /ide commands
@@ -172,6 +186,9 @@ export async function deactivate() {
     console.log('Gemini CLI VS Code extension is deactivating');
     if (serverManager) {
         await serverManager.stop();
+    }
+    if (ipcServer) {
+        await ipcServer.stop();
     }
 }
 

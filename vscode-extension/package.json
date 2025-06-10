@@ -279,7 +279,10 @@
           "description": "Automatically connect to Gemini CLI when VS Code starts"
         },
         "gemini.mcpServer.port": {
-          "type": ["string", "number"],
+          "type": [
+            "string",
+            "number"
+          ],
           "default": "auto",
           "description": "MCP server port (use 'auto' for automatic assignment)"
         }
@@ -287,8 +290,9 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run build-bundle",
     "compile": "tsc -p ./",
+    "build-bundle": "npm run compile && node esbuild.js --production",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -307,6 +311,7 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.25.5",
     "eslint": "^8.56.0",
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
@@ -314,6 +319,10 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "content-type": "^1.0.5",
+    "eventsource-parser": "^2.0.1",
+    "nanoid": "^5.0.1",
+    "zod": "^3.22.4"
   }
 }

@@ -2,10 +2,15 @@
 .vscode-test/**
 src/**
 .gitignore
-.vscodeignore
 **/tsconfig.json
 **/*.map
 **/*.ts
 **/.eslintrc*
 node_modules/**
-!node_modules/@modelcontextprotocol/**
+*.vsix
+esbuild.js
+
+# Keep only the bundled files
+!dist/extension.js
+!dist/mcp/server-entry.js
+!dist/mcp/standalone-server-bundled.js

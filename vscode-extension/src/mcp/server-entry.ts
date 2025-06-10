@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * MCP Server entry point - delegates to simple server for now
+ * MCP Server entry point - delegates to standalone server with IPC
  */
 
-// Use the simple server for testing
-import './simple-server.js';
+// Use the standalone server that communicates with VS Code via IPC
+import './standalone-server-bundled.js';
