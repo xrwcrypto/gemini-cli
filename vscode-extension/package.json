@@ -73,6 +73,36 @@
         "title": "Gemini: Refactor Code",
         "category": "Gemini CLI",
         "icon": "$(tools)"
+      },
+      {
+        "command": "gemini.addDocumentation",
+        "title": "Gemini: Add Documentation",
+        "category": "Gemini CLI",
+        "icon": "$(book)"
+      },
+      {
+        "command": "gemini.fixIssues",
+        "title": "Gemini: Fix Issues",
+        "category": "Gemini CLI",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "gemini.analyzeFile",
+        "title": "Gemini: Analyze File",
+        "category": "Gemini CLI",
+        "icon": "$(search)"
+      },
+      {
+        "command": "gemini.generateTestsForFile",
+        "title": "Gemini: Generate Tests for File",
+        "category": "Gemini CLI",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "gemini.openInGemini",
+        "title": "Gemini: Open in Gemini CLI",
+        "category": "Gemini CLI",
+        "icon": "$(terminal)"
       }
     ],
     "keybindings": [
@@ -107,16 +137,80 @@
           "submenu": "gemini.explorerSubmenu",
           "group": "gemini"
         }
+      ],
+      "gemini.editorSubmenu": [
+        {
+          "command": "gemini.launchWithContext",
+          "group": "1_launch@1"
+        },
+        {
+          "command": "gemini.sendSelection",
+          "group": "1_launch@2",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "gemini.explainCode",
+          "group": "2_actions@1"
+        },
+        {
+          "command": "gemini.generateTests",
+          "group": "2_actions@2"
+        },
+        {
+          "command": "gemini.refactorCode",
+          "group": "2_actions@3"
+        },
+        {
+          "command": "gemini.addDocumentation",
+          "group": "3_documentation@1"
+        },
+        {
+          "command": "gemini.fixIssues",
+          "group": "4_fix@1"
+        }
+      ],
+      "gemini.explorerSubmenu": [
+        {
+          "command": "gemini.analyzeFile",
+          "group": "1_analyze@1"
+        },
+        {
+          "command": "gemini.generateTestsForFile",
+          "group": "1_analyze@2"
+        },
+        {
+          "command": "gemini.openInGemini",
+          "group": "2_open@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "gemini.launchWithContext",
+          "group": "navigation",
+          "when": "resourceExtname =~ /\\.(js|jsx|ts|tsx|py|java|go|rs|c|cpp|cs)$/"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "gemini.explainCode",
+          "group": "1_gemini@1"
+        },
+        {
+          "command": "gemini.generateTests",
+          "group": "1_gemini@2"
+        }
       ]
     },
     "submenus": [
       {
         "id": "gemini.editorSubmenu",
-        "label": "Gemini CLI"
+        "label": "Gemini CLI",
+        "icon": "$(sparkle)"
       },
       {
         "id": "gemini.explorerSubmenu",
-        "label": "Gemini CLI"
+        "label": "Gemini CLI",
+        "icon": "$(sparkle)"
       }
     ],
     "configuration": {

@@ -30,6 +30,11 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('gemini.explainCode', () => executeGeminiCommand('Please explain this code')),
         vscode.commands.registerCommand('gemini.generateTests', () => executeGeminiCommand('Please generate unit tests for this code')),
         vscode.commands.registerCommand('gemini.refactorCode', () => executeGeminiCommand('Please suggest refactoring improvements for this code')),
+        vscode.commands.registerCommand('gemini.addDocumentation', () => executeGeminiCommand('Please add comprehensive documentation to this code')),
+        vscode.commands.registerCommand('gemini.fixIssues', () => executeGeminiCommand('Please find and fix any issues in this code')),
+        vscode.commands.registerCommand('gemini.analyzeFile', analyzeFile),
+        vscode.commands.registerCommand('gemini.generateTestsForFile', generateTestsForFile),
+        vscode.commands.registerCommand('gemini.openInGemini', openInGemini),
     ];
 
     // Add all commands to subscriptions
@@ -352,4 +357,137 @@ async function showServerStatus() {
             }
         }
     }
+}
+
+// Explorer context menu commands
+
+async function analyzeFile(uri: vscode.Uri) {
+    if (!uri) {
+        vscode.window.showWarningMessage('No file selected');
+        return;
+    }
+
+    const fileName = path.basename(uri.fsPath);
+    
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Analyzing ${fileName} with Gemini CLI...`,
+        cancellable: false
+    }, async (progress) => {
+        progress.report({ increment: 10 });
+
+        // Ensure we have a terminal
+        if (!activeTerminal) {
+            progress.report({ increment: 20, message: 'Starting Gemini CLI...' });
+            await startSession();
+            // Wait a bit for the CLI to start
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        if (!activeTerminal) {
+            vscode.window.showErrorMessage('Failed to start Gemini CLI session');
+            return;
+        }
+
+        progress.report({ increment: 40, message: 'Reading file...' });
+
+        // Show the terminal
+        activeTerminal.show();
+
+        // Read the file content
+        try {
+            const document = await vscode.workspace.openTextDocument(uri);
+            const languageId = document.languageId;
+            const content = document.getText();
+
+            // Limit content size for very large files
+            const contentToSend = content.length > 10000 
+                ? content.substring(0, 10000) + '\n... (truncated)'
+                : content;
+
+            progress.report({ increment: 70, message: 'Sending to Gemini...' });
+
+            const message = `Please analyze this file (${fileName}):\n\`\`\`${languageId}\n${contentToSend}\n\`\`\`\n\nProvide a summary of what this file does and any potential improvements.`;
+            
+            activeTerminal.sendText(message);
+            progress.report({ increment: 100 });
+            
+            vscode.window.showInformationMessage(`✨ Analyzing ${fileName} with Gemini CLI`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to read file: ${error}`);
+        }
+    });
+}
+
+async function generateTestsForFile(uri: vscode.Uri) {
+    if (!uri) {
+        vscode.window.showWarningMessage('No file selected');
+        return;
+    }
+
+    // Ensure we have a terminal
+    if (!activeTerminal) {
+        await startSession();
+        // Wait a bit for the CLI to start
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    if (!activeTerminal) {
+        vscode.window.showErrorMessage('Failed to start Gemini CLI session');
+        return;
+    }
+
+    // Show the terminal
+    activeTerminal.show();
+
+    // Read the file content
+    try {
+        const document = await vscode.workspace.openTextDocument(uri);
+        const fileName = path.basename(uri.fsPath);
+        const languageId = document.languageId;
+        const content = document.getText();
+
+        // Limit content size for very large files
+        const contentToSend = content.length > 10000 
+            ? content.substring(0, 10000) + '\n... (truncated)'
+            : content;
+
+        const message = `Please generate comprehensive unit tests for this file (${fileName}):\n\`\`\`${languageId}\n${contentToSend}\n\`\`\``;
+        
+        activeTerminal.sendText(message);
+        vscode.window.showInformationMessage(`Generating tests for ${fileName}`);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to read file: ${error}`);
+    }
+}
+
+async function openInGemini(uri: vscode.Uri) {
+    if (!uri) {
+        vscode.window.showWarningMessage('No file selected');
+        return;
+    }
+
+    // Ensure we have a terminal
+    if (!activeTerminal) {
+        await startSession();
+        // Wait a bit for the CLI to start
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    if (!activeTerminal) {
+        vscode.window.showErrorMessage('Failed to start Gemini CLI session');
+        return;
+    }
+
+    // Show the terminal
+    activeTerminal.show();
+
+    // Send a message about the file
+    const fileName = path.basename(uri.fsPath);
+    const relativePath = vscode.workspace.asRelativePath(uri.fsPath);
+    
+    const message = `I'm looking at the file: ${relativePath}\n\nWhat would you like me to help with regarding this file?`;
+    
+    activeTerminal.sendText(message);
+    vscode.window.showInformationMessage(`Opened ${fileName} context in Gemini CLI`);
 }

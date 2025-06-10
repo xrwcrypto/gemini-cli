@@ -10,6 +10,24 @@ Deep VS Code integration for Gemini CLI - your AI-powered coding assistant.
 - **🔧 MCP Integration**: Automatic VS Code tool integration via Model Context Protocol
 - **💡 Smart Commands**: Explain code, generate tests, refactor, and more
 
+## Context Menus
+
+Right-click in the editor or file explorer to access Gemini CLI commands:
+
+### Editor Context Menu
+- **Launch with Context** - Start Gemini with the current file
+- **Send Selection** - Send selected text (only appears when text is selected)
+- **Explain Code** - Get an explanation of the code
+- **Generate Tests** - Create unit tests
+- **Refactor Code** - Get refactoring suggestions
+- **Add Documentation** - Generate documentation
+- **Fix Issues** - Find and fix problems
+
+### Explorer Context Menu
+- **Analyze File** - Get a comprehensive analysis of the file
+- **Generate Tests for File** - Create tests for the entire file
+- **Open in Gemini CLI** - Start a conversation about the file
+
 ## Keyboard Shortcuts
 
 - **Cmd+Shift+G** (Mac) / **Ctrl+Shift+G** (Windows/Linux): Launch Gemini with current file context
