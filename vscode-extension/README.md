@@ -9,6 +9,7 @@ This extension provides deep integration between VS Code and the Gemini CLI, ena
 - 🎯 **Smart Selection**: Send selected code to Gemini for analysis
 - 🛠️ **Rich Commands**: Access Gemini features through command palette
 - 🔌 **MCP Integration**: Communicates via Model Context Protocol
+- 🔧 **IDE Commands**: Use `/ide` commands to control VS Code from the CLI
 
 ## Requirements
 
@@ -21,6 +22,19 @@ This extension provides deep integration between VS Code and the Gemini CLI, ena
 - `gemini.enabled`: Enable/disable the extension
 - `gemini.autoConnect`: Automatically connect on startup
 - `gemini.mcpServer.port`: MCP server port configuration
+
+## IDE Commands
+
+When running Gemini CLI from a VS Code terminal, you can use these `/ide` commands:
+
+- `/ide active` - Get information about the currently active file
+- `/ide open <file> [line] [column]` - Open a file in VS Code  
+- `/ide files` - List all open files
+- `/ide workspace` - Get workspace folders
+- `/ide notify <message> [type]` - Show a notification in VS Code
+- `/ide status <text>` - Update the status bar
+
+**Note**: The MCP server needs 2-3 seconds to initialize when first starting the CLI. If you get a "not connected" message, wait a moment and try again.
 
 ## Keyboard Shortcuts
 
