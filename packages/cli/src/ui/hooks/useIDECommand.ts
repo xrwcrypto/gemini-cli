@@ -22,6 +22,66 @@ export function createIDECommandAction(
   config: Config | null,
   addMessage: (message: Message) => void,
 ) {
+  const executeToolImmediately = async (
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+  ): Promise<void> => {
+    try {
+      const toolRegistry = await config?.getToolRegistry();
+      if (!toolRegistry) {
+        addMessage({
+          type: MessageType.ERROR,
+          content: 'Could not retrieve tool registry.',
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      const tool = toolRegistry.getTool(toolName);
+      if (!tool) {
+        addMessage({
+          type: MessageType.ERROR,
+          content: `Tool not found: ${toolName}`,
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      // Execute the tool with required parameters
+      const abortController = new AbortController();
+      const result = await tool.execute(toolArgs, abortController.signal);
+      
+      // Format and display the result
+      let content = '';
+      if (result && typeof result === 'object' && 'returnDisplay' in result) {
+        // Handle ToolResult structure
+        if (typeof result.returnDisplay === 'string') {
+          content = result.returnDisplay;
+        } else if (result.returnDisplay && typeof result.returnDisplay === 'object') {
+          content = JSON.stringify(result.returnDisplay, null, 2);
+        }
+      } else if (typeof result === 'string') {
+        content = result;
+      } else if (result && typeof result === 'object') {
+        content = JSON.stringify(result, null, 2);
+      } else {
+        content = String(result);
+      }
+
+      addMessage({
+        type: MessageType.INFO,
+        content,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      addMessage({
+        type: MessageType.ERROR,
+        content: `Error executing tool: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: new Date(),
+      });
+    }
+  };
+
   return async (
     _mainCommand: string,
     subCommand?: string,
@@ -115,27 +175,27 @@ export function createIDECommandAction(
 
       case 'active':
       case 'current':
-        return {
-          shouldScheduleTool: true,
-          toolName: `${vscodeServer}.vscode.getActiveFile`,
-          toolArgs: {},
-        };
+        await executeToolImmediately(
+          `${vscodeServer}.vscode.getActiveFile`,
+          {},
+        );
+        return;
 
       case 'files':
       case 'open-files':
-        return {
-          shouldScheduleTool: true,
-          toolName: `${vscodeServer}.vscode.getOpenFiles`,
-          toolArgs: {},
-        };
+        await executeToolImmediately(
+          `${vscodeServer}.vscode.getOpenFiles`,
+          {},
+        );
+        return;
 
       case 'workspace':
       case 'folders':
-        return {
-          shouldScheduleTool: true,
-          toolName: `${vscodeServer}.vscode.getWorkspaceFolders`,
-          toolArgs: {},
-        };
+        await executeToolImmediately(
+          `${vscodeServer}.vscode.getWorkspaceFolders`,
+          {},
+        );
+        return;
 
       case 'notify':
         if (!args) {

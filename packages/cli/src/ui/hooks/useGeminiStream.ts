@@ -194,6 +194,8 @@ export const useGeminiStream = (
               name: toolName,
               args: toolArgs,
             };
+            
+            // Queue the tool for next message
             scheduleToolCalls([toolCallRequest], abortSignal);
           }
           return { queryToSend: null, shouldProceed: false }; // Handled by scheduling the tool
