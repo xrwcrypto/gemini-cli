@@ -169,14 +169,14 @@ export function createIDECommandAction(
         
         return {
           shouldScheduleTool: true,
-          toolName: `${vscodeServer}.vscode.openFile`,
+          toolName: `vscode.openFile`,
           toolArgs: { path, line, column },
         };
 
       case 'active':
       case 'current':
         await executeToolImmediately(
-          `${vscodeServer}.vscode.getActiveFile`,
+          `vscode.getActiveFile`,
           {},
         );
         return;
@@ -184,7 +184,7 @@ export function createIDECommandAction(
       case 'files':
       case 'open-files':
         await executeToolImmediately(
-          `${vscodeServer}.vscode.getOpenFiles`,
+          `vscode.getOpenFiles`,
           {},
         );
         return;
@@ -192,7 +192,7 @@ export function createIDECommandAction(
       case 'workspace':
       case 'folders':
         await executeToolImmediately(
-          `${vscodeServer}.vscode.getWorkspaceFolders`,
+          `vscode.getWorkspaceFolders`,
           {},
         );
         return;
@@ -213,7 +213,7 @@ export function createIDECommandAction(
         
         return {
           shouldScheduleTool: true,
-          toolName: `${vscodeServer}.vscode.showNotification`,
+          toolName: `vscode.showNotification`,
           toolArgs: { message, type: notifyType },
         };
 
@@ -229,7 +229,7 @@ export function createIDECommandAction(
         
         return {
           shouldScheduleTool: true,
-          toolName: `${vscodeServer}.vscode.updateStatusBar`,
+          toolName: `vscode.updateStatusBar`,
           toolArgs: { text: args },
         };
 
