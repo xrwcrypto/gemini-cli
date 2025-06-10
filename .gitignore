@@ -23,6 +23,13 @@ Thumbs.db
 
 # Ignore built ts files
 dist
+**/*.js
+**/*.js.map
+**/*.d.ts
+!scripts/**/*.js
+!esbuild.config.js
+!eslint.config.js
+!eslint-rules/**/*.js
 
 # Docker folder to help skip auth refreshes
 .docker
