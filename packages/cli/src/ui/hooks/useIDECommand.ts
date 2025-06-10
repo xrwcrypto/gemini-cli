@@ -68,15 +68,25 @@ export function createIDECommandAction(
     console.log(`[DEBUG] VS Code server (${vscodeServer}) status:`, status);
     
     if (status !== MCPServerStatus.CONNECTED) {
+      // If connecting, wait a bit and retry
+      if (status === MCPServerStatus.CONNECTING) {
+        addMessage({
+          type: MessageType.INFO,
+          content: `VS Code server is still connecting. Please wait a moment and try again.\n` +
+                   `You can also use /mcp to check server status.`,
+          timestamp: new Date(),
+        });
+        return;
+      }
+      
+      // If disconnected, show more helpful message
       addMessage({
         type: MessageType.INFO,
-        content: `VS Code server is ${status}. Waiting for connection...\n` +
-                 `Server: ${vscodeServer}\n` +
-                 `Try running /mcp to see server details.`,
+        content: `VS Code server is not connected yet.\n` +
+                 `This is normal when first starting the CLI. The server needs a moment to initialize.\n` +
+                 `Please wait 2-3 seconds and try again, or use /mcp to check server status.`,
         timestamp: new Date(),
       });
-      
-      // TODO: Implement connection retry logic
       return;
     }
 
