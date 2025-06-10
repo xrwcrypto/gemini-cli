@@ -62,7 +62,7 @@ export class GeminiTerminal {
             setTimeout(() => {
                 this.isReady = true;
                 resolve();
-            }, 3000); // 3 seconds for CLI to start
+            }, 4000); // 4 seconds for CLI to start - increased to ensure full initialization
         });
 
         // Listen for terminal close
@@ -93,6 +93,9 @@ export class GeminiTerminal {
         if (!this.isReady && this.readyPromise) {
             await this.readyPromise;
         }
+
+        // Add a small delay to ensure the terminal is fully interactive
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Send command with Enter to execute immediately
         this.terminal.sendText(command, true);
@@ -145,6 +148,9 @@ export class GeminiTerminal {
             message += ` (selected lines ${context.selection.start}-${context.selection.end})`;
         }
         message += `:\n\`\`\`${context.languageId}\n${context.content}\n\`\`\`\n\n${prompt}`;
+
+        // Add a small delay to ensure the terminal is fully interactive
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Send as a single command with Enter
         this.terminal.sendText(message, true);
