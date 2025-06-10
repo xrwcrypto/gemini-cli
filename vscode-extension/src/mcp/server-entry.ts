@@ -5,12 +5,12 @@
  * This allows the server to communicate via stdio with the Gemini CLI
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio';
 import {
     CallToolRequestSchema,
     ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+} from '@modelcontextprotocol/sdk/types';
 
 // Since we're running outside VS Code context, we need a different approach
 // This server will communicate with the extension via IPC or another mechanism

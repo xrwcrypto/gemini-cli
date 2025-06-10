@@ -410,6 +410,334 @@ Add any other context about the problem here.
     });
   });
 
+  describe('/ide command', () => {
+    beforeEach(() => {
+      // Mock VS Code environment variables
+      process.env.TERM_PROGRAM = 'vscode';
+      process.env.VSCODE_IPC_HOOK = '/tmp/vscode-ipc';
+      process.env.VSCODE_WORKSPACE_FOLDER = '/test/workspace';
+      process.env.VSCODE_GIT_ASKPASS_NODE = '/usr/local/bin/node-v16.14.0';
+    });
+
+    afterEach(() => {
+      // Clean up environment variables
+      delete process.env.TERM_PROGRAM;
+      delete process.env.VSCODE_IPC_HOOK;
+      delete process.env.VSCODE_WORKSPACE_FOLDER;
+      delete process.env.VSCODE_GIT_ASKPASS_NODE;
+    });
+
+    it('should show error when not running in VS Code', async () => {
+      // Remove VS Code environment variables
+      delete process.env.TERM_PROGRAM;
+      delete process.env.VSCODE_IPC_HOOK;
+      delete process.env.VSCODE_GIT_IPC_HANDLE;
+
+      const { handleSlashCommand } = getProcessor();
+      let commandResult: SlashCommandActionReturn | boolean = false;
+      await act(async () => {
+        commandResult = handleSlashCommand('/ide status');
+      });
+
+      expect(mockAddItem).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          type: MessageType.ERROR,
+          text: 'This command is only available when running in VS Code terminal',
+        }),
+        expect.any(Number),
+      );
+      expect(commandResult).toBe(true);
+    });
+
+    it('should show help text when no subcommand is provided', async () => {
+      const { handleSlashCommand } = getProcessor();
+      let commandResult: SlashCommandActionReturn | boolean = false;
+      await act(async () => {
+        commandResult = handleSlashCommand('/ide');
+      });
+
+      expect(mockAddItem).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          type: MessageType.INFO,
+          text: expect.stringContaining('VS Code IDE commands:'),
+        }),
+        expect.any(Number),
+      );
+      expect(commandResult).toBe(true);
+    });
+
+    describe('/ide status', () => {
+      it('should show VS Code integration status', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide status');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.INFO,
+            text: expect.stringContaining('VS Code Integration Status:'),
+          }),
+          expect.any(Number),
+        );
+
+        const message = mockAddItem.mock.calls[1][0].text;
+        expect(message).toContain('Session Type:');
+        expect(message).toContain('Workspace: /test/workspace');
+        expect(message).toContain('Terminal: vscode');
+        expect(message).toContain('VS Code Version: 16.14.0');
+        expect(commandResult).toBe(true);
+      });
+    });
+
+    describe('/ide open', () => {
+      it('should return tool scheduling info for opening a file', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide open src/main.ts 42 5');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.INFO,
+            text: expect.stringContaining('Opening src/main.ts at line 42, column 5'),
+          }),
+          expect.any(Number),
+        );
+
+        expect(commandResult).toEqual({
+          shouldScheduleTool: true,
+          toolName: 'vscode.openFile',
+          toolArgs: { path: 'src/main.ts', line: 42, column: 5 },
+        });
+      });
+
+      it('should work with just file path', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide open README.md');
+        });
+
+        expect(commandResult).toEqual({
+          shouldScheduleTool: true,
+          toolName: 'vscode.openFile',
+          toolArgs: { path: 'README.md', line: undefined, column: undefined },
+        });
+      });
+
+      it('should show error when no file path is provided', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide open');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.ERROR,
+            text: expect.stringContaining('Usage: /ide open <file>'),
+          }),
+          expect.any(Number),
+        );
+        expect(commandResult).toBe(true);
+      });
+    });
+
+    describe('/ide goto', () => {
+      it('should return tool scheduling info for going to a line', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide goto 100 15');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.INFO,
+            text: 'Going to line 100, column 15 in active editor',
+          }),
+          expect.any(Number),
+        );
+
+        expect(commandResult).toEqual({
+          shouldScheduleTool: true,
+          toolName: 'vscode.goToLine',
+          toolArgs: { line: 100, column: 15 },
+        });
+      });
+
+      it('should default to column 1 when not specified', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide goto 50');
+        });
+
+        expect(commandResult).toEqual({
+          shouldScheduleTool: true,
+          toolName: 'vscode.goToLine',
+          toolArgs: { line: 50, column: 1 },
+        });
+      });
+
+      it('should show error when no line number is provided', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide goto');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.ERROR,
+            text: expect.stringContaining('Usage: /ide goto <line>'),
+          }),
+          expect.any(Number),
+        );
+        expect(commandResult).toBe(true);
+      });
+
+      it('should show error for invalid line number', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide goto abc');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.ERROR,
+            text: 'Invalid line number',
+          }),
+          expect.any(Number),
+        );
+        expect(commandResult).toBe(true);
+      });
+    });
+
+    describe('/ide search', () => {
+      it('should return tool scheduling info for searching', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide search TODO implement this');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.INFO,
+            text: 'Searching for: TODO implement this',
+          }),
+          expect.any(Number),
+        );
+
+        expect(commandResult).toEqual({
+          shouldScheduleTool: true,
+          toolName: 'vscode.search',
+          toolArgs: { query: 'TODO implement this' },
+        });
+      });
+
+      it('should show error when no search query is provided', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide search');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.ERROR,
+            text: expect.stringContaining('Usage: /ide search <query>'),
+          }),
+          expect.any(Number),
+        );
+        expect(commandResult).toBe(true);
+      });
+    });
+
+    describe('/ide files', () => {
+      it('should return tool scheduling info for listing files', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide files');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.INFO,
+            text: 'Getting open files in VS Code...',
+          }),
+          expect.any(Number),
+        );
+
+        expect(commandResult).toEqual({
+          shouldScheduleTool: true,
+          toolName: 'vscode.getOpenFiles',
+          toolArgs: {},
+        });
+      });
+    });
+
+    describe('/ide active', () => {
+      it('should return tool scheduling info for getting active file', async () => {
+        const { handleSlashCommand } = getProcessor();
+        let commandResult: SlashCommandActionReturn | boolean = false;
+        await act(async () => {
+          commandResult = handleSlashCommand('/ide active');
+        });
+
+        expect(mockAddItem).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            type: MessageType.INFO,
+            text: 'Getting active file information...',
+          }),
+          expect.any(Number),
+        );
+
+        expect(commandResult).toEqual({
+          shouldScheduleTool: true,
+          toolName: 'vscode.getActiveFile',
+          toolArgs: {},
+        });
+      });
+    });
+
+    it('should show error for unknown IDE subcommand', async () => {
+      const { handleSlashCommand } = getProcessor();
+      let commandResult: SlashCommandActionReturn | boolean = false;
+      await act(async () => {
+        commandResult = handleSlashCommand('/ide unknown');
+      });
+
+      expect(mockAddItem).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          type: MessageType.ERROR,
+          text: expect.stringContaining('Unknown IDE subcommand: unknown'),
+        }),
+        expect.any(Number),
+      );
+      expect(commandResult).toBe(true);
+    });
+  });
+
   describe('/tools command', () => {
     it('should show an error if tool registry is not available', async () => {
       mockConfig = {

@@ -39,7 +39,7 @@ The extension adds multiple status bar items:
 
 ## Keyboard Shortcuts
 
-- **Cmd+Shift+G** (Mac) / **Ctrl+Shift+G** (Windows/Linux): Launch Gemini with current file context
+- **Cmd+Alt+G** (Mac) / **Ctrl+Alt+G** (Windows/Linux): Launch Gemini with current file context
 - **Cmd+Shift+Alt+G** (Mac) / **Ctrl+Shift+Alt+G** (Windows/Linux): Send selected text to Gemini
 - **Cmd+K G** (Mac) / **Ctrl+K G** (Windows/Linux): Show Gemini command palette
 - **Cmd+Shift+Space** (Mac) / **Ctrl+Shift+Space** (Windows/Linux): Quick query input

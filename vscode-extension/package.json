@@ -26,11 +26,16 @@
     "code-generation"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "gemini.test",
+        "title": "Gemini: Test Command",
+        "category": "Gemini CLI"
+      },
       {
         "command": "gemini.startSession",
         "title": "Gemini: Start CLI Session",
@@ -144,8 +149,8 @@
     "keybindings": [
       {
         "command": "gemini.launchWithContext",
-        "key": "ctrl+shift+g",
-        "mac": "cmd+shift+g",
+        "key": "ctrl+alt+g",
+        "mac": "cmd+alt+g",
         "when": "editorTextFocus"
       },
       {

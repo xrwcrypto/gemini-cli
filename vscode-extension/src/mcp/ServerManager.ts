@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
-import { VSCodeMCPServer } from './VSCodeMCPServer.js';
+import { VSCodeMCPServer } from './VSCodeMCPServer';
 
 export class ServerManager {
     private server?: VSCodeMCPServer;

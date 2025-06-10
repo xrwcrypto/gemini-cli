@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { ServerManager } from './mcp/ServerManager.js';
-import { StatusBarManager } from './ui/StatusBarManager.js';
-import { QuickInput } from './ui/QuickInput.js';
-import { NotificationManager } from './ui/NotificationManager.js';
+import { ServerManager } from './mcp/ServerManager';
+import { StatusBarManager } from './ui/StatusBarManager';
+import { QuickInput } from './ui/QuickInput';
+import { NotificationManager } from './ui/NotificationManager';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -19,6 +19,11 @@ let activeTerminal: vscode.Terminal | undefined;
  */
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Gemini CLI VS Code extension is now active!');
+    console.log('Extension context:', context);
+    console.log('Extension path:', context.extensionPath);
+    
+    // Show activation message
+    vscode.window.showInformationMessage('Gemini CLI extension activated!');
     
     extensionContext = context;
     (global as any).extensionContext = context;
@@ -30,31 +35,53 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(serverManager);
     context.subscriptions.push(statusBarManager);
 
-    // Register commands
-    const commands = [
-        vscode.commands.registerCommand('gemini.startSession', startSession),
-        vscode.commands.registerCommand('gemini.launchWithContext', launchWithContext),
-        vscode.commands.registerCommand('gemini.sendSelection', sendSelection),
-        vscode.commands.registerCommand('gemini.showCommandPalette', showCommandPalette),
-        vscode.commands.registerCommand('gemini.showServerStatus', showServerStatus),
-        vscode.commands.registerCommand('gemini.explainCode', () => executeGeminiCommand('Please explain this code')),
-        vscode.commands.registerCommand('gemini.generateTests', () => executeGeminiCommand('Please generate unit tests for this code')),
-        vscode.commands.registerCommand('gemini.refactorCode', () => executeGeminiCommand('Please suggest refactoring improvements for this code')),
-        vscode.commands.registerCommand('gemini.addDocumentation', () => executeGeminiCommand('Please add comprehensive documentation to this code')),
-        vscode.commands.registerCommand('gemini.fixIssues', () => executeGeminiCommand('Please find and fix any issues in this code')),
-        vscode.commands.registerCommand('gemini.analyzeFile', analyzeFile),
-        vscode.commands.registerCommand('gemini.generateTestsForFile', generateTestsForFile),
-        vscode.commands.registerCommand('gemini.openInGemini', openInGemini),
-        vscode.commands.registerCommand('gemini.sendQuery', sendQuery),
-        vscode.commands.registerCommand('gemini.showQuickInput', () => QuickInput.showGeminiInput()),
-        vscode.commands.registerCommand('gemini.showQuickQuery', () => QuickInput.showQuickQuery()),
-        vscode.commands.registerCommand('gemini.showTokenUsage', showTokenUsage),
-        vscode.commands.registerCommand('gemini.showTerminal', showTerminal),
-        vscode.commands.registerCommand('gemini.reconnect', reconnect),
-    ];
+    // Register commands with better error handling
+    const registerCommand = (commandId: string, handler: (...args: any[]) => any) => {
+        try {
+            const disposable = vscode.commands.registerCommand(commandId, async (...args) => {
+                try {
+                    console.log(`Executing command: ${commandId}`);
+                    await handler(...args);
+                } catch (error) {
+                    console.error(`Error in command ${commandId}:`, error);
+                    vscode.window.showErrorMessage(`Gemini CLI: ${error}`);
+                }
+            });
+            context.subscriptions.push(disposable);
+            console.log(`Registered command: ${commandId}`);
+            return disposable;
+        } catch (error) {
+            console.error(`Failed to register command ${commandId}:`, error);
+            vscode.window.showErrorMessage(`Failed to register command ${commandId}: ${error}`);
+        }
+    };
 
-    // Add all commands to subscriptions
-    commands.forEach(cmd => context.subscriptions.push(cmd));
+    // Register all commands
+    
+    // Test command to verify registration
+    registerCommand('gemini.test', () => {
+        vscode.window.showInformationMessage('Gemini CLI test command works!');
+    });
+    
+    registerCommand('gemini.startSession', startSession);
+    registerCommand('gemini.launchWithContext', launchWithContext);
+    registerCommand('gemini.sendSelection', sendSelection);
+    registerCommand('gemini.showCommandPalette', showCommandPalette);
+    registerCommand('gemini.showServerStatus', showServerStatus);
+    registerCommand('gemini.explainCode', () => executeGeminiCommand('Please explain this code'));
+    registerCommand('gemini.generateTests', () => executeGeminiCommand('Please generate unit tests for this code'));
+    registerCommand('gemini.refactorCode', () => executeGeminiCommand('Please suggest refactoring improvements for this code'));
+    registerCommand('gemini.addDocumentation', () => executeGeminiCommand('Please add comprehensive documentation to this code'));
+    registerCommand('gemini.fixIssues', () => executeGeminiCommand('Please find and fix any issues in this code'));
+    registerCommand('gemini.analyzeFile', analyzeFile);
+    registerCommand('gemini.generateTestsForFile', generateTestsForFile);
+    registerCommand('gemini.openInGemini', openInGemini);
+    registerCommand('gemini.sendQuery', sendQuery);
+    registerCommand('gemini.showQuickInput', () => QuickInput.showGeminiInput());
+    registerCommand('gemini.showQuickQuery', () => QuickInput.showQuickQuery());
+    registerCommand('gemini.showTokenUsage', showTokenUsage);
+    registerCommand('gemini.showTerminal', showTerminal);
+    registerCommand('gemini.reconnect', reconnect);
 
     // Auto-start server if configured
     const config = vscode.workspace.getConfiguration('gemini');
@@ -83,6 +110,13 @@ export async function activate(context: vscode.ExtensionContext) {
             statusBarManager.updateSessionStatus(false);
         }
     });
+    
+    console.log('Extension activation completed successfully');
+    
+    // Return an object with our API if needed by other extensions
+    return {
+        executeGeminiCommand
+    };
 }
 
 /**

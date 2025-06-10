@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio';
 import {
     CallToolRequestSchema,
     ListToolsRequestSchema,
     Tool,
-} from '@modelcontextprotocol/sdk/types.js';
+} from '@modelcontextprotocol/sdk/types';
 
 export class VSCodeMCPServer {
     private server: Server;
