@@ -1,15 +1,21 @@
 import * as vscode from 'vscode';
+import { ServerManager } from './mcp/ServerManager.js';
 
-// Store the extension context
+// Store the extension context and server manager
 let extensionContext: vscode.ExtensionContext;
+let serverManager: ServerManager;
 
 /**
  * This method is called when the extension is activated
  */
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('Gemini CLI VS Code extension is now active!');
     
     extensionContext = context;
+
+    // Initialize MCP server manager
+    serverManager = new ServerManager(context);
+    context.subscriptions.push(serverManager);
 
     // Register commands
     const commands = [
@@ -17,23 +23,32 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('gemini.launchWithContext', launchWithContext),
         vscode.commands.registerCommand('gemini.sendSelection', sendSelection),
         vscode.commands.registerCommand('gemini.showCommandPalette', showCommandPalette),
+        vscode.commands.registerCommand('gemini.showServerStatus', showServerStatus),
     ];
 
     // Add all commands to subscriptions
     commands.forEach(cmd => context.subscriptions.push(cmd));
 
-    // Show activation message
-    vscode.window.showInformationMessage('Gemini CLI extension activated');
-
-    // TODO: Initialize MCP server in next task
+    // Auto-start server if configured
+    const config = vscode.workspace.getConfiguration('gemini');
+    if (config.get<boolean>('autoConnect', true)) {
+        try {
+            await serverManager.start();
+            vscode.window.showInformationMessage('Gemini MCP server started');
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to start Gemini MCP server: ${error}`);
+        }
+    }
 }
 
 /**
  * This method is called when the extension is deactivated
  */
-export function deactivate() {
+export async function deactivate() {
     console.log('Gemini CLI VS Code extension is deactivating');
-    // TODO: Clean up MCP server in next task
+    if (serverManager) {
+        await serverManager.stop();
+    }
 }
 
 // Command implementations
@@ -93,5 +108,50 @@ async function showCommandPalette() {
     if (selected) {
         vscode.window.showInformationMessage(`Selected: ${selected.label}`);
         // TODO: Execute selected action
+    }
+}
+
+async function showServerStatus() {
+    const status = serverManager.getStatus();
+    
+    if (status.isRunning) {
+        const items = [
+            { label: '$(output) Show Server Logs', value: 'logs' },
+            { label: '$(debug-stop) Stop Server', value: 'stop' },
+            { label: '$(info) Server Info', value: 'info' },
+        ];
+        
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'MCP Server is running'
+        });
+        
+        switch (selected?.value) {
+            case 'logs':
+                serverManager.showOutput();
+                break;
+            case 'stop':
+                await serverManager.stop();
+                vscode.window.showInformationMessage('MCP Server stopped');
+                break;
+            case 'info':
+                vscode.window.showInformationMessage(
+                    `MCP Server: ${status.serverInfo?.name} v${status.serverInfo?.version}`
+                );
+                break;
+        }
+    } else {
+        const result = await vscode.window.showInformationMessage(
+            'MCP Server is not running',
+            'Start Server'
+        );
+        
+        if (result === 'Start Server') {
+            try {
+                await serverManager.start();
+                vscode.window.showInformationMessage('MCP Server started');
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to start server: ${error}`);
+            }
+        }
     }
 }

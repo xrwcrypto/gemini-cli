@@ -50,6 +50,11 @@
         "command": "gemini.showCommandPalette",
         "title": "Gemini: Show Command Palette",
         "category": "Gemini CLI"
+      },
+      {
+        "command": "gemini.showServerStatus",
+        "title": "Gemini: Show Server Status",
+        "category": "Gemini CLI"
       }
     ],
     "keybindings": [
