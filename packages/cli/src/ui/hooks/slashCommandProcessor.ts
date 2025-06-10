@@ -13,6 +13,7 @@ import { Config, MCPServerStatus, getMCPServerStatus } from '@gemini-cli/core';
 import { Message, MessageType, HistoryItemWithoutId } from '../types.js';
 import { useSessionStats } from '../contexts/SessionContext.js';
 import { createShowMemoryAction } from './useShowMemoryCommand.js';
+import { createIDECommandAction } from './useIDECommand.js';
 import { GIT_COMMIT_INFO } from '../../generated/git-commit.js';
 import { formatMemoryUsage } from '../utils/formatters.js';
 import { getCliVersion } from '../../utils/version.js';
@@ -81,6 +82,18 @@ export const useSlashCommandProcessor = (
     const actionFn = createShowMemoryAction(config, addMessage);
     await actionFn();
   }, [config, addMessage]);
+
+  const ideCommandAction = useCallback(
+    async (
+      mainCommand: string,
+      subCommand?: string,
+      args?: string,
+    ): Promise<SlashCommandActionReturn | void> => {
+      const actionFn = createIDECommandAction(config, addMessage);
+      return await actionFn(mainCommand, subCommand, args);
+    },
+    [config, addMessage],
+  );
 
   const addMemoryAction = useCallback(
     (
@@ -474,179 +487,8 @@ Add any other context about the problem here.
       {
         name: 'ide',
         description: 'VS Code IDE operations (when running in VS Code terminal)',
-        action: (_mainCommand, subCommand, args) => {
-          // Check if running in VS Code
-          const isVSCode = !!(
-            process.env.TERM_PROGRAM === 'vscode' ||
-            process.env.VSCODE_IPC_HOOK ||
-            process.env.VSCODE_GIT_IPC_HANDLE
-          );
-
-          if (!isVSCode) {
-            addMessage({
-              type: MessageType.ERROR,
-              content: 'This command is only available when running in VS Code terminal',
-              timestamp: new Date(),
-            });
-            return;
-          }
-
-          // Handle subcommands
-          if (!subCommand) {
-            addMessage({
-              type: MessageType.INFO,
-              content: 'VS Code IDE commands:\n' +
-                '  /ide status         - Show VS Code connection status\n' +
-                '  /ide open <file>    - Open a file in VS Code (with optional line/column)\n' +
-                '  /ide goto <line>    - Go to line in current file\n' +
-                '  /ide search <query> - Search in workspace\n' +
-                '  /ide files          - List all open files in VS Code\n' +
-                '  /ide active         - Show information about the active file\n\n' +
-                'Note: Requires VS Code MCP server to be running for tool commands.',
-              timestamp: new Date(),
-            });
-            return;
-          }
-
-          switch (subCommand) {
-            case 'status':
-              const workspacePath = process.env.VSCODE_WORKSPACE_FOLDER || process.cwd();
-              const vscodeVersion = process.env.VSCODE_GIT_ASKPASS_NODE?.match(/(\d+\.\d+\.\d+)/)?.[1] || 'unknown';
-              const sessionType = process.env.VSCODE_PID ? 'VS Code Window' : 'VS Code Terminal';
-              
-              addMessage({
-                type: MessageType.INFO,
-                content: `VS Code Integration Status:\n` +
-                  `  Session Type: ${sessionType}\n` +
-                  `  Workspace: ${workspacePath}\n` +
-                  `  Terminal: ${process.env.TERM_PROGRAM || 'unknown'}\n` +
-                  `  VS Code Version: ${vscodeVersion}\n` +
-                  `  MCP Server: Check with /mcp command`,
-                timestamp: new Date(),
-              });
-              break;
-
-            case 'open':
-              if (!args) {
-                addMessage({
-                  type: MessageType.ERROR,
-                  content: 'Usage: /ide open <file> [line] [column]\nExample: /ide open src/main.ts 42 5',
-                  timestamp: new Date(),
-                });
-                return;
-              }
-              
-              const openArgs = args.trim().split(/\s+/);
-              const filePath = openArgs[0];
-              const line = openArgs[1] ? parseInt(openArgs[1], 10) : undefined;
-              const column = openArgs[2] ? parseInt(openArgs[2], 10) : undefined;
-              
-              addMessage({
-                type: MessageType.INFO,
-                content: `Opening ${filePath}${line ? ` at line ${line}` : ''}${column ? `, column ${column}` : ''}\n` +
-                  `Note: Ensure VS Code MCP server is running. Use /mcp to check status.`,
-                timestamp: new Date(),
-              });
-              
-              // Return tool scheduling info for MCP
-              return {
-                shouldScheduleTool: true,
-                toolName: 'vscode.openFile',
-                toolArgs: { path: filePath, line, column },
-              };
-
-            case 'goto':
-              if (!args) {
-                addMessage({
-                  type: MessageType.ERROR,
-                  content: 'Usage: /ide goto <line> [column]\nExample: /ide goto 42 5',
-                  timestamp: new Date(),
-                });
-                return;
-              }
-              
-              const gotoArgs = args.trim().split(/\s+/);
-              const gotoLine = parseInt(gotoArgs[0], 10);
-              const gotoColumn = gotoArgs[1] ? parseInt(gotoArgs[1], 10) : 1;
-              
-              if (isNaN(gotoLine)) {
-                addMessage({
-                  type: MessageType.ERROR,
-                  content: 'Invalid line number',
-                  timestamp: new Date(),
-                });
-                return;
-              }
-              
-              addMessage({
-                type: MessageType.INFO,
-                content: `Going to line ${gotoLine}, column ${gotoColumn} in active editor`,
-                timestamp: new Date(),
-              });
-              
-              // This would need the active file path from VS Code
-              return {
-                shouldScheduleTool: true,
-                toolName: 'vscode.goToLine',
-                toolArgs: { line: gotoLine, column: gotoColumn },
-              };
-
-            case 'search':
-              if (!args) {
-                addMessage({
-                  type: MessageType.ERROR,
-                  content: 'Usage: /ide search <query>\nExample: /ide search "TODO"',
-                  timestamp: new Date(),
-                });
-                return;
-              }
-              
-              addMessage({
-                type: MessageType.INFO,
-                content: `Searching for: ${args}`,
-                timestamp: new Date(),
-              });
-              
-              return {
-                shouldScheduleTool: true,
-                toolName: 'vscode.search',
-                toolArgs: { query: args.trim() },
-              };
-
-            case 'files':
-              addMessage({
-                type: MessageType.INFO,
-                content: 'Getting open files in VS Code...',
-                timestamp: new Date(),
-              });
-              
-              return {
-                shouldScheduleTool: true,
-                toolName: 'vscode.getOpenFiles',
-                toolArgs: {},
-              };
-
-            case 'active':
-              addMessage({
-                type: MessageType.INFO,
-                content: 'Getting active file information...',
-                timestamp: new Date(),
-              });
-              
-              return {
-                shouldScheduleTool: true,
-                toolName: 'vscode.getActiveFile',
-                toolArgs: {},
-              };
-
-            default:
-              addMessage({
-                type: MessageType.ERROR,
-                content: `Unknown IDE subcommand: ${subCommand}\n` +
-                  `Available commands: status, open, goto, search, files, active`,
-                timestamp: new Date(),
-              });
-          }
+        action: (mainCommand, subCommand, args) => {
+          return ideCommandAction(mainCommand, subCommand, args);
         },
       },
       {
@@ -668,6 +510,7 @@ Add any other context about the problem here.
       performMemoryRefresh,
       showMemoryAction,
       addMemoryAction,
+      ideCommandAction,
       addMessage,
       toggleCorgiMode,
       config,

@@ -176,6 +176,7 @@ async function startSession() {
         env: {
             // Add environment variables to help CLI detect it's in VS Code
             GEMINI_VSCODE_EXTENSION: '1',
+            GEMINI_VSCODE_EXTENSION_PATH: extensionContext.extensionPath,
             VSCODE_WORKSPACE_FOLDER: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
         }
     });

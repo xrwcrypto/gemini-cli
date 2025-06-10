@@ -18,6 +18,7 @@ import {
 } from '@gemini-cli/core';
 import { Settings } from './settings.js';
 import { getEffectiveModel } from '../utils/modelCheck.js';
+import { getVSCodeMCPServer } from './vscode-mcp.js';
 
 // Simple console logger for now - replace with actual logger if available
 const logger = {
@@ -143,6 +144,13 @@ export async function loadCliConfig(
 
   const contentGeneratorConfig = await createContentGeneratorConfig(argv);
 
+  // Merge VS Code MCP server configuration if available
+  const vscodeMCPServer = getVSCodeMCPServer();
+  const mcpServers = {
+    ...settings.mcpServers,
+    ...(vscodeMCPServer || {}),
+  };
+
   const config = new Config({
     contentGeneratorConfig,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -155,7 +163,7 @@ export async function loadCliConfig(
     toolDiscoveryCommand: settings.toolDiscoveryCommand,
     toolCallCommand: settings.toolCallCommand,
     mcpServerCommand: settings.mcpServerCommand,
-    mcpServers: settings.mcpServers,
+    mcpServers,
     userMemory: memoryContent,
     geminiMdFileCount: fileCount,
     approvalMode: argv.yolo || false ? ApprovalMode.YOLO : ApprovalMode.DEFAULT,
