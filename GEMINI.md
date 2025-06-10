@@ -58,6 +58,21 @@ This project uses **Vitest** as its primary testing framework. When writing test
 - When adding tests, first examine existing tests to understand and conform to established conventions.
 - Pay close attention to the mocks at the top of existing test files; they reveal critical dependencies and how they are managed in a test environment.
 
+## Refactoring Guidance
+
+### Common Patterns
+When refactoring, prioritize these common patterns to improve the codebase:
+- **Consolidate State with `useReducer`**: If a component or hook uses three or more `useState` calls for related data, refactor them into a single `useReducer`. This centralizes state logic and is the preferred pattern for managing complex state.
+- **Extract Custom Hooks**: If component logic (especially `useEffect` or complex state) is repeated across multiple components, extract it into a custom hook (e.g., `useDataFetching`, `useWindowSize`).
+- **Co-locate Logic**: If a utility function or type is only used by a single module, move it inside that module file instead of keeping it in a shared `utils` or `types` folder. Export it only if necessary for testing.
+- **Replace Prop Drilling with Context**: For state that needs to be passed down through 3 or more layers of components, refactor to use React Context. Use this judiciously; for one or two layers, prop passing is still preferred.
+
+### What to Avoid
+- **DO NOT perform large-scale, automated renaming**: Avoid renaming core components, functions, or widely used types without explicit user confirmation. Renaming has a high risk of breaking imports or dynamic references.
+- **AVOID changing public APIs without cause**: Do not alter the signature (parameters, return values) of an exported function or a component's props unless that is the explicit goal of the refactoring task.
+- **DO NOT introduce new libraries**: Never add a new third-party dependency as part of a refactoring. Refactoring should work within the existing technology stack.
+- **BE CAUTIOUS with "dead code"**: Do not aggressively delete what appears to be unused code (e.g., an un-called exported function). It may be used in a way that static analysis cannot detect. Always ask the user before removing potentially dead code.
+
 ## Git Repo
 
 The main branch for this project is called "main"
