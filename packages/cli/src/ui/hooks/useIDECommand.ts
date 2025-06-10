@@ -31,15 +31,20 @@ export function createIDECommandAction(
 ) {
   const installVSCodeExtension = async (addMessage: (message: Message) => void) => {
     try {
-      // Check if running in VS Code terminal
-      if (!process.env.TERM_PROGRAM || process.env.TERM_PROGRAM !== 'vscode') {
+      // Check if running in VS Code terminal - be more lenient
+      const isVSCodeTerminal = process.env.TERM_PROGRAM === 'vscode' || 
+                               process.env.VSCODE_GIT_IPC_HANDLE ||
+                               process.env.VSCODE_INJECTION ||
+                               process.env.GEMINI_VSCODE_EXTENSION;
+      
+      if (!isVSCodeTerminal) {
         addMessage({
           type: MessageType.INFO,
-          content: 'This command should be run from within a VS Code integrated terminal.\n' +
-                   'Please open VS Code and run Gemini CLI from the integrated terminal.',
+          content: 'Warning: This doesn\'t appear to be a VS Code terminal.\n' +
+                   'The extension installation works best from VS Code\'s integrated terminal.\n' +
+                   'Proceeding with installation anyway...',
           timestamp: new Date(),
         });
-        return;
       }
 
       addMessage({
@@ -70,7 +75,25 @@ export function createIDECommandAction(
 
       // Install the extension using the 'code' command
       try {
-        const { stdout, stderr } = await execAsync(`code --install-extension "${tempVsixPath}"`);
+        // Try different VS Code command names
+        let installCommand = 'code';
+        try {
+          // Check if 'code' command exists
+          await execAsync('which code');
+        } catch {
+          // Try 'code-insiders' if 'code' doesn't exist
+          try {
+            await execAsync('which code-insiders');
+            installCommand = 'code-insiders';
+          } catch {
+            // On Windows, try direct paths
+            if (process.platform === 'win32') {
+              installCommand = 'code.cmd';
+            }
+          }
+        }
+
+        const { stdout, stderr } = await execAsync(`${installCommand} --install-extension "${tempVsixPath}"`);
         
         if (stderr && !stderr.includes('successfully installed')) {
           throw new Error(stderr);
