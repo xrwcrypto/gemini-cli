@@ -18,7 +18,7 @@ export const Tips: React.FC<TipsProps> = ({ config }) => {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text color={Colors.AccentGreen} bold>
-        🚀 Gemini CLI - /ide commands now execute immediately!
+        🚀 Welcome to Gemini CLI
       </Text>
       <Text color={Colors.Foreground}>Tips for getting started:</Text>
       <Text color={Colors.Foreground}>
