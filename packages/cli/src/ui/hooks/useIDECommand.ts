@@ -25,6 +25,7 @@ export function createIDECommandAction(
   const executeToolImmediately = async (
     toolName: string,
     toolArgs: Record<string, unknown>,
+    formatter?: (result: any) => string,
   ): Promise<void> => {
     try {
       const toolRegistry = await config?.getToolRegistry();
@@ -53,19 +54,26 @@ export function createIDECommandAction(
       
       // Format and display the result
       let content = '';
+      
+      // Extract the actual result data
+      let resultData: any = result;
       if (result && typeof result === 'object' && 'returnDisplay' in result) {
-        // Handle ToolResult structure
-        if (typeof result.returnDisplay === 'string') {
-          content = result.returnDisplay;
-        } else if (result.returnDisplay && typeof result.returnDisplay === 'object') {
-          content = JSON.stringify(result.returnDisplay, null, 2);
-        }
-      } else if (typeof result === 'string') {
-        content = result;
-      } else if (result && typeof result === 'object') {
-        content = JSON.stringify(result, null, 2);
+        // Handle ToolResult structure - returnDisplay contains the actual data
+        resultData = (result as any).returnDisplay;
+      }
+      
+      // Use custom formatter if provided
+      if (formatter) {
+        content = formatter(resultData);
       } else {
-        content = String(result);
+        // Default formatting
+        if (typeof resultData === 'string') {
+          content = resultData;
+        } else if (resultData && typeof resultData === 'object') {
+          content = JSON.stringify(resultData, null, 2);
+        } else {
+          content = String(resultData);
+        }
       }
 
       addMessage({
@@ -178,6 +186,20 @@ export function createIDECommandAction(
         await executeToolImmediately(
           `vscode.getActiveFile`,
           {},
+          (result) => {
+            // Parse the JSON response and extract just the filename
+            try {
+              const data = typeof result === 'string' ? JSON.parse(result) : result;
+              if (data.success && data.activeFile?.path) {
+                return `Active file: ${data.activeFile.path}`;
+              } else if (!data.success) {
+                return 'No active file';
+              }
+              return JSON.stringify(data, null, 2);
+            } catch (e) {
+              return String(result);
+            }
+          }
         );
         return;
 
@@ -186,6 +208,20 @@ export function createIDECommandAction(
         await executeToolImmediately(
           `vscode.getOpenFiles`,
           {},
+          (result) => {
+            // Parse the JSON response and format the file list
+            try {
+              const data = typeof result === 'string' ? JSON.parse(result) : result;
+              if (data.success && data.openFiles?.length > 0) {
+                return `Open files:\n${data.openFiles.map((f: any) => `  - ${f.path}`).join('\n')}`;
+              } else if (data.success && data.openFiles?.length === 0) {
+                return 'No open files';
+              }
+              return JSON.stringify(data, null, 2);
+            } catch (e) {
+              return String(result);
+            }
+          }
         );
         return;
 
@@ -194,6 +230,20 @@ export function createIDECommandAction(
         await executeToolImmediately(
           `vscode.getWorkspaceFolders`,
           {},
+          (result) => {
+            // Parse the JSON response and format the workspace folders
+            try {
+              const data = typeof result === 'string' ? JSON.parse(result) : result;
+              if (data.success && data.workspaceFolders?.length > 0) {
+                return `Workspace folders:\n${data.workspaceFolders.map((f: any) => `  - ${f.name}: ${f.uri}`).join('\n')}`;
+              } else if (data.success && data.workspaceFolders?.length === 0) {
+                return 'No workspace folders';
+              }
+              return JSON.stringify(data, null, 2);
+            } catch (e) {
+              return String(result);
+            }
+          }
         );
         return;
 
