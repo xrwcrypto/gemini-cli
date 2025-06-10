@@ -37,6 +37,11 @@
         "category": "Gemini CLI"
       },
       {
+        "command": "gemini.testMCP",
+        "title": "Gemini: Test MCP Server",
+        "category": "Gemini CLI"
+      },
+      {
         "command": "gemini.startSession",
         "title": "Gemini: Start CLI Session",
         "category": "Gemini CLI"

@@ -104,6 +104,7 @@ export async function activate(context: vscode.ExtensionContext) {
     registerCommand('gemini.showTokenUsage', showTokenUsage);
     registerCommand('gemini.showTerminal', showTerminal);
     registerCommand('gemini.reconnect', reconnect);
+    registerCommand('gemini.testMCP', testMCPServer);
 
     // Auto-start server if configured
     const config = vscode.workspace.getConfiguration('gemini');
@@ -680,5 +681,47 @@ async function reconnect() {
     } catch (error) {
         statusBarManager.updateConnectionStatus('error');
         vscode.window.showErrorMessage(`Failed to reconnect: ${error}`);
+    }
+}
+
+async function testMCPServer() {
+    vscode.window.showInformationMessage('Testing MCP Server...');
+    
+    if (!serverManager) {
+        vscode.window.showErrorMessage('Server manager not initialized');
+        return;
+    }
+    
+    const status = serverManager.getStatus();
+    
+    // Show current status
+    vscode.window.showInformationMessage(
+        `MCP Server Status: ${status.isRunning ? '✅ Running' : '❌ Not Running'}`
+    );
+    
+    // Show the output channel for debugging
+    serverManager.showOutput();
+    
+    // If not running, try to start it
+    if (!status.isRunning) {
+        const result = await vscode.window.showInformationMessage(
+            'MCP Server is not running. Start it now?',
+            'Yes',
+            'No'
+        );
+        
+        if (result === 'Yes') {
+            try {
+                await serverManager.start();
+                vscode.window.showInformationMessage('MCP Server started successfully!');
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to start MCP Server: ${error.message}`);
+            }
+        }
+    } else {
+        // Server is running - show info
+        vscode.window.showInformationMessage(
+            `MCP Server Info: ${status.serverInfo?.name} v${status.serverInfo?.version}`
+        );
     }
 }
