@@ -45,4 +45,13 @@ for (const file of sbFiles) {
   copyFileSync(join(root, file), join(bundleDir, basename(file)));
 }
 
+// Copy the VS Code extension VSIX file
+const vsixPath = join(root, 'vscode-extension/gemini-cli-vscode-0.1.0.vsix');
+if (existsSync(vsixPath)) {
+  copyFileSync(vsixPath, join(bundleDir, 'gemini-cli-vscode.vsix'));
+  console.log('VS Code extension VSIX copied to bundle/');
+} else {
+  console.warn('Warning: VS Code extension VSIX not found at', vsixPath);
+}
+
 console.log('Assets copied to bundle/');

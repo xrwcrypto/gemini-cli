@@ -7,6 +7,13 @@
 import { useCallback } from 'react';
 import { Config, MCPServerStatus, getMCPServerStatus } from '@gemini-cli/core';
 import { Message, MessageType } from '../types.js';
+import { promises as fs } from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+const execAsync = promisify(exec);
 
 export interface IDECommandActionReturn {
   shouldScheduleTool?: boolean;
@@ -22,6 +29,84 @@ export function createIDECommandAction(
   config: Config | null,
   addMessage: (message: Message) => void,
 ) {
+  const installVSCodeExtension = async (addMessage: (message: Message) => void) => {
+    try {
+      // Check if running in VS Code terminal
+      if (!process.env.TERM_PROGRAM || process.env.TERM_PROGRAM !== 'vscode') {
+        addMessage({
+          type: MessageType.INFO,
+          content: 'This command should be run from within a VS Code integrated terminal.\n' +
+                   'Please open VS Code and run Gemini CLI from the integrated terminal.',
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      addMessage({
+        type: MessageType.INFO,
+        content: 'Installing Gemini CLI VS Code extension...',
+        timestamp: new Date(),
+      });
+
+      // Get the bundled VSIX path
+      const vsixUrl = new URL('gemini-cli-vscode.vsix', import.meta.url);
+      const bundledVsixPath = vsixUrl.pathname;
+      
+      // Check if the bundled VSIX exists
+      try {
+        await fs.access(bundledVsixPath);
+      } catch {
+        addMessage({
+          type: MessageType.ERROR,
+          content: 'VS Code extension not found in bundle. Make sure you\'re using the bundled version of Gemini CLI.',
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      // Copy VSIX to a temporary location
+      const tempVsixPath = join(tmpdir(), 'gemini-cli-vscode.vsix');
+      await fs.copyFile(bundledVsixPath, tempVsixPath);
+
+      // Install the extension using the 'code' command
+      try {
+        const { stdout, stderr } = await execAsync(`code --install-extension "${tempVsixPath}"`);
+        
+        if (stderr && !stderr.includes('successfully installed')) {
+          throw new Error(stderr);
+        }
+
+        addMessage({
+          type: MessageType.INFO,
+          content: 'VS Code extension installed successfully!\n' +
+                   'Please reload VS Code window (Cmd/Ctrl+R) to activate the extension.',
+          timestamp: new Date(),
+        });
+
+        // Clean up temp file
+        await fs.unlink(tempVsixPath).catch(() => {});
+      } catch (error) {
+        // Fallback: provide manual installation instructions
+        addMessage({
+          type: MessageType.INFO,
+          content: `Could not install automatically. To install manually:\n` +
+                   `1. The extension has been saved to: ${tempVsixPath}\n` +
+                   `2. In VS Code, press Cmd/Ctrl+Shift+P\n` +
+                   `3. Type "Install from VSIX" and select the command\n` +
+                   `4. Browse to ${tempVsixPath} and install\n` +
+                   `5. Reload VS Code window after installation`,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      addMessage({
+        type: MessageType.ERROR,
+        content: `Error installing extension: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: new Date(),
+      });
+    }
+  };
+
   const executeToolImmediately = async (
     toolName: string,
     toolArgs: Record<string, unknown>,
@@ -283,11 +368,17 @@ export function createIDECommandAction(
           toolArgs: { text: args },
         };
 
+      case 'install':
+        // Install the bundled VS Code extension
+        await installVSCodeExtension(addMessage);
+        return;
+
       case 'help':
       case undefined:
         addMessage({
           type: MessageType.INFO,
           content: `Available IDE commands:
+  /ide install - Install the Gemini CLI VS Code extension
   /ide open <file> [line] [col] - Open a file in VS Code
   /ide active - Get info about the active file
   /ide files - List all open files
@@ -296,6 +387,7 @@ export function createIDECommandAction(
   /ide status <text> - Update status bar
 
 Examples:
+  /ide install
   /ide open src/main.ts 42 10
   /ide notify "Build complete!" info
   /ide active`,
