@@ -97,8 +97,14 @@ export class GeminiTerminal {
         // Add a small delay to ensure the terminal is fully interactive
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Send command with Enter to execute immediately
-        this.terminal.sendText(command, true);
+        // Send command first
+        this.terminal.sendText(command, false);
+        
+        // Small delay between text and Enter
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Send Enter key explicitly
+        this.terminal.sendText('', true);
     }
 
     /**
@@ -152,8 +158,14 @@ export class GeminiTerminal {
         // Add a small delay to ensure the terminal is fully interactive
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Send as a single command with Enter
-        this.terminal.sendText(message, true);
+        // Send message first
+        this.terminal.sendText(message, false);
+        
+        // Small delay between text and Enter
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Send Enter key explicitly
+        this.terminal.sendText('', true);
     }
 
     /**
