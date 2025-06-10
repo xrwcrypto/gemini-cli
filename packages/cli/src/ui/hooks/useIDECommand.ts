@@ -142,41 +142,9 @@ export function createIDECommandAction(
         let stderr = '';
         
         try {
-          // Check if we're running in a sandbox
-          const inSandbox = process.env.SANDBOX || (process.env.SEATBELT_PROFILE && process.env.SEATBELT_PROFILE !== 'none');
-          
-          console.log('[DEBUG] Sandbox check:', { SANDBOX: process.env.SANDBOX, SEATBELT_PROFILE: process.env.SEATBELT_PROFILE, inSandbox });
-          
-          if (inSandbox) {
-            // Create a helper script to run the installation outside the sandbox
-            addMessage({
-              type: MessageType.INFO,
-              content: 'Running VS Code extension installer outside sandbox...',
-              timestamp: new Date(),
-            });
-            
-            // Provide clear instructions for sandbox installation
-            addMessage({
-              type: MessageType.INFO,
-              content: `Cannot install automatically from within the sandbox.\n\n` +
-                       `To install the extension:\n\n` +
-                       `Option 1: Copy and run this command in any terminal:\n` +
-                       `  code --install-extension ~/.gemini/extensions/gemini-cli-vscode.vsix\n\n` +
-                       `Option 2: Install manually in VS Code:\n` +
-                       `  1. Press Cmd/Ctrl+Shift+P\n` +
-                       `  2. Type "Install from VSIX"\n` +
-                       `  3. Navigate to: ~/.gemini/extensions/\n` +
-                       `  4. Select: gemini-cli-vscode.vsix\n\n` +
-                       `The extension has been saved to a permanent location and will remain available.`,
-              timestamp: new Date(),
-            });
-            return;
-          } else {
-            // Not in sandbox, run directly
-            const result = await execAsync(command);
-            stdout = result.stdout || '';
-            stderr = result.stderr || '';
-          }
+          const result = await execAsync(command);
+          stdout = result.stdout || '';
+          stderr = result.stderr || '';
         } catch (execError: any) {
           // Even if the command "fails", it might have succeeded
           stdout = execError.stdout || '';
@@ -186,20 +154,6 @@ export function createIDECommandAction(
         
         console.log('[DEBUG] stdout:', stdout);
         console.log('[DEBUG] stderr:', stderr);
-        
-        
-        // Check for specific error conditions
-        if (stderr.includes('EPERM') || stderr.includes('NoPermissions')) {
-          // Permission error - likely due to sandbox
-          addMessage({
-            type: MessageType.INFO,
-            content: 'Automatic installation failed due to sandbox permissions.\n' +
-                     'This is expected when running Gemini CLI with sandboxing enabled.\n' +
-                     'Please install manually using the instructions below.',
-            timestamp: new Date(),
-          });
-          throw new Error('Sandbox permissions prevent automatic installation');
-        }
         
         // Check if installation was successful - VS Code outputs to stderr
         if (stdout.includes('successfully installed') || 

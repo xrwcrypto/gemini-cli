@@ -13,6 +13,8 @@
     (subpath (string-append (param "HOME_DIR") "/.npm"))
     (subpath (string-append (param "HOME_DIR") "/.cache"))
     (subpath (string-append (param "HOME_DIR") "/.gitconfig"))
+    (subpath (string-append (param "HOME_DIR") "/.vscode/extensions"))
+    (subpath (string-append (param "HOME_DIR") "/Library/Application Support/Code"))
     (literal "/dev/stdout")
     (literal "/dev/stderr")
     (literal "/dev/null")
