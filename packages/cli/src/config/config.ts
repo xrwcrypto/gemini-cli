@@ -146,10 +146,14 @@ export async function loadCliConfig(
 
   // Merge VS Code MCP server configuration if available
   const vscodeMCPServer = getVSCodeMCPServer();
+  if (vscodeMCPServer) {
+    console.log('[DEBUG] VS Code MCP server detected and configured');
+  }
   const mcpServers = {
     ...settings.mcpServers,
     ...(vscodeMCPServer || {}),
   };
+  console.log('[DEBUG] All MCP servers:', Object.keys(mcpServers));
 
   const config = new Config({
     contentGeneratorConfig,

@@ -2,7 +2,7 @@
 export const MCPImports = {
     async getServer() {
         try {
-            const serverModule = require('@modelcontextprotocol/sdk/dist/cjs/server/index.js');
+            const serverModule = require('@modelcontextprotocol/sdk/server/index.js');
             return serverModule.Server;
         } catch (e) {
             console.error('Failed to import Server:', e);
@@ -12,7 +12,7 @@ export const MCPImports = {
     
     async getStdioServerTransport() {
         try {
-            const stdioModule = require('@modelcontextprotocol/sdk/dist/cjs/server/stdio.js');
+            const stdioModule = require('@modelcontextprotocol/sdk/server/stdio.js');
             return stdioModule.StdioServerTransport;
         } catch (e) {
             console.error('Failed to import StdioServerTransport:', e);
@@ -20,9 +20,29 @@ export const MCPImports = {
         }
     },
     
+    async getListToolsRequestSchema() {
+        try {
+            const typesModule = require('@modelcontextprotocol/sdk/types.js');
+            return typesModule.ListToolsRequestSchema;
+        } catch (e) {
+            console.error('Failed to import ListToolsRequestSchema:', e);
+            throw e;
+        }
+    },
+    
+    async getCallToolRequestSchema() {
+        try {
+            const typesModule = require('@modelcontextprotocol/sdk/types.js');
+            return typesModule.CallToolRequestSchema;
+        } catch (e) {
+            console.error('Failed to import CallToolRequestSchema:', e);
+            throw e;
+        }
+    },
+    
     async getTypes() {
         try {
-            const typesModule = require('@modelcontextprotocol/sdk/dist/cjs/types.js');
+            const typesModule = require('@modelcontextprotocol/sdk/types.js');
             return {
                 CallToolRequestSchema: typesModule.CallToolRequestSchema,
                 ListToolsRequestSchema: typesModule.ListToolsRequestSchema,

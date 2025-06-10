@@ -126,7 +126,9 @@ export const useSlashCommandProcessor = (
   );
 
   const slashCommands: SlashCommand[] = useMemo(
-    () => [
+    () => {
+      console.log('[DEBUG] Creating slash commands array');
+      return [
       {
         name: 'help',
         altName: '?',
@@ -488,6 +490,7 @@ Add any other context about the problem here.
         name: 'ide',
         description: 'VS Code IDE operations (when running in VS Code terminal)',
         action: (mainCommand, subCommand, args) => {
+          console.log('[DEBUG] IDE command called:', { mainCommand, subCommand, args });
           return ideCommandAction(mainCommand, subCommand, args);
         },
       },
@@ -500,7 +503,8 @@ Add any other context about the problem here.
           process.exit(0);
         },
       },
-    ],
+    ];
+    },
     [
       onDebugMessage,
       setShowHelp,
@@ -549,6 +553,9 @@ Add any other context about the problem here.
       })();
 
       const mainCommand = commandToMatch;
+      
+      console.log('[DEBUG] Processing command:', { trimmed, mainCommand, subCommand, args });
+      console.log('[DEBUG] Available commands:', slashCommands.map(c => c.name));
 
       for (const cmd of slashCommands) {
         if (mainCommand === cmd.name || mainCommand === cmd.altName) {

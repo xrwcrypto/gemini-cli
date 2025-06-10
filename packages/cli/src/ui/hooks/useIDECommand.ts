@@ -37,16 +37,27 @@ export function createIDECommandAction(
       return;
     }
 
-    // Check if VS Code MCP server is configured
+    // Debug: Show all MCP servers
     const mcpServers = config?.getMcpServers() || {};
-    const vscodeServer = Object.keys(mcpServers).find(
+    const serverNames = Object.keys(mcpServers);
+    console.log('[DEBUG] Available MCP servers:', serverNames);
+    
+    // Show server statuses for each server
+    console.log('[DEBUG] Server statuses:');
+    serverNames.forEach(name => {
+      console.log(`  ${name}: ${getMCPServerStatus(name)}`);
+    });
+
+    // Check if VS Code MCP server is configured
+    const vscodeServer = serverNames.find(
       name => name === 'vscode' || name.includes('vscode')
     );
 
     if (!vscodeServer) {
       addMessage({
         type: MessageType.ERROR,
-        content: 'VS Code MCP server not found. Ensure the VS Code extension is installed and active.',
+        content: 'VS Code MCP server not found. Ensure the VS Code extension is installed and active.\n' +
+                 `Available servers: ${serverNames.join(', ') || 'none'}`,
         timestamp: new Date(),
       });
       return;
@@ -54,10 +65,14 @@ export function createIDECommandAction(
 
     // Check server status
     const status = getMCPServerStatus(vscodeServer);
+    console.log(`[DEBUG] VS Code server (${vscodeServer}) status:`, status);
+    
     if (status !== MCPServerStatus.CONNECTED) {
       addMessage({
         type: MessageType.INFO,
-        content: `VS Code server is ${status}. Waiting for connection...`,
+        content: `VS Code server is ${status}. Waiting for connection...\n` +
+                 `Server: ${vscodeServer}\n` +
+                 `Try running /mcp to see server details.`,
         timestamp: new Date(),
       });
       
@@ -84,7 +99,7 @@ export function createIDECommandAction(
         
         return {
           shouldScheduleTool: true,
-          toolName: 'vscode.openFile',
+          toolName: `${vscodeServer}.vscode.openFile`,
           toolArgs: { path, line, column },
         };
 
@@ -92,7 +107,7 @@ export function createIDECommandAction(
       case 'current':
         return {
           shouldScheduleTool: true,
-          toolName: 'vscode.getActiveFile',
+          toolName: `${vscodeServer}.vscode.getActiveFile`,
           toolArgs: {},
         };
 
@@ -100,7 +115,7 @@ export function createIDECommandAction(
       case 'open-files':
         return {
           shouldScheduleTool: true,
-          toolName: 'vscode.getOpenFiles',
+          toolName: `${vscodeServer}.vscode.getOpenFiles`,
           toolArgs: {},
         };
 
@@ -108,7 +123,7 @@ export function createIDECommandAction(
       case 'folders':
         return {
           shouldScheduleTool: true,
-          toolName: 'vscode.getWorkspaceFolders',
+          toolName: `${vscodeServer}.vscode.getWorkspaceFolders`,
           toolArgs: {},
         };
 
@@ -128,7 +143,7 @@ export function createIDECommandAction(
         
         return {
           shouldScheduleTool: true,
-          toolName: 'vscode.showNotification',
+          toolName: `${vscodeServer}.vscode.showNotification`,
           toolArgs: { message, type: notifyType },
         };
 
@@ -144,7 +159,7 @@ export function createIDECommandAction(
         
         return {
           shouldScheduleTool: true,
-          toolName: 'vscode.updateStatusBar',
+          toolName: `${vscodeServer}.vscode.updateStatusBar`,
           toolArgs: { text: args },
         };
 
