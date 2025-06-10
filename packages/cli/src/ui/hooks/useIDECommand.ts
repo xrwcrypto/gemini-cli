@@ -30,6 +30,15 @@ export function createIDECommandAction(
   addMessage: (message: Message) => void,
 ) {
   const installVSCodeExtension = async (addMessage: (message: Message) => void) => {
+    console.log('[DEBUG] installVSCodeExtension called');
+    
+    // Add debug message to see if function is called
+    addMessage({
+      type: MessageType.INFO,
+      content: 'Starting VS Code extension installation...',
+      timestamp: new Date(),
+    });
+    
     try {
       // Debug environment
       console.log('[DEBUG] VS Code environment check:');
@@ -54,23 +63,26 @@ export function createIDECommandAction(
         });
       }
 
-      addMessage({
-        type: MessageType.INFO,
-        content: 'Installing Gemini CLI VS Code extension...',
-        timestamp: new Date(),
-      });
 
       // Get the bundled VSIX path
-      const vsixUrl = new URL('gemini-cli-vscode.vsix', import.meta.url);
-      const bundledVsixPath = vsixUrl.pathname;
+      console.log('[DEBUG] Looking for VSIX file...');
+      console.log('[DEBUG] import.meta.url:', import.meta.url);
+      
+      // The VSIX should be in the same directory as the bundle
+      const bundleDir = new URL('.', import.meta.url).pathname;
+      const bundledVsixPath = join(bundleDir, 'gemini-cli-vscode.vsix');
+      console.log('[DEBUG] Bundle dir:', bundleDir);
+      console.log('[DEBUG] VSIX path:', bundledVsixPath);
       
       // Check if the bundled VSIX exists
       try {
         await fs.access(bundledVsixPath);
-      } catch {
+        console.log('[DEBUG] VSIX file found!');
+      } catch (accessError) {
+        console.log('[DEBUG] VSIX file not found:', accessError);
         addMessage({
           type: MessageType.ERROR,
-          content: 'VS Code extension not found in bundle. Make sure you\'re using the bundled version of Gemini CLI.',
+          content: `VS Code extension not found in bundle.\nLooking for: ${bundledVsixPath}\nBundle directory: ${bundleDir}`,
           timestamp: new Date(),
         });
         return;
@@ -84,10 +96,13 @@ export function createIDECommandAction(
       try {
         // Try different VS Code command names
         let installCommand = 'code';
+        console.log('[DEBUG] Checking for VS Code command...');
         try {
           // Check if 'code' command exists
-          await execAsync('which code');
-        } catch {
+          const whichResult = await execAsync('which code');
+          console.log('[DEBUG] Found code at:', whichResult.stdout.trim());
+        } catch (e) {
+          console.log('[DEBUG] code command not found, trying alternatives...');
           // Try 'code-insiders' if 'code' doesn't exist
           try {
             await execAsync('which code-insiders');
@@ -100,22 +115,91 @@ export function createIDECommandAction(
           }
         }
 
-        const { stdout, stderr } = await execAsync(`${installCommand} --install-extension "${tempVsixPath}"`);
+        const command = `${installCommand} --install-extension "${tempVsixPath}"`;
+        console.log('[DEBUG] Running command:', command);
         
-        if (stderr && !stderr.includes('successfully installed')) {
-          throw new Error(stderr);
-        }
-
         addMessage({
           type: MessageType.INFO,
-          content: 'VS Code extension installed successfully!\n' +
-                   'Please reload VS Code window (Cmd/Ctrl+R) to activate the extension.',
+          content: `Executing: ${command}`,
           timestamp: new Date(),
         });
+        
+        let stdout = '';
+        let stderr = '';
+        
+        try {
+          // Check if we're running in a sandbox
+          const inSandbox = process.env.SANDBOX || (process.env.SEATBELT_PROFILE && process.env.SEATBELT_PROFILE !== 'none');
+          
+          console.log('[DEBUG] Sandbox check:', { SANDBOX: process.env.SANDBOX, SEATBELT_PROFILE: process.env.SEATBELT_PROFILE, inSandbox });
+          
+          if (inSandbox) {
+            // If in sandbox, provide instructions to run outside sandbox
+            addMessage({
+              type: MessageType.INFO,
+              content: 'The install command cannot run inside the sandbox due to file system restrictions.\n\n' +
+                       'Option 1: Exit and run without sandbox:\n' +
+                       '  SEATBELT_PROFILE=none gemini\n' +
+                       '  Then run: /ide install\n\n' +
+                       'Option 2: Run the command directly in your terminal:\n' +
+                       `  code --install-extension "${tempVsixPath}"\n\n` +
+                       'Option 3: Follow the manual installation instructions below.',
+              timestamp: new Date(),
+            });
+            throw new Error('Cannot install from within sandbox');
+          }
+          
+          const result = await execAsync(command);
+          stdout = result.stdout || '';
+          stderr = result.stderr || '';
+        } catch (execError: any) {
+          // Even if the command "fails", it might have succeeded
+          stdout = execError.stdout || '';
+          stderr = execError.stderr || '';
+          console.log('[DEBUG] Exec error:', execError.message);
+        }
+        
+        console.log('[DEBUG] stdout:', stdout);
+        console.log('[DEBUG] stderr:', stderr);
+        
+        
+        // Check for specific error conditions
+        if (stderr.includes('EPERM') || stderr.includes('NoPermissions')) {
+          // Permission error - likely due to sandbox
+          addMessage({
+            type: MessageType.INFO,
+            content: 'Automatic installation failed due to sandbox permissions.\n' +
+                     'This is expected when running Gemini CLI with sandboxing enabled.\n' +
+                     'Please install manually using the instructions below.',
+            timestamp: new Date(),
+          });
+          throw new Error('Sandbox permissions prevent automatic installation');
+        }
+        
+        // Check if installation was successful - VS Code outputs to stderr
+        if (stdout.includes('successfully installed') || 
+            stderr.includes('successfully installed') ||
+            stdout.includes('was successfully installed') ||
+            stderr.includes('was successfully installed') ||
+            stdout.includes('Extension') && stdout.includes('installed') ||
+            stderr.includes('Extension') && stderr.includes('installed')) {
+          // Success!
+          addMessage({
+            type: MessageType.INFO,
+            content: 'VS Code extension installed successfully!\n' +
+                     'Please reload VS Code window (Cmd/Ctrl+R) to activate the extension.',
+            timestamp: new Date(),
+          });
 
-        // Clean up temp file
-        await fs.unlink(tempVsixPath).catch(() => {});
+          // Clean up temp file
+          await fs.unlink(tempVsixPath).catch(() => {});
+          return;
+        }
+        
+        // If we get here, installation failed
+        throw new Error('Installation may have failed - please check the output above');
       } catch (error) {
+        console.log('[DEBUG] Installation error:', error);
         // Fallback: provide manual installation instructions
         addMessage({
           type: MessageType.INFO,
