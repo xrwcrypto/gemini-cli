@@ -5,7 +5,13 @@
  */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { FileOperationsTool, FileOperationRequest } from './file-operations.js';
+import { FileOperationsTool } from './file-operations.js';
+import { 
+  FileOperationRequest,
+  AnalyzeOperation,
+  EditOperation,
+  ValidateOperation 
+} from './file-operations-types.js';
 import { Config } from '../../config/config.js';
 import path from 'path';
 import os from 'os';
@@ -75,7 +81,7 @@ describe('FileOperationsTool', () => {
     it('should validate valid parameters', () => {
       const params: FileOperationRequest = {
         operations: [
-          { type: 'analyze' }
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation
         ]
       };
       const error = tool.validateToolParams(params);
@@ -85,8 +91,11 @@ describe('FileOperationsTool', () => {
     it('should validate operation dependencies', () => {
       const params: FileOperationRequest = {
         operations: [
-          { id: 'op1', type: 'analyze' },
-          { id: 'op2', type: 'edit', dependsOn: ['op1'] }
+          { id: 'op1', type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { id: 'op2', type: 'edit', dependsOn: ['op1'], edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation
         ]
       };
       const error = tool.validateToolParams(params);
@@ -96,8 +105,11 @@ describe('FileOperationsTool', () => {
     it('should detect missing dependencies', () => {
       const params: FileOperationRequest = {
         operations: [
-          { id: 'op1', type: 'analyze' },
-          { id: 'op2', type: 'edit', dependsOn: ['op3'] } // op3 doesn't exist
+          { id: 'op1', type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { id: 'op2', type: 'edit', dependsOn: ['op3'], edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation // op3 doesn't exist
         ]
       };
       const error = tool.validateToolParams(params);
@@ -107,8 +119,11 @@ describe('FileOperationsTool', () => {
     it('should detect circular dependencies', () => {
       const params: FileOperationRequest = {
         operations: [
-          { id: 'op1', type: 'analyze', dependsOn: ['op2'] },
-          { id: 'op2', type: 'edit', dependsOn: ['op1'] }
+          { id: 'op1', type: 'analyze', dependsOn: ['op2'], paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { id: 'op2', type: 'edit', dependsOn: ['op1'], edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation
         ]
       };
       const error = tool.validateToolParams(params);
@@ -120,7 +135,7 @@ describe('FileOperationsTool', () => {
     it('should generate description for single operation', () => {
       const params: FileOperationRequest = {
         operations: [
-          { type: 'analyze' }
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation
         ]
       };
       const description = tool.getDescription(params);
@@ -131,9 +146,12 @@ describe('FileOperationsTool', () => {
     it('should generate description for multiple operations', () => {
       const params: FileOperationRequest = {
         operations: [
-          { type: 'analyze' },
-          { type: 'edit' },
-          { type: 'validate' }
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { type: 'edit', edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation,
+          { type: 'validate' } as ValidateOperation
         ]
       };
       const description = tool.getDescription(params);
@@ -144,8 +162,11 @@ describe('FileOperationsTool', () => {
     it('should indicate parallel execution', () => {
       const params: FileOperationRequest = {
         operations: [
-          { type: 'analyze' },
-          { type: 'edit' }
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { type: 'edit', edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation
         ],
         options: { parallel: true }
       };
@@ -156,8 +177,11 @@ describe('FileOperationsTool', () => {
     it('should indicate sequential execution', () => {
       const params: FileOperationRequest = {
         operations: [
-          { type: 'analyze' },
-          { type: 'edit' }
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { type: 'edit', edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation
         ],
         options: { parallel: false }
       };
@@ -168,7 +192,10 @@ describe('FileOperationsTool', () => {
     it('should indicate transaction support', () => {
       const params: FileOperationRequest = {
         operations: [
-          { type: 'edit' }
+          { type: 'edit', edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation
         ],
         options: { transaction: true }
       };
@@ -181,8 +208,8 @@ describe('FileOperationsTool', () => {
     it('should execute operations and return results', async () => {
       const params: FileOperationRequest = {
         operations: [
-          { id: 'op1', type: 'analyze' },
-          { id: 'op2', type: 'edit' }
+          { id: 'op1', type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { id: 'op2', type: 'edit', edits: [] } as EditOperation
         ]
       };
       
@@ -204,7 +231,7 @@ describe('FileOperationsTool', () => {
       const updateOutput = vi.fn();
       const params: FileOperationRequest = {
         operations: [
-          { type: 'analyze' }
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation
         ]
       };
       
@@ -216,8 +243,8 @@ describe('FileOperationsTool', () => {
     it('should format display output correctly', async () => {
       const params: FileOperationRequest = {
         operations: [
-          { id: 'analyze-1', type: 'analyze' },
-          { id: 'edit-1', type: 'edit' }
+          { id: 'analyze-1', type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { id: 'edit-1', type: 'edit', edits: [] } as EditOperation
         ]
       };
       
@@ -237,7 +264,7 @@ describe('FileOperationsTool', () => {
     it('should not require confirmation by default', async () => {
       const params: FileOperationRequest = {
         operations: [
-          { type: 'analyze' }
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation
         ]
       };
       

@@ -6,61 +6,20 @@
 
 import { BaseTool, ToolResult } from '../tools.js';
 import { Config } from '../../config/config.js';
-import { SchemaValidator } from '../../utils/schemaValidator.js';
-
-/**
- * Parameters for the FileOperations mega tool
- */
-export interface FileOperationRequest {
-  operations: Operation[];
-  options?: {
-    parallel?: boolean;          // Default: true
-    transaction?: boolean;       // Default: false
-    continueOnError?: boolean;   // Default: false
-    returnFormat?: 'raw' | 'structured' | 'minimal';
-    cacheStrategy?: 'none' | 'session' | 'persistent';
-  };
-}
-
-export interface Operation {
-  id?: string;                   // For referencing in dependencies
-  type: 'analyze' | 'edit' | 'create' | 'delete' | 'validate';
-  dependsOn?: string[];          // Operation IDs that must complete first
-}
-
-export interface FileOperationResponse {
-  success: boolean;
-  results: OperationResult[];
-  summary: {
-    totalOperations: number;
-    successful: number;
-    failed: number;
-    duration: number;
-    filesAffected: string[];
-  };
-  errors?: OperationError[];
-}
-
-export interface OperationResult {
-  operationId: string;
-  type: string;
-  status: 'success' | 'failed' | 'skipped';
-  data?: unknown;
-  error?: OperationError;
-}
-
-export interface OperationError {
-  operationId: string;
-  message: string;
-  code?: string;
-  details?: unknown;
-}
+import {
+  FileOperationRequest,
+  FileOperationResponse,
+  OperationResult,
+} from './file-operations-types.js';
+import { fileOperationsSchema } from './file-operations-schema.js';
+import { FileOperationsValidator } from './file-operations-validator.js';
 
 /**
  * FileOperations mega tool for batch file operations with parallel execution and transaction support
  */
 export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResult> {
   static readonly Name = 'file_operations';
+  private readonly validator: FileOperationsValidator;
   
   constructor(
     private readonly config: Config,
@@ -70,111 +29,13 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
       FileOperationsTool.Name,
       'FileOperations',
       'Batch file operations with parallel execution and transaction support. Combines multiple file operations (read, write, edit, analyze) into a single efficient request.',
-      {
-        type: 'object',
-        properties: {
-          operations: {
-            type: 'array',
-            description: 'Array of operations to execute',
-            items: {
-              type: 'object',
-              properties: {
-                id: {
-                  type: 'string',
-                  description: 'Optional unique identifier for the operation (used for dependencies)'
-                },
-                type: {
-                  type: 'string',
-                  enum: ['analyze', 'edit', 'create', 'delete', 'validate'],
-                  description: 'Type of operation to perform'
-                },
-                dependsOn: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: 'Array of operation IDs that must complete before this operation'
-                }
-                // Type-specific properties will be added in next phase
-              },
-              required: ['type']
-            }
-          },
-          options: {
-            type: 'object',
-            description: 'Execution options',
-            properties: {
-              parallel: {
-                type: 'boolean',
-                description: 'Execute independent operations in parallel (default: true)',
-                default: true
-              },
-              transaction: {
-                type: 'boolean',
-                description: 'Execute all operations in a transaction with rollback on failure (default: false)',
-                default: false
-              },
-              continueOnError: {
-                type: 'boolean',
-                description: 'Continue executing remaining operations if one fails (default: false)',
-                default: false
-              },
-              returnFormat: {
-                type: 'string',
-                enum: ['raw', 'structured', 'minimal'],
-                description: 'Format of the response data',
-                default: 'structured'
-              },
-              cacheStrategy: {
-                type: 'string',
-                enum: ['none', 'session', 'persistent'],
-                description: 'Caching strategy for file contents and analysis',
-                default: 'session'
-              }
-            }
-          }
-        },
-        required: ['operations']
-      }
+      fileOperationsSchema
     );
+    this.validator = new FileOperationsValidator(rootDirectory);
   }
   
   validateToolParams(params: FileOperationRequest): string | null {
-    if (
-      this.schema.parameters &&
-      !SchemaValidator.validate(
-        this.schema.parameters as Record<string, unknown>,
-        params,
-      )
-    ) {
-      return 'Parameters failed schema validation.';
-    }
-    
-    // Validate operations array is not empty
-    if (!params.operations || params.operations.length === 0) {
-      return 'At least one operation must be specified';
-    }
-    
-    // Validate operation dependencies
-    const operationIds = new Set(params.operations
-      .filter(op => op.id)
-      .map(op => op.id!));
-    
-    for (const operation of params.operations) {
-      if (operation.dependsOn) {
-        for (const dep of operation.dependsOn) {
-          if (!operationIds.has(dep)) {
-            return `Operation dependency '${dep}' not found in operations list`;
-          }
-        }
-      }
-    }
-    
-    // Check for circular dependencies
-    const hasCycle = this.hasCircularDependencies(params.operations);
-    if (hasCycle) {
-      return 'Circular dependencies detected in operations';
-    }
-    
-    return null;
+    return this.validator.validateRequest(params);
   }
   
   getDescription(params: FileOperationRequest): string {
@@ -224,7 +85,7 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
           operationId: operation.id || `op-${params.operations.indexOf(operation)}`,
           type: operation.type,
           status: 'success',
-          data: { placeholder: true }
+          data: undefined // Will be implemented with actual operation results
         };
         response.results.push(result);
         response.summary.successful++;
@@ -269,45 +130,5 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
     }
     
     return display;
-  }
-  
-  private hasCircularDependencies(operations: Operation[]): boolean {
-    const graph = new Map<string, string[]>();
-    const visited = new Set<string>();
-    const recursionStack = new Set<string>();
-    
-    // Build dependency graph
-    for (const op of operations) {
-      if (op.id) {
-        graph.set(op.id, op.dependsOn || []);
-      }
-    }
-    
-    // DFS to detect cycles
-    const hasCycle = (nodeId: string): boolean => {
-      visited.add(nodeId);
-      recursionStack.add(nodeId);
-      
-      const dependencies = graph.get(nodeId) || [];
-      for (const dep of dependencies) {
-        if (!visited.has(dep) && hasCycle(dep)) {
-          return true;
-        } else if (recursionStack.has(dep)) {
-          return true;
-        }
-      }
-      
-      recursionStack.delete(nodeId);
-      return false;
-    };
-    
-    // Check all nodes
-    for (const [nodeId] of graph) {
-      if (!visited.has(nodeId) && hasCycle(nodeId)) {
-        return true;
-      }
-    }
-    
-    return false;
   }
 }
