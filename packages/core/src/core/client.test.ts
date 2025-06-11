@@ -258,7 +258,9 @@ describe('Gemini Client (client.ts)', () => {
         countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
         generateContent: mockGenerateContentFn,
       };
-      client['contentGenerator'] = mockGenerator as ContentGenerator;
+      client['contentGenerator'] = Promise.resolve(
+        mockGenerator as ContentGenerator,
+      );
 
       await client.generateContent(contents, generationConfig, abortSignal);
 
@@ -286,7 +288,9 @@ describe('Gemini Client (client.ts)', () => {
         countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
         generateContent: mockGenerateContentFn,
       };
-      client['contentGenerator'] = mockGenerator as ContentGenerator;
+      client['contentGenerator'] = Promise.resolve(
+        mockGenerator as ContentGenerator,
+      );
 
       await client.generateJson(contents, schema, abortSignal);
 
