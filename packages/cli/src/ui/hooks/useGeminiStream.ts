@@ -382,22 +382,46 @@ export const useGeminiStream = (
             break;
           case ServerGeminiEventType.ToolCallRequest:
             toolCallRequests.push(event.value);
+            await logger?.logMessage(
+              MessageSenderType.TOOL_REQUEST,
+              JSON.stringify(event.value.args),
+            );
             break;
           case ServerGeminiEventType.UserCancelled:
             handleUserCancelledEvent(userMessageTimestamp);
             break;
           case ServerGeminiEventType.Error:
             handleErrorEvent(event.value, userMessageTimestamp);
+            await logger?.logMessage(
+              MessageSenderType.SERVER_ERROR,
+              JSON.stringify(event.value),
+            );
             break;
           case ServerGeminiEventType.ChatCompressed:
             handleChatCompressionEvent();
+            await logger?.logMessage(
+              MessageSenderType.SYSTEM,
+              'Compressing Chat',
+            );
             break;
           case ServerGeminiEventType.UsageMetadata:
             addUsage(event.value);
+            await logger?.logMessage(
+              MessageSenderType.SYSTEM,
+              'Usage Metadata: ' + JSON.stringify(event.value),
+            );
             break;
           case ServerGeminiEventType.ToolCallConfirmation:
+            await logger?.logMessage(
+              MessageSenderType.SYSTEM,
+              JSON.stringify(event.value),
+            );
+            break;
           case ServerGeminiEventType.ToolCallResponse:
-            // do nothing
+            await logger?.logMessage(
+              MessageSenderType.SYSTEM,
+              JSON.stringify(event.value),
+            );
             break;
           default: {
             // enforces exhaustive switch-case
@@ -406,6 +430,7 @@ export const useGeminiStream = (
           }
         }
       }
+      await logger?.logMessage(MessageSenderType.SYSTEM, geminiMessageBuffer);
       if (toolCallRequests.length > 0) {
         scheduleToolCalls(toolCallRequests, signal);
       }
