@@ -5,6 +5,7 @@
  */
 
 import { execSync, spawn } from 'child_process';
+import { isAppInstalled, openInEditor } from '../ipc/client.js';
 
 export type EditorType = 'vscode' | 'windsurf' | 'cursor' | 'vim';
 
@@ -32,7 +33,10 @@ const editorCommands: Record<EditorType, { win32: string; default: string }> = {
   vim: { win32: 'vim', default: 'vim' },
 };
 
-export function checkHasEditor(editor: EditorType): boolean {
+export async function checkHasEditor(editor: EditorType): Promise<boolean> {
+  if (process.env.SANDBOX) {
+    return isAppInstalled(editor);
+  }
   const commandConfig = editorCommands[editor];
   const command =
     process.platform === 'win32' ? commandConfig.win32 : commandConfig.default;
@@ -106,6 +110,10 @@ export async function openDiff(
   newPath: string,
   editor: EditorType,
 ): Promise<void> {
+  if (process.env.SANDBOX && editor === 'vscode') {
+    return openInEditor(editor, newPath);
+  }
+
   const diffCommand = getDiffCommand(oldPath, newPath, editor);
   if (!diffCommand) {
     console.error('No diff tool available. Install vim or vscode.');

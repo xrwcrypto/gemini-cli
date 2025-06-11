@@ -236,7 +236,11 @@ function entrypoint(workdir: string): string[] {
   return ['bash', '-c', args.join(' ')];
 }
 
-export async function start_sandbox(sandbox: string) {
+export async function start_sandbox(
+  sandbox: string,
+  ipcPort?: number,
+  ipcToken?: string,
+) {
   if (sandbox === 'sandbox-exec') {
     // disallow BUILD_SANDBOX
     if (process.env.BUILD_SANDBOX) {
@@ -284,6 +288,22 @@ export async function start_sandbox(sandbox: string) {
     const proxyCommand = process.env.GEMINI_SANDBOX_PROXY_COMMAND;
     let proxyProcess: ChildProcess | undefined;
     const sandboxEnv = { ...process.env };
+    if (ipcPort && ipcToken) {
+      sandboxEnv['GEMINI_IPC_PORT'] = ipcPort.toString();
+      sandboxEnv['GEMINI_IPC_TOKEN'] = ipcToken;
+
+      const profileContent = await readFile(profileFile, 'utf-8');
+      const newProfileContent = profileContent.replace(
+        '(allow network-outbound (literal "/private/var/run/syslog"))',
+        `(allow network-outbound (literal "/private/var/run/syslog"))\n(allow network-outbound (remote tcp "127.0.0.1:${ipcPort}"))`,
+      );
+      const tempProfileFile = path.join(
+        os.tmpdir(),
+        `gemini-sandbox-${Date.now()}.sb`,
+      );
+      fs.writeFileSync(tempProfileFile, newProfileContent);
+      profileFile = tempProfileFile;
+    }
     if (proxyCommand) {
       const proxy =
         process.env.HTTPS_PROXY ||

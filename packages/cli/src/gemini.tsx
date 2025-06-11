@@ -33,6 +33,9 @@ import {
   WebSearchTool,
   WriteFileTool,
 } from '@gemini-cli/core';
+import getPort from 'get-port';
+import { randomBytes } from 'crypto';
+import { spawn } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,7 +100,22 @@ export async function main() {
   if (!process.env.SANDBOX) {
     const sandbox = sandbox_command(config.getSandbox());
     if (sandbox) {
-      await start_sandbox(sandbox);
+      const ipcPort = await getPort();
+      const ipcToken = randomBytes(16).toString('hex');
+
+      const proxyPath = new URL('../core/src/ipc/proxy.js', import.meta.url)
+        .pathname;
+      const proxyProcess = spawn(
+        'node',
+        [proxyPath, ipcPort.toString(), ipcToken],
+        {
+          detached: true,
+          stdio: 'ignore',
+        },
+      );
+      proxyProcess.unref();
+
+      await start_sandbox(sandbox, ipcPort, ipcToken);
       process.exit(0);
     }
   }

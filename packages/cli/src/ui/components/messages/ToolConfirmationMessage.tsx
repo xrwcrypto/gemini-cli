@@ -30,6 +30,21 @@ export const ToolConfirmationMessage: React.FC<
   ToolConfirmationMessageProps
 > = ({ confirmationDetails, config }) => {
   const { onConfirm } = confirmationDetails;
+  const [isVscode, setIsVscode] = React.useState(false);
+  const [hasWindsurf, setHasWindsurf] = React.useState(false);
+  const [hasCursor, setHasCursor] = React.useState(false);
+
+  const [hasVim, setHasVim] = React.useState(false);
+
+  React.useEffect(() => {
+    async function checkEditors() {
+      setIsVscode(await checkHasEditor('vscode'));
+      setHasWindsurf(await checkHasEditor('windsurf'));
+      setHasCursor(await checkHasEditor('cursor'));
+      setHasVim(await checkHasEditor('vim'));
+    }
+    checkEditors();
+  }, []);
 
   useInput((_, key) => {
     if (key.escape) {
@@ -87,36 +102,31 @@ export const ToolConfirmationMessage: React.FC<
     );
 
     // Conditionally add editor options if editors are installed
-    const notUsingSandbox = !process.env.SANDBOX;
     const externalEditorsEnabled =
       config?.getEnableModifyWithExternalEditors() ?? false;
 
-    if (checkHasEditor('vscode') && notUsingSandbox && externalEditorsEnabled) {
+    if (isVscode && externalEditorsEnabled) {
       options.push({
         label: 'Modify with VS Code',
         value: ToolConfirmationOutcome.ModifyVSCode,
       });
     }
 
-    if (
-      checkHasEditor('windsurf') &&
-      notUsingSandbox &&
-      externalEditorsEnabled
-    ) {
+    if (hasWindsurf && externalEditorsEnabled) {
       options.push({
         label: 'Modify with Windsurf',
         value: ToolConfirmationOutcome.ModifyWindsurf,
       });
     }
 
-    if (checkHasEditor('cursor') && notUsingSandbox && externalEditorsEnabled) {
+    if (hasCursor && externalEditorsEnabled) {
       options.push({
         label: 'Modify with Cursor',
         value: ToolConfirmationOutcome.ModifyCursor,
       });
     }
 
-    if (checkHasEditor('vim') && externalEditorsEnabled) {
+    if (hasVim && externalEditorsEnabled) {
       options.push({
         label: 'Modify with vim',
         value: ToolConfirmationOutcome.ModifyVim,
