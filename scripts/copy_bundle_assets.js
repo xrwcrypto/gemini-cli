@@ -19,7 +19,7 @@
 
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join, basename } from 'path';
-import { glob } from 'glob';
+import glob from 'glob';
 
 const root = join(import.meta.dirname, '..');
 const bundleDir = join(root, 'bundle');

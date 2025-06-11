@@ -292,15 +292,9 @@ export async function start_sandbox(
       sandboxEnv['GEMINI_IPC_PORT'] = ipcPort.toString();
       sandboxEnv['GEMINI_IPC_TOKEN'] = ipcToken;
 
-      const profileContent = await readFile(profileFile, 'utf-8');
-      const newProfileContent = profileContent.replace(
-        '(allow network-outbound (literal "/private/var/run/syslog"))',
-        `(allow network-outbound (literal "/private/var/run/syslog"))\n(allow network-outbound (remote tcp "127.0.0.1:${ipcPort}"))`,
-      );
-      const tempProfileFile = path.join(
-        os.tmpdir(),
-        `gemini-sandbox-${Date.now()}.sb`,
-      );
+      const profileContent = fs.readFileSync(profileFile, 'utf-8');
+      const newProfileContent = `${profileContent}\n(allow network-outbound)\n(allow network-outbound (remote tcp "127.0.0.1:${ipcPort}"))`;
+      const tempProfileFile = path.join(os.tmpdir(), `gemini-sandbox-${Date.now()}.sb`);
       fs.writeFileSync(tempProfileFile, newProfileContent);
       profileFile = tempProfileFile;
     }
@@ -498,10 +492,9 @@ export async function start_sandbox(
     process.env.HTTPS_PROXY ||
     process.env.https_proxy ||
     process.env.HTTP_PROXY ||
-    process.env.http_proxy ||
-    'http://localhost:8877';
-  proxy = proxy.replace('localhost', SANDBOX_PROXY_NAME);
+    process.env.http_proxy;
   if (proxy) {
+    proxy = proxy.replace('localhost', SANDBOX_PROXY_NAME);
     args.push('--env', `HTTPS_PROXY=${proxy}`);
     args.push('--env', `https_proxy=${proxy}`); // lower-case can be required, e.g. for curl
     args.push('--env', `HTTP_PROXY=${proxy}`);
@@ -549,6 +542,12 @@ export async function start_sandbox(
   // copy GEMINI_MODEL
   if (process.env.GEMINI_MODEL) {
     args.push('--env', `GEMINI_MODEL=${process.env.GEMINI_MODEL}`);
+  }
+
+  // copy IPC variables
+  if (ipcPort && ipcToken) {
+    args.push('--env', `GEMINI_IPC_PORT=${ipcPort}`);
+    args.push('--env', `GEMINI_IPC_TOKEN=${ipcToken}`);
   }
 
   // copy TERM and COLORTERM to try to maintain terminal setup

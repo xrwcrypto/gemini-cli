@@ -8,11 +8,15 @@ import esbuild from 'esbuild';
 
 esbuild
   .build({
-    entryPoints: ['packages/cli/index.ts'],
+    entryPoints: {
+      gemini: 'packages/cli/index.ts',
+      proxy: 'packages/core/src/ipc/proxy.ts',
+    },
     bundle: true,
-    outfile: 'bundle/gemini.js',
+    outdir: 'bundle',
     platform: 'node',
     format: 'esm',
+    external: [],
     banner: {
       js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url); globalThis.__filename = require('url').fileURLToPath(import.meta.url); globalThis.__dirname = require('path').dirname(globalThis.__filename);`,
     },

@@ -103,7 +103,7 @@ export async function main() {
       const ipcPort = await getPort();
       const ipcToken = randomBytes(16).toString('hex');
 
-      const proxyPath = new URL('../core/src/ipc/proxy.js', import.meta.url)
+      const proxyPath = new URL('../bundle/proxy.js', import.meta.url)
         .pathname;
       const proxyProcess = spawn(
         'node',
