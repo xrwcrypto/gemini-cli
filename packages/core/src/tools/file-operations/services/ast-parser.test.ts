@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ASTParserService, SupportedLanguage } from './ast-parser.js';
+import { ASTParserService } from './ast-parser.js';
 import * as path from 'path';
 
 describe('ASTParserService', () => {
@@ -249,7 +249,6 @@ describe('ASTParserService', () => {
         import * as utils from './utils';
       `;
 
-      const imports = await service.extractImports('test.tsx');
       // parseFile must be called first
       await service.parseFile('test.tsx', content);
       const importsAfter = await service.extractImports('test.tsx');

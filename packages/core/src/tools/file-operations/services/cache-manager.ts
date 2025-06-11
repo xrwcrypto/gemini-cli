@@ -93,7 +93,7 @@ export class CacheManager {
    */
   async get(filePath: string): Promise<ProcessedFileReadResult> {
     const normalizedPath = path.normalize(filePath);
-    const internalCache = (this.cache as any).cache as Map<string, CacheEntry>;
+    const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     const entry = internalCache.get(normalizedPath);
     
     if (entry) {
@@ -137,7 +137,7 @@ export class CacheManager {
   async getMany(filePaths: string[]): Promise<Map<string, ProcessedFileReadResult>> {
     const results = new Map<string, ProcessedFileReadResult>();
     const uncachedPaths: string[] = [];
-    const internalCache = (this.cache as any).cache as Map<string, CacheEntry>;
+    const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     
     // Check cache first
     for (const filePath of filePaths) {
@@ -185,7 +185,7 @@ export class CacheManager {
     const size = this.calculateSize(content);
     
     // Check if we need to evict entries to make space
-    const internalCache = (this.cache as any).cache as Map<string, CacheEntry>;
+    const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     while (this.currentSizeBytes + size > this.config.maxSizeBytes && internalCache.size > 0) {
       const oldestKey = internalCache.keys().next().value;
       if (oldestKey) {
@@ -242,7 +242,7 @@ export class CacheManager {
    */
   clear(): void {
     // Get current size before clearing
-    const internalCache = (this.cache as any).cache as Map<string, CacheEntry>;
+    const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     const currentSize = internalCache.size;
     
     // Unwatch all files
@@ -260,7 +260,7 @@ export class CacheManager {
    * Get cache statistics
    */
   getStats(): CacheStats {
-    const internalCache = (this.cache as any).cache as Map<string, CacheEntry>;
+    const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     return {
       ...this.stats,
       currentSize: internalCache.size
@@ -279,7 +279,7 @@ export class CacheManager {
    */
   handleMemoryPressure(targetReduction: number): number {
     let reducedBytes = 0;
-    const internalCache = (this.cache as any).cache as Map<string, CacheEntry>;
+    const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     const entries = Array.from(internalCache.entries())
       .map(([key, value]) => ({ key, value }))
       .sort((a, b) => a.value.timestamp - b.value.timestamp);
@@ -327,7 +327,7 @@ export class CacheManager {
    */
   private evict(filePath: string): void {
     // Access the internal cache map
-    const internalCache = (this.cache as any).cache as Map<string, CacheEntry>;
+    const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     const entry = internalCache.get(filePath);
     
     if (entry) {
@@ -405,7 +405,7 @@ export class CacheManager {
       });
       
       this.watchedFiles.add(filePath);
-    } catch (error) {
+    } catch (_error) {
       // Ignore watch errors (file might not exist anymore)
     }
   }
@@ -413,7 +413,7 @@ export class CacheManager {
   /**
    * Handle file change event
    */
-  private onFileChange(event: FileChangeEvent): void {
+  private onFileChange(_event: FileChangeEvent): void {
     // This could be extended to emit events or trigger callbacks
     // For now, just invalidation is handled in watchFile
   }

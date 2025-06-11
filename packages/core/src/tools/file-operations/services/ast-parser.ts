@@ -7,7 +7,7 @@
 import * as path from 'path';
 import { LruCache } from '../../../utils/LruCache.js';
 import { CacheManager } from './cache-manager.js';
-import { detectFileType } from '../../../utils/fileUtils.js';
+// import { detectFileType } from '../../../utils/fileUtils.js';
 import mime from 'mime-types';
 
 /**

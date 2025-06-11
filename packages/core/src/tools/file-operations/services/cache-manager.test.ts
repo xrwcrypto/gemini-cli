@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CacheManager, CacheConfig } from './cache-manager.js';
 import { FileSystemService } from './file-system-service.js';
-import { ProcessedFileReadResult } from '../../../utils/fileUtils.js';
+// import { ProcessedFileReadResult } from '../../../utils/fileUtils.js';
 import { vol } from 'memfs';
 
 // Mock fs module with memfs
