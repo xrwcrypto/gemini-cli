@@ -38,19 +38,19 @@ For each task listed below, the following process must be followed upon completi
     *   If the implementation required a deviation from the `fileoperations_arch.md`, add an "Architecture Change" section under the task notes.
     *   Immediately update the `fileoperations_arch.md` to reflect the new reality.
     *   Review all subsequent tasks in this plan and update them if they are affected by the change.
-4.  **Commit Changes:** Use `git add .` and `git commit` to save the work. The commit message should be clear and reference the completed task, for example: `feat: Complete Task 2 - Core MCP Server Scaffolding`.
+4.  **Commit Changes:** Use `git add .` and `git commit` to save the work. The commit message should be clear and reference the completed task, for example: `feat: Complete Task 2 - Core Data Structures`.
 
 ## Task List
 
 ### Phase 1: Foundation (Prerequisites)
 
-#### Task 1: MCP Server Implementation
+#### Task 1: Core Tool Setup and Implementation
 - [ ] Create `packages/core/src/tools/file-operations/` directory structure
-- [ ] Implement FileOperations as an MCP server following Gemini CLI patterns
-- [ ] Create mcp-server.ts with stdio transport
+- [ ] Create FileOperationsTool class extending BaseTool
 - [ ] Define tool schema matching Gemini's FunctionDeclaration format
-- [ ] Add configuration to example settings.json for testing
-- [ ] Write integration tests using existing MCP test patterns
+- [ ] Implement basic execute method skeleton
+- [ ] Add unit tests for tool initialization
+- [ ] Verify tool compiles and passes basic tests
 
 #### Task 2: Core Data Structures
 - [ ] Define operation request/response schemas in `file-operations-types.ts`
@@ -248,7 +248,7 @@ For each task listed below, the following process must be followed upon completi
 - [ ] Create examples in docs/cli/tutorials.md
 - [ ] Add performance comparison to architecture.md
 - [ ] Update troubleshooting guide
-- [ ] Add to MCP tools documentation
+- [ ] Update core tools documentation
 
 #### Task 25: Release Integration
 - [ ] Update CONTRIBUTING.md with FileOperations info

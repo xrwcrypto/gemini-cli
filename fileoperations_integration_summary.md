@@ -24,24 +24,19 @@ The Gemini CLI is a monorepo project with two main packages:
 ### Integration Points
 
 1. **Tool Registration**: Tools are registered in `createToolRegistry()` function in `packages/core/src/config/config.ts`
-2. **MCP Support**: The system supports Model Context Protocol for external tools
-3. **Approval System**: File modifications require user approval based on `ApprovalMode`
-4. **Sandboxing**: All operations respect platform-specific sandbox restrictions
-5. **Telemetry**: OpenTelemetry integration for metrics and monitoring
+2. **Approval System**: File modifications require user approval based on `ApprovalMode`
+3. **Sandboxing**: All operations respect platform-specific sandbox restrictions
+4. **Telemetry**: OpenTelemetry integration for metrics and monitoring
 
 ## FileOperations Tool Integration Strategy
 
-### Phase 1: MCP Implementation
-- Implement as an MCP server first for testing
-- Register via `mcpServers` in settings.json
+### Phase 1: Core Tool Implementation
+- Implement in `packages/core/src/tools/file-operations/`
+- Extend `BaseTool` class following existing patterns
+- Register in `createToolRegistry()`
 - Test alongside existing tools
 
-### Phase 2: Core Tool
-- Move to `packages/core/src/tools/file-operations/`
-- Extend `BaseTool` class
-- Register in `createToolRegistry()`
-
-### Phase 3: Migration
+### Phase 2: Migration
 - Create adapters for backward compatibility
 - Update LLM prompts gradually
 - Deprecate individual file tools
@@ -57,7 +52,7 @@ The Gemini CLI is a monorepo project with two main packages:
 
 ## Next Steps
 
-1. Set up MCP server implementation
+1. Create FileOperationsTool class extending BaseTool
 2. Define FileOperationRequest schema matching FunctionDeclaration format
 3. Implement core execution engine with existing utilities
 4. Add comprehensive tests

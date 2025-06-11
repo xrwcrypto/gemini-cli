@@ -4,7 +4,7 @@
 
 The FileOperations mega tool is a high-performance, unified file manipulation system designed as a feature enhancement for the Gemini CLI. It replaces multiple atomic file operations (ReadFileTool, WriteFileTool, EditTool, GlobTool, GrepTool) with a single, intelligent, batch-capable tool. This architecture prioritizes minimizing LLM round trips through parallel execution, intelligent caching, and transaction support.
 
-This tool will be implemented as a new core tool within the Gemini CLI's existing architecture, leveraging the established Tool interface and MCP (Model Context Protocol) integration capabilities.
+This tool will be implemented as a new core tool within the Gemini CLI's existing architecture, leveraging the established Tool interface.
 
 ## Core Design Principles
 
@@ -588,29 +588,29 @@ if (!response.success) {
 
 ## Migration Strategy
 
-### Phase 1: Implementation as MCP Tool
-- Implement FileOperationsTool as an MCP server
-- Register via mcpServers configuration in settings.json
-- Test alongside existing tools without disruption
-- Gather performance metrics and user feedback
-
-### Phase 2: Core Tool Integration
-- Move implementation to packages/core/src/tools/
+### Phase 1: Core Tool Implementation
+- Implement FileOperationsTool in packages/core/src/tools/file-operations/
+- Extend BaseTool class following established patterns
 - Register in createToolRegistry() in config.ts
-- Implement adapters for backward compatibility
 - Add feature flag for gradual rollout
+- Test alongside existing tools without disruption
 
-### Phase 3: Legacy Tool Deprecation
+### Phase 2: Legacy Tool Deprecation
 - Update LLM system prompts to prefer FileOperations
+- Implement adapters for backward compatibility
 - Mark old tools (ReadFileTool, WriteFileTool, etc.) as deprecated
 - Provide migration guides and tooling
-- Remove legacy tools in major version update
 
-### Phase 4: Advanced Features
+### Phase 3: Advanced Features
 - Enable AST-based operations
 - Implement predictive caching
 - Add custom language plugins
 - Integrate with existing extension system
+
+### Phase 4: Full Migration
+- Remove legacy tools in major version update
+- Complete transition to FileOperations tool
+- Document migration completion
 
 ## Performance Metrics
 
