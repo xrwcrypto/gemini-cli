@@ -26,9 +26,9 @@ describe('partListUnionToString', () => {
   });
 
   it('should handle thought', () => {
-    const part: Part = { thought: 'thinking...' };
+    const part: Part = { thought: true };
     const result = partListUnionToString(part);
-    expect(result).toBe('[Thought: thinking...]');
+    expect(result).toBe('[Thought: true]');
   });
 
   it('should handle codeExecutionResult', () => {

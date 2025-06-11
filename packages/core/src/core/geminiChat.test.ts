@@ -45,16 +45,20 @@ describe('GeminiChat', () => {
 
   describe('sendMessage', () => {
     it('should call generateContent with the correct parameters', async () => {
-      const response: GenerateContentResponse = {
+      const response = {
         candidates: [
           {
             content: {
               parts: [{ text: 'response' }],
               role: 'model',
             },
+            finishReason: 'STOP',
+            index: 0,
+            safetyRatings: [],
           },
         ],
-      };
+        text: () => 'response',
+      } as unknown as GenerateContentResponse;
       vi.mocked(mockModelsModule.generateContent).mockResolvedValue(response);
 
       await chat.sendMessage({ message: 'hello' });
@@ -69,7 +73,7 @@ describe('GeminiChat', () => {
 
   describe('sendMessageStream', () => {
     it('should call generateContentStream with the correct parameters', async () => {
-      const response: AsyncGenerator<GenerateContentResponse> = (async function* () {
+      const response = (async function* () {
         yield {
           candidates: [
             {
@@ -77,9 +81,13 @@ describe('GeminiChat', () => {
                 parts: [{ text: 'response' }],
                 role: 'model',
               },
+              finishReason: 'STOP',
+              index: 0,
+              safetyRatings: [],
             },
           ],
-        };
+          text: () => 'response',
+        } as unknown as GenerateContentResponse;
       })();
       vi.mocked(mockModelsModule.generateContentStream).mockResolvedValue(
         response,

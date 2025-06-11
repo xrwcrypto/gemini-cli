@@ -50,7 +50,7 @@ export class GeminiClient {
 
   constructor(private config: Config) {
     if (config.getProxy()) {
-      setGlobalDispatcher(new ProxyAgent(config.getProxy()));
+      setGlobalDispatcher(new ProxyAgent(config.getProxy() as string));
     }
 
     this.contentGenerator = createContentGenerator(
