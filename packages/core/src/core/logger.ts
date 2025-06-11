@@ -10,7 +10,7 @@ import { Content } from '@google/genai';
 
 const GEMINI_DIR = '.gemini';
 const LOG_FILE_NAME_PREFIX = 'logs';
-const CHECKPOINT_FILE_NAME = 'checkpoint';
+const CHECKPOINT_FILE_NAME = 'checkpoint.json';
 
 export enum MessageSenderType {
   USER = 'user',
