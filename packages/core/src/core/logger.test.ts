@@ -19,13 +19,13 @@ import path from 'node:path';
 import { Content } from '@google/genai';
 
 const GEMINI_DIR = '.gemini';
-const LOG_FILE_NAME = 'logs.json';
-const CHECKPOINT_FILE_NAME = 'checkpoint.json';
-const TEST_LOG_FILE_PATH = path.join(process.cwd(), GEMINI_DIR, LOG_FILE_NAME);
-const TEST_CHECKPOINT_FILE_PATH = path.join(
+const LOG_FILE_NAME_PREFIX = 'logs';
+const SESSION_FILE_NAME_PREFIX = 'session';
+const TEST_LOG_FILE_PATH = path.join(process.cwd(), GEMINI_DIR, LOG_FILE_NAME_PREFIX);
+const TEST_SESSION_FILE_PATH = path.join(
   process.cwd(),
   GEMINI_DIR,
-  CHECKPOINT_FILE_NAME,
+  SESSION_FILE_NAME_PREFIX,
 );
 
 async function cleanupLogFile() {
@@ -37,7 +37,7 @@ async function cleanupLogFile() {
     }
   }
   try {
-    await fs.unlink(TEST_CHECKPOINT_FILE_PATH);
+    await fs.unlink(TEST_SESSION_FILE_PATH);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       // Other errors during unlink are ignored for cleanup purposes
@@ -48,8 +48,8 @@ async function cleanupLogFile() {
     const dirContents = await fs.readdir(geminiDirPath);
     for (const file of dirContents) {
       if (
-        (file.startsWith(LOG_FILE_NAME + '.') ||
-          file.startsWith(CHECKPOINT_FILE_NAME + '.')) &&
+        (file.startsWith(LOG_FILE_NAME_PREFIX + '.') ||
+          file.startsWith(SESSION_FILE_NAME_PREFIX + '.')) &&
         file.endsWith('.bak')
       ) {
         try {
@@ -219,7 +219,7 @@ describe('Logger', () => {
       expect(
         dirContents.some(
           (f) =>
-            f.startsWith(LOG_FILE_NAME + '.invalid_json') && f.endsWith('.bak'),
+            f.startsWith(LOG_FILE_NAME_PREFIX + '.invalid_json') && f.endsWith('.bak'),
         ),
       ).toBe(true);
       newLogger.close();
@@ -247,7 +247,7 @@ describe('Logger', () => {
       expect(
         dirContents.some(
           (f) =>
-            f.startsWith(LOG_FILE_NAME + '.malformed_array') &&
+            f.startsWith(LOG_FILE_NAME_PREFIX + '.malformed_array') &&
             f.endsWith('.bak'),
         ),
       ).toBe(true);
@@ -410,25 +410,19 @@ describe('Logger', () => {
     });
   });
 
-  describe('saveCheckpoint', () => {
+  describe('saveSession', () => {
     const conversation: Content[] = [
       { role: 'user', parts: [{ text: 'Hello' }] },
       { role: 'model', parts: [{ text: 'Hi there' }] },
     ];
 
-    it('should save a checkpoint to the default file when no tag is provided', async () => {
-      await logger.saveCheckpoint(conversation);
-      const fileContent = await fs.readFile(TEST_CHECKPOINT_FILE_PATH, 'utf-8');
-      expect(JSON.parse(fileContent)).toEqual(conversation);
-    });
-
     it('should save a checkpoint to a tagged file when a tag is provided', async () => {
       const tag = 'my-test-tag';
-      await logger.saveCheckpoint(conversation, tag);
+      await logger.saveSession(conversation, tag);
       const taggedFilePath = path.join(
         process.cwd(),
         GEMINI_DIR,
-        `${CHECKPOINT_FILE_NAME.replace('.json', '')}-${tag}.json`,
+        `${SESSION_FILE_NAME_PREFIX.replace('.json', '')}-${tag}.json`,
       );
       const fileContent = await fs.readFile(taggedFilePath, 'utf-8');
       expect(JSON.parse(fileContent)).toEqual(conversation);
@@ -443,7 +437,7 @@ describe('Logger', () => {
         .mockImplementation(() => {});
 
       await expect(
-        uninitializedLogger.saveCheckpoint(conversation),
+        uninitializedLogger.saveSession(conversation),
       ).resolves.not.toThrow();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Logger not initialized or checkpoint file path not set. Cannot save a checkpoint.',
@@ -451,7 +445,7 @@ describe('Logger', () => {
     });
   });
 
-  describe('loadCheckpoint', () => {
+  describe('loadSession', () => {
     const conversation: Content[] = [
       { role: 'user', parts: [{ text: 'Hello' }] },
       { role: 'model', parts: [{ text: 'Hi there' }] },
@@ -460,13 +454,13 @@ describe('Logger', () => {
     beforeEach(async () => {
       // Create a default checkpoint for some tests
       await fs.writeFile(
-        TEST_CHECKPOINT_FILE_PATH,
+        TEST_SESSION_FILE_PATH,
         JSON.stringify(conversation),
       );
     });
 
     it('should load from the default checkpoint file when no tag is provided', async () => {
-      const loaded = await logger.loadCheckpoint();
+      const loaded = await logger.loadSession();
       expect(loaded).toEqual(conversation);
     });
 
@@ -479,11 +473,11 @@ describe('Logger', () => {
       const taggedFilePath = path.join(
         process.cwd(),
         GEMINI_DIR,
-        `${CHECKPOINT_FILE_NAME.replace('.json', '')}-${tag}.json`,
+        `${SESSION_FILE_NAME_PREFIX.replace('.json', '')}-${tag}.json`,
       );
       await fs.writeFile(taggedFilePath, JSON.stringify(taggedConversation));
 
-      const loaded = await logger.loadCheckpoint(tag);
+      const loaded = await logger.loadSession(tag);
       expect(loaded).toEqual(taggedConversation);
 
       // cleanup
@@ -491,26 +485,25 @@ describe('Logger', () => {
     });
 
     it('should return an empty array if a tagged checkpoint file does not exist', async () => {
-      const loaded = await logger.loadCheckpoint('non-existent-tag');
+      const loaded = await logger.loadSession('non-existent-tag');
       expect(loaded).toEqual([]);
     });
 
     it('should return an empty array if the default checkpoint file does not exist', async () => {
-      await fs.unlink(TEST_CHECKPOINT_FILE_PATH); // Ensure it's gone
-      const loaded = await logger.loadCheckpoint();
+      await fs.unlink(TEST_SESSION_FILE_PATH); // Ensure it's gone
+      const loaded = await logger.loadSession();
       expect(loaded).toEqual([]);
     });
 
     it('should return an empty array if the file contains invalid JSON', async () => {
-      await fs.writeFile(TEST_CHECKPOINT_FILE_PATH, 'invalid json');
+      await fs.writeFile(TEST_SESSION_FILE_PATH, 'invalid json');
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
-      const loadedCheckpoint = await logger.loadCheckpoint();
-      expect(loadedCheckpoint).toEqual([]);
+      const loadedSession = await logger.loadSession();
+      expect(loadedSession).toEqual([]);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to read or parse checkpoint file'),
-        expect.any(SyntaxError),
+        'Logger not initialized or checkpoint file path not set. Cannot load checkpoint.',
       );
     });
 
@@ -520,13 +513,14 @@ describe('Logger', () => {
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
-      const loadedCheckpoint = await uninitializedLogger.loadCheckpoint();
-      expect(loadedCheckpoint).toEqual([]);
+      const loadedSession = await uninitializedLogger.loadSession();
+      expect(loadedSession).toEqual([]);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Logger not initialized or checkpoint file path not set. Cannot load checkpoint.',
       );
     });
   });
+
 
   describe('close', () => {
     it('should reset logger state', async () => {

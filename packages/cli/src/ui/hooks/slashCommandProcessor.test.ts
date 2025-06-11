@@ -81,6 +81,22 @@ vi.mock('open', () => ({
   default: vi.fn(),
 }));
 
+const mockSaveSession = vi.fn();
+const mockLoadSession = vi.fn();
+const mockLoggerInitialize = vi.fn();
+
+vi.mock('@gemini-cli/core', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@gemini-cli/core')>();
+  return {
+    ...original,
+    Logger: vi.fn().mockImplementation(() => ({
+      initialize: mockLoggerInitialize,
+      saveSession: mockSaveSession,
+      loadSession: mockLoadSession,
+    })),
+  };
+});
+
 describe('useSlashCommandProcessor', () => {
   let mockAddItem: ReturnType<typeof vi.fn>;
   let mockClearItems: ReturnType<typeof vi.fn>;
@@ -105,6 +121,13 @@ describe('useSlashCommandProcessor', () => {
       getDebugMode: vi.fn(() => false),
       getSandbox: vi.fn(() => 'test-sandbox'),
       getModel: vi.fn(() => 'test-model'),
+      getGeminiClient: vi.fn().mockResolvedValue({
+        getChat: vi.fn().mockResolvedValue({
+          getHistory: vi.fn().mockReturnValue([]),
+          addHistory: vi.fn(),
+        }),
+      }),
+      getSessionId: vi.fn().mockReturnValue('test-session-id'),
     } as unknown as Config;
     mockCorgiMode = vi.fn();
     mockUseSessionStats.mockReturnValue({
@@ -127,6 +150,9 @@ describe('useSlashCommandProcessor', () => {
     (ShowMemoryCommandModule.createShowMemoryAction as Mock).mockClear();
     mockPerformMemoryRefresh.mockClear();
     process.env = { ...globalThis.process.env };
+    mockSaveSession.mockClear();
+    mockLoadSession.mockClear();
+    mockLoggerInitialize.mockClear();
   });
 
   const getProcessor = (showToolDescriptions: boolean = false) => {
@@ -425,12 +451,11 @@ Add any other context about the problem here.
     });
 
     it('should show an error if getAllTools returns undefined', async () => {
-      mockConfig = {
-        ...mockConfig,
+      Object.assign(mockConfig, {
         getToolRegistry: vi.fn().mockResolvedValue({
           getAllTools: vi.fn().mockReturnValue(undefined),
         }),
-      } as unknown as Config;
+      });
       const { handleSlashCommand } = getProcessor();
       let commandResult: SlashCommandActionReturn | boolean = false;
       await act(async () => {
@@ -868,6 +893,122 @@ Add any other context about the problem here.
       );
 
       expect(commandResult).toBe(true);
+    });
+  });
+
+  describe('/sessions command', () => {
+    it('should save a session with a given name', async () => {
+      const { handleSlashCommand } = getProcessor();
+      const history = [{ role: 'user', parts: [{ text: 'test' }] }];
+      (mockConfig.getGeminiClient as Mock).mockResolvedValue({
+        getChat: vi.fn().mockResolvedValue({
+          getHistory: vi.fn().mockReturnValue(history),
+        }),
+      });
+
+      await act(async () => {
+        handleSlashCommand('/sessions save my-session');
+      });
+
+      expect(mockLoggerInitialize).toHaveBeenCalled();
+      expect(mockSaveSession).toHaveBeenCalledWith(history, 'my-session');
+      expect(mockAddItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: 'Session saved with name: my-session.',
+        }),
+        expect.any(Number),
+      );
+    });
+
+    it('should save a session with a generated name if none is provided', async () => {
+      const { handleSlashCommand } = getProcessor();
+      const history = [{ role: 'user', parts: [{ text: 'test' }] }];
+      (mockConfig.getGeminiClient as Mock).mockResolvedValue({
+        getChat: vi.fn().mockResolvedValue({
+          getHistory: vi.fn().mockReturnValue(history),
+        }),
+      });
+
+      await act(async () => {
+        handleSlashCommand('/sessions save');
+      });
+
+      expect(mockSaveSession).toHaveBeenCalledWith(history, '2025-01-01_12-00-00');
+      expect(mockAddItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: 'Session saved with name: 2025-01-01_12-00-00.',
+        }),
+        expect.any(Number),
+      );
+    });
+
+    it('should load a session', async () => {
+      const { handleSlashCommand } = getProcessor();
+      const conversation = [
+        { role: 'user', parts: [{ text: 'old message' }] },
+        { role: 'model', parts: [{ text: 'old response' }] },
+      ];
+      mockLoadSession.mockResolvedValue(conversation);
+      const mockAddHistory = vi.fn();
+      (mockConfig.getGeminiClient as Mock).mockResolvedValue({
+        getChat: vi.fn().mockResolvedValue({
+          getHistory: vi.fn().mockReturnValue([]),
+          addHistory: mockAddHistory,
+        }),
+      });
+
+      await act(async () => {
+        handleSlashCommand('/sessions load my-session');
+      });
+
+      expect(mockLoadSession).toHaveBeenCalledWith('my-session');
+      expect(mockClearItems).toHaveBeenCalled();
+      expect(mockAddItem).toHaveBeenCalledTimes(3); // user command + 2 from history
+      expect(mockAddHistory).toHaveBeenCalledTimes(2);
+      expect(mockRefreshStatic).toHaveBeenCalled();
+    });
+
+    it('should show a message if session to load is not found', async () => {
+      const { handleSlashCommand } = getProcessor();
+      mockLoadSession.mockResolvedValue([]);
+
+      await act(async () => {
+        handleSlashCommand('/sessions load non-existent');
+      });
+
+      expect(mockAddItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: 'No saved session found with name: non-existent.',
+        }),
+        expect.any(Number),
+      );
+    });
+
+    it('should show a message if no name is provided for load', async () => {
+      const { handleSlashCommand } = getProcessor();
+      await act(async () => {
+        handleSlashCommand('/sessions load');
+      });
+      expect(mockAddItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: 'No session name provided.',
+        }),
+        expect.any(Number),
+      );
+    });
+
+    it('should show help for unknown subcommand', async () => {
+      const { handleSlashCommand } = getProcessor();
+      await act(async () => {
+        handleSlashCommand('/sessions unknown');
+      });
+      expect(mockAddItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content:
+            'Unknown command for /sessions. Usage: /sessions <save|load> [name]',
+        }),
+        expect.any(Number),
+      );
     });
   });
 });

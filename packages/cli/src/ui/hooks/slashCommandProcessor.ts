@@ -489,87 +489,124 @@ Add any other context about the problem here.
         },
       },
       {
-        name: 'save',
-        description: 'save conversation checkpoint. Usage: /save [tag]',
-        action: async (_mainCommand, subCommand, _args) => {
-          const tag = (subCommand || '').trim();
+        name: 'sessions',
+        description: 'Manage sessions. Usage: /sessions <save|load> [name]',
+        action: async (
+          _mainCommand: string,
+          subCommand: string | undefined,
+          args: string | undefined,
+        ) => {
+          const sessionCommand = subCommand;
+          let sessionName = (args || '').trim();
+
           const logger = new Logger(config?.getSessionId() || '');
           await logger.initialize();
-          const chat = await config?.getGeminiClient()?.getChat();
-          const history = chat?.getHistory() || [];
-          if (history.length > 0) {
-            await logger.saveCheckpoint(chat?.getHistory() || [], tag);
-            addMessage({
-              type: MessageType.INFO,
-              content: `Conversation checkpoint saved${tag ? ' with tag: ' + tag : ''}.`,
-              timestamp: new Date(),
-            });
-          } else {
-            addMessage({
-              type: MessageType.INFO,
-              content: 'No conversation found to save.',
-              timestamp: new Date(),
-            });
-          }
-        },
-      },
-      {
-        name: 'resume',
-        description:
-          'resume from conversation checkpoint. Usage: /resume [tag]',
-        action: async (_mainCommand, subCommand, _args) => {
-          const tag = (subCommand || '').trim();
-          const logger = new Logger(config?.getSessionId() || '');
-          await logger.initialize();
-          const conversation = await logger.loadCheckpoint(tag);
-          if (conversation.length === 0) {
-            addMessage({
-              type: MessageType.INFO,
-              content: `No saved checkpoint found${tag ? ' with tag: ' + tag : ''}.`,
-              timestamp: new Date(),
-            });
-            return;
-          }
-          const chat = await config?.getGeminiClient()?.getChat();
-          clearItems();
-          let i = 0;
-          const rolemap: { [key: string]: MessageType } = {
-            user: MessageType.USER,
-            model: MessageType.GEMINI,
-          };
-          for (const item of conversation) {
-            i += 1;
-            const text =
-              item.parts
-                ?.filter((m) => !!m.text)
-                .map((m) => m.text)
-                .join('') || '';
-            if (i <= 2) {
-              // Skip system prompt back and forth.
-              continue;
+
+          switch (sessionCommand) {
+            case 'save': {
+              if (!sessionName) {
+                sessionName = new Date()
+                  .toISOString()
+                  .slice(0, 19)
+                  .replace('T', '_')
+                  .replace(/:/g, '-');
+              }
+              const chat = await config?.getGeminiClient()?.getChat();
+              const history = chat?.getHistory() || [];
+              if (history.length > 0) {
+                await logger.saveSession(chat?.getHistory() || [], sessionName);
+                addMessage({
+                  type: MessageType.INFO,
+                  content: `Session saved${
+                    sessionName ? ' with name: ' + sessionName : ''
+                  }.`,
+                  timestamp: new Date(),
+                });
+              } else {
+                addMessage({
+                  type: MessageType.INFO,
+                  content: 'No conversation found to save.',
+                  timestamp: new Date(),
+                });
+              }
+              break;
             }
-            if (!text) {
-              // Parsing Part[] back to various non-text output not yet implemented.
-              continue;
+            case 'load': {
+              if (!sessionName) {
+                addMessage({
+                  type: MessageType.INFO,
+                  content: 'No session name provided.',
+                  timestamp: new Date(),
+                });
+                break;
+              }
+              const conversation = await logger.loadSession(sessionName);
+              if (conversation.length === 0) {
+                addMessage({
+                  type: MessageType.INFO,
+                  content: `No saved session found${
+                    sessionName ? ' with name: ' + sessionName : ''
+                  }.`,
+                  timestamp: new Date(),
+                });
+                break;
+              }
+              const chat = await config?.getGeminiClient()?.getChat();
+              clearItems();
+              let i = 0;
+              const rolemap: { [key: string]: MessageType } = {
+                user: MessageType.USER,
+                model: MessageType.GEMINI,
+              };
+              for (const item of conversation) {
+                i += 1;
+                const text =
+                  item.parts
+                    ?.filter((m) => !!m.text)
+                    .map((m) => m.text)
+                    .join('') || '';
+                if (i <= 2) {
+                  // Skip system prompt back and forth.
+                  continue;
+                }
+                if (!text) {
+                  // Parsing Part[] back to various non-text output not yet implemented.
+                  continue;
+                }
+                addItem(
+                  {
+                    type:
+                      (item.role && rolemap[item.role]) || MessageType.GEMINI,
+                    text,
+                  } as HistoryItemWithoutId,
+                  i,
+                );
+                chat?.addHistory(item);
+              }
+              console.clear();
+              refreshStatic();
+              break;
             }
-            addItem(
-              {
-                type: (item.role && rolemap[item.role]) || MessageType.GEMINI,
-                text,
-              } as HistoryItemWithoutId,
-              i,
-            );
-            chat?.addHistory(item);
+            default:
+              addMessage({
+                type: MessageType.INFO,
+                content:
+                  'Unknown command for /sessions. Usage: /sessions <save|load> [name]',
+                timestamp: new Date(),
+              });
+              break;
           }
-          console.clear();
-          refreshStatic();
         },
       },
       {
         name: 'quit',
         altName: 'exit',
         description: 'exit the cli',
-        action: (_mainCommand, _subCommand, _args) => {
+        action: (
+          _mainCommand: string,
+          _subCommand: string | undefined,
+          _args: string | undefined,
+        ) => {
           onDebugMessage('Quitting. Good-bye.');
           process.exit(0);
         },

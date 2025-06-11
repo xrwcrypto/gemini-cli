@@ -10,7 +10,7 @@ import { Content } from '@google/genai';
 
 const GEMINI_DIR = '.gemini';
 const LOG_FILE_NAME_PREFIX = 'logs';
-const CHECKPOINT_FILE_NAME = 'checkpoint.json';
+const SESSION_FILE_NAME_PREFIX = 'session';
 
 export enum MessageSenderType {
   USER = 'user',
@@ -103,7 +103,6 @@ export class Logger {
       this.geminiDir,
       `${LOG_FILE_NAME_PREFIX}-${this.sessionId}.json`,
     );
-    this.checkpointFilePath = path.join(this.geminiDir, CHECKPOINT_FILE_NAME);
 
     try {
       await fs.mkdir(this.geminiDir, { recursive: true });
@@ -239,24 +238,33 @@ export class Logger {
     }
   }
 
-  _checkpointPath(tag: string | undefined): string {
-    if (!this.checkpointFilePath || !this.geminiDir) {
-      throw new Error('Checkpoint file path not set.');
+  _checkpointPath(sessionName: string | undefined): string {
+    if (!this.geminiDir) {
+      throw new Error('Gemini directory not set.');
     }
-    if (!tag) {
-      return this.checkpointFilePath;
+    if (!sessionName) {
+      return path.join(
+        this.geminiDir,
+        `${SESSION_FILE_NAME_PREFIX}-${this.sessionId}.json`,
+      );
     }
-    return path.join(this.geminiDir, `checkpoint-${tag}.json`);
+    return path.join(
+      this.geminiDir,
+      `${SESSION_FILE_NAME_PREFIX}-${sessionName}.json`,
+    );
   }
 
-  async saveCheckpoint(conversation: Content[], tag?: string): Promise<void> {
+  async saveSession(
+    conversation: Content[],
+    sessionName?: string,
+  ): Promise<void> {
     if (!this.initialized || !this.checkpointFilePath) {
       console.error(
         'Logger not initialized or checkpoint file path not set. Cannot save a checkpoint.',
       );
       return;
     }
-    const path = this._checkpointPath(tag);
+    const path = this._checkpointPath(sessionName);
     try {
       await fs.writeFile(path, JSON.stringify(conversation, null), 'utf-8');
     } catch (error) {
@@ -264,16 +272,15 @@ export class Logger {
     }
   }
 
-  async loadCheckpoint(tag?: string): Promise<Content[]> {
-    if (!this.initialized || !this.checkpointFilePath) {
+  async loadSession(sessionName?: string): Promise<Content[]> {
+    if (!this.initialized) {
       console.error(
         'Logger not initialized or checkpoint file path not set. Cannot load checkpoint.',
       );
       return [];
     }
 
-    const path = this._checkpointPath(tag);
-
+    const path = this._checkpointPath(sessionName);
     try {
       const fileContent = await fs.readFile(path, 'utf-8');
       const parsedContent = JSON.parse(fileContent);
