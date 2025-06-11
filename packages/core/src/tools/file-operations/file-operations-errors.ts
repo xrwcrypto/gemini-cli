@@ -104,7 +104,7 @@ export function toFileOperationError(
   const details = error instanceof Error ? { 
     stack: error.stack,
     name: error.name,
-    ...(error as Record<string, unknown>)
+    ...(error as unknown as Record<string, unknown>)
   } : error;
   
   return new FileOperationError(message, code, operationId, details);

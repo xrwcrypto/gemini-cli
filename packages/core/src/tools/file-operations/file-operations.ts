@@ -4,12 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BaseTool, ToolResult } from '../tools.js';
-import { Config } from '../../config/config.js';
+import { 
+  BaseTool, 
+  ToolResult, 
+  ToolCallConfirmationDetails
+} from '../tools.js';
+import { Config, ApprovalMode } from '../../config/config.js';
 import {
   FileOperationRequest,
   FileOperationResponse,
   OperationResult,
+  EditOperation,
+  CreateOperation,
+  DeleteOperation,
 } from './file-operations-types.js';
 import { fileOperationsSchema } from './file-operations-schema.js';
 import { FileOperationsValidator } from './file-operations-validator.js';
@@ -52,6 +59,84 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
     }
     
     return description;
+  }
+  
+  async shouldConfirmExecute(
+    params: FileOperationRequest,
+    _abortSignal: AbortSignal
+  ): Promise<ToolCallConfirmationDetails | false> {
+    // Check if any operations require confirmation
+    const hasModifyingOperations = params.operations.some(op => 
+      op.type === 'edit' || op.type === 'create' || op.type === 'delete'
+    );
+    
+    if (!hasModifyingOperations) {
+      // Read-only operations don't need confirmation
+      return false;
+    }
+    
+    // Check approval mode
+    const approvalMode = this.config.getApprovalMode();
+    if (approvalMode === ApprovalMode.YOLO) {
+      return false;
+    }
+    
+    // For now, create a simple confirmation for all modifying operations
+    // In future phases, we'll create more detailed confirmations
+    const modifyingOps = params.operations.filter(op => 
+      op.type === 'edit' || op.type === 'create' || op.type === 'delete'
+    ) as Array<EditOperation | CreateOperation | DeleteOperation>;
+    
+    const fileCount = this.countAffectedFiles(modifyingOps);
+    const operationSummary = this.summarizeOperations(modifyingOps);
+    
+    return {
+      type: 'exec',
+      title: `FileOperations: ${operationSummary}`,
+      command: `Modify ${fileCount} file${fileCount > 1 ? 's' : ''}`,
+      rootCommand: 'file_operations',
+      onConfirm: async () => {
+        // Confirmation will be handled by the framework
+      }
+    };
+  }
+  
+  private countAffectedFiles(operations: Array<EditOperation | CreateOperation | DeleteOperation>): number {
+    const files = new Set<string>();
+    
+    for (const op of operations) {
+      switch (op.type) {
+        case 'edit':
+          op.edits.forEach(edit => files.add(edit.file));
+          break;
+        case 'create':
+          op.files.forEach(file => files.add(file.path));
+          break;
+        case 'delete':
+          // Delete uses glob patterns, so we can't count exact files
+          // Just count the number of patterns
+          return op.paths.length;
+        default:
+          // Should never reach here due to filter
+          break;
+      }
+    }
+    
+    return files.size;
+  }
+  
+  private summarizeOperations(operations: Array<EditOperation | CreateOperation | DeleteOperation>): string {
+    const counts: Record<string, number> = {};
+    
+    for (const op of operations) {
+      counts[op.type] = (counts[op.type] || 0) + 1;
+    }
+    
+    const parts = Object.entries(counts).map(([type, count]) => 
+      `${count} ${type}${count > 1 ? 's' : ''}`
+    );
+    
+    return parts.join(', ');
   }
   
   async execute(

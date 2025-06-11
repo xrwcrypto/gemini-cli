@@ -10,6 +10,8 @@ import {
   FileOperationRequest,
   AnalyzeOperation,
   EditOperation,
+  CreateOperation,
+  DeleteOperation,
   ValidateOperation 
 } from './file-operations-types.js';
 import { Config } from '../../config/config.js';
@@ -261,7 +263,7 @@ describe('FileOperationsTool', () => {
   });
 
   describe('shouldConfirmExecute', () => {
-    it('should not require confirmation by default', async () => {
+    it('should not require confirmation for read-only operations', async () => {
       const params: FileOperationRequest = {
         operations: [
           { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation
@@ -269,6 +271,116 @@ describe('FileOperationsTool', () => {
       };
       
       const shouldConfirm = await tool.shouldConfirmExecute(params, abortSignal);
+      expect(shouldConfirm).toBe(false);
+    });
+    
+    it('should require confirmation for edit operations', async () => {
+      const params: FileOperationRequest = {
+        operations: [
+          { type: 'edit', edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation
+        ]
+      };
+      
+      const shouldConfirm = await tool.shouldConfirmExecute(params, abortSignal);
+      expect(shouldConfirm).not.toBe(false);
+      if (shouldConfirm !== false) {
+        expect(shouldConfirm.type).toBe('exec');
+        expect(shouldConfirm.title).toContain('FileOperations');
+      }
+    });
+    
+    it('should require confirmation for create operations', async () => {
+      const params: FileOperationRequest = {
+        operations: [
+          { type: 'create', files: [{ path: 'new.ts', content: 'test' }] } as CreateOperation
+        ]
+      };
+      
+      const shouldConfirm = await tool.shouldConfirmExecute(params, abortSignal);
+      expect(shouldConfirm).not.toBe(false);
+      if (shouldConfirm !== false) {
+        expect(shouldConfirm.type).toBe('exec');
+      }
+    });
+    
+    it('should require confirmation for delete operations', async () => {
+      const params: FileOperationRequest = {
+        operations: [
+          { type: 'delete', paths: ['temp/**/*.tmp'] } as DeleteOperation
+        ]
+      };
+      
+      const shouldConfirm = await tool.shouldConfirmExecute(params, abortSignal);
+      expect(shouldConfirm).not.toBe(false);
+      if (shouldConfirm !== false) {
+        expect(shouldConfirm.type).toBe('exec');
+      }
+    });
+    
+    it('should require confirmation for mixed operations', async () => {
+      const params: FileOperationRequest = {
+        operations: [
+          { type: 'analyze', paths: ['src/**/*.ts'] } as AnalyzeOperation,
+          { type: 'edit', edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation,
+          { type: 'validate' } as ValidateOperation
+        ]
+      };
+      
+      const shouldConfirm = await tool.shouldConfirmExecute(params, abortSignal);
+      expect(shouldConfirm).not.toBe(false);
+      if (shouldConfirm !== false) {
+        expect(shouldConfirm.title).toContain('1 edit');
+      }
+    });
+    
+    it('should count affected files correctly', async () => {
+      const params: FileOperationRequest = {
+        operations: [
+          { type: 'edit', edits: [
+            { file: 'file1.ts', changes: [{ type: 'find-replace', find: 'a', replace: 'b' }] },
+            { file: 'file2.ts', changes: [{ type: 'find-replace', find: 'c', replace: 'd' }] },
+            { file: 'file1.ts', changes: [{ type: 'find-replace', find: 'e', replace: 'f' }] } // same file
+          ] } as EditOperation,
+          { type: 'create', files: [
+            { path: 'new1.ts', content: 'test' },
+            { path: 'new2.ts', content: 'test' }
+          ] } as CreateOperation
+        ]
+      };
+      
+      const shouldConfirm = await tool.shouldConfirmExecute(params, abortSignal);
+      expect(shouldConfirm).not.toBe(false);
+      if (shouldConfirm !== false) {
+        expect(shouldConfirm.command).toContain('4 file'); // 2 edit + 2 create
+      }
+    });
+    
+    it('should not require confirmation in YOLO mode', async () => {
+      // Create a new tool with YOLO mode config
+      const yoloConfig = {
+        getGeminiIgnorePatterns: () => [],
+        getApprovalMode: () => 'yolo',
+        getSandboxMode: () => 'none',
+      } as unknown as Config;
+      
+      const yoloTool = new FileOperationsTool(yoloConfig, tempRootDir);
+      
+      const params: FileOperationRequest = {
+        operations: [
+          { type: 'edit', edits: [{ 
+            file: 'test.ts', 
+            changes: [{ type: 'find-replace', find: 'old', replace: 'new' }] 
+          }] } as EditOperation
+        ]
+      };
+      
+      const shouldConfirm = await yoloTool.shouldConfirmExecute(params, abortSignal);
       expect(shouldConfirm).toBe(false);
     });
   });
