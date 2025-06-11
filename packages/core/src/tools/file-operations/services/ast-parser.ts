@@ -50,6 +50,21 @@ export interface Symbol {
 }
 
 /**
+ * Parsed symbol information (alias for Symbol)
+ */
+export type ParsedSymbol = Symbol;
+
+/**
+ * AST query interface for searching symbols
+ */
+export interface ASTQuery {
+  type?: string;
+  namePattern?: string;
+  scope?: string;
+  exported?: boolean;
+}
+
+/**
  * Parse result
  */
 export interface ParseResult {
@@ -204,7 +219,7 @@ export class ASTParserService {
   /**
    * Detect language from file path
    */
-  detectLanguage(filePath: string): SupportedLanguage {
+  detectLanguage(filePath: string): SupportedLanguage | null {
     const ext = path.extname(filePath).toLowerCase();
     const mimeType = mime.lookup(filePath);
 
@@ -238,7 +253,7 @@ export class ASTParserService {
       if (mimeType.includes('python')) return 'python';
     }
 
-    return 'unknown';
+    return null;
   }
 
   /**
@@ -274,7 +289,7 @@ export class ASTParserService {
         imports: [],
         exports: [],
         errors: [{ message: 'No content provided' }],
-        language: this.detectLanguage(filePath)
+        language: this.detectLanguage(filePath) || 'unknown'
       };
     }
 
@@ -285,12 +300,12 @@ export class ASTParserService {
         imports: [],
         exports: [],
         errors: [{ message: 'File too large for parsing' }],
-        language: this.detectLanguage(filePath)
+        language: this.detectLanguage(filePath) || 'unknown'
       };
     }
 
     // Detect language and get parser
-    const language = this.detectLanguage(filePath);
+    const language = this.detectLanguage(filePath) || 'unknown';
     const parser = this.parsers.get(language);
 
     if (!parser) {
@@ -418,5 +433,43 @@ export class ASTParserService {
   supportsIncremental(language: SupportedLanguage): boolean {
     const parser = this.parsers.get(language);
     return parser?.supportsIncremental() || false;
+  }
+
+  /**
+   * Search for symbols matching a query
+   */
+  async searchSymbols(filePath: string, content: string, query: ASTQuery): Promise<ParsedSymbol[]> {
+    const parseResult = await this.parseFile(filePath, content);
+    
+    if (!parseResult) {
+      return [];
+    }
+
+    return parseResult.symbols.filter(symbol => {
+      // Check type match
+      if (query.type && symbol.type !== query.type) {
+        return false;
+      }
+
+      // Check name pattern
+      if (query.namePattern) {
+        const regex = new RegExp(query.namePattern);
+        if (!regex.test(symbol.name)) {
+          return false;
+        }
+      }
+
+      // Check scope
+      if (query.scope && symbol.scope !== query.scope) {
+        return false;
+      }
+
+      // Check export status
+      if (query.exported !== undefined && symbol.exported !== query.exported) {
+        return false;
+      }
+
+      return true;
+    });
   }
 }

@@ -65,6 +65,8 @@ export interface AnalyzeOperation extends BaseOperation {
   deepAnalysis?: boolean;
   /** Search for specific patterns */
   search?: SearchOptions;
+  /** Patterns to search for (simplified alternative to search) */
+  patterns?: string[];
 }
 
 /**
@@ -698,4 +700,14 @@ export interface TransactionContext {
   commit(): Promise<void>;
   /** Rollback changes */
   rollback(): Promise<void>;
+}
+
+/**
+ * File information for validation
+ */
+export interface FileInfo {
+  path: string;
+  size: number;
+  modified: Date;
+  language?: string | null;
 }
