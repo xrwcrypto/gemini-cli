@@ -28,8 +28,6 @@ import { GEMINI_CONFIG_DIR as GEMINI_DIR } from '../tools/memoryTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { initializeTelemetry } from '../telemetry/index.js';
 import { FileOperationsMigrationConfig, MigrationPhase } from '../tools/file-operations/migration/migration-config.js';
-import { MigrationManager } from '../tools/file-operations/migration/migration-manager.js';
-import { LegacyToolCompatibility } from '../tools/file-operations/adapters/legacy-compatibility.js';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -337,37 +335,24 @@ export function createToolRegistry(config: Config): Promise<ToolRegistry> {
   const migrationConfig = config.getFileOperationsMigration();
   const useMigration = migrationConfig.phase && migrationConfig.phase !== MigrationPhase.DISABLED;
   
-  let registry: ToolRegistry;
-  let migrationManager: MigrationManager | undefined;
-  let legacyCompatibility: LegacyToolCompatibility | undefined;
-  
+  // Import the migration-aware registry if needed
   if (useMigration) {
-    // Initialize migration system
-    migrationManager = new MigrationManager(migrationConfig);
-    legacyCompatibility = new LegacyToolCompatibility(
-      config,
-      config.getTargetDir(),
-      {
-        useFileOperationsAdapters: true,
-        debugMode: migrationConfig.debug?.enabled ?? false,
-      }
-    );
-    
-    // Create enhanced registry with migration support
-    registry = LegacyToolCompatibility.createRegistryShim(
-      new ToolRegistry(config),
-      config,
-      config.getTargetDir(),
-      {
-        useFileOperationsAdapters: true,
-        debugMode: migrationConfig.debug?.enabled ?? false,
-      }
-    );
+    // Use enhanced migration-aware registry
+    return createMigrationAwareRegistry(config);
   } else {
     // Use standard registry
-    registry = new ToolRegistry(config);
+    return createStandardRegistry(config);
   }
+}
+
+/**
+ * Create migration-aware tool registry
+ */
+async function createMigrationAwareRegistry(config: Config): Promise<ToolRegistry> {
+  // Dynamic import to avoid circular dependencies
+  const { MigrationAwareToolRegistry } = await import('../tools/file-operations/migration/migration-tool-registry.js');
   
+  const registry = new MigrationAwareToolRegistry(config);
   const targetDir = config.getTargetDir();
   const tools = config.getCoreTools()
     ? new Set(config.getCoreTools())
@@ -378,14 +363,7 @@ export function createToolRegistry(config: Config): Promise<ToolRegistry> {
   const registerCoreTool = (ToolClass: any, ...args: unknown[]) => {
     // check both the tool name (.Name) and the class name (.name)
     if (!tools || tools.has(ToolClass.Name) || tools.has(ToolClass.name)) {
-      let toolInstance = new ToolClass(...args);
-      
-      // Wrap with migration tracking if enabled
-      if (useMigration && migrationManager && isLegacyTool(ToolClass.name)) {
-        toolInstance = createMigrationTrackingProxy(toolInstance, migrationManager);
-      }
-      
-      registry.registerTool(toolInstance);
+      registry.registerTool(new ToolClass(...args));
     }
   };
 
@@ -402,57 +380,43 @@ export function createToolRegistry(config: Config): Promise<ToolRegistry> {
   registerCoreTool(WebSearchTool, config);
   registerCoreTool(FileOperationsTool, config, targetDir);
   
-  return (async () => {
-    await registry.discoverTools();
-    return registry;
-  })();
+  await registry.discoverTools();
+  return registry;
 }
 
 /**
- * Check if a tool is a legacy tool that can be migrated
+ * Create standard tool registry without migration features
  */
-function isLegacyTool(toolName: string): boolean {
-  const legacyTools = [
-    'ReadFileTool',
-    'WriteFileTool', 
-    'EditTool',
-    'GlobTool',
-    'GrepTool'
-  ];
-  
-  return legacyTools.includes(toolName);
-}
+async function createStandardRegistry(config: Config): Promise<ToolRegistry> {
+  const registry = new ToolRegistry(config);
+  const targetDir = config.getTargetDir();
+  const tools = config.getCoreTools()
+    ? new Set(config.getCoreTools())
+    : undefined;
 
-/**
- * Create a proxy that wraps tool execution with migration tracking
- */
-function createMigrationTrackingProxy(tool: any, migrationManager: MigrationManager): any {
-  const toolName = tool.constructor.name;
-  
-  return new Proxy(tool, {
-    get(target, prop, receiver) {
-      // Intercept execute method to add migration tracking
-      if (prop === 'execute') {
-        return async function(this: any, params: any, ...args: any[]) {
-          const startTime = Date.now();
-          let success = false;
-          
-          try {
-            const result = await target.execute.call(this, params, ...args);
-            success = true;
-            return result;
-          } catch (err) {
-            throw err;
-          } finally {
-            // Record performance metrics
-            const executionTime = Date.now() - startTime;
-            // Migration manager will handle metrics internally
-          }
-        };
-      }
-      
-      // Pass through other properties
-      return Reflect.get(target, prop, receiver);
+  // helper to create & register core tools that are enabled
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registerCoreTool = (ToolClass: any, ...args: unknown[]) => {
+    // check both the tool name (.Name) and the class name (.name)
+    if (!tools || tools.has(ToolClass.Name) || tools.has(ToolClass.name)) {
+      registry.registerTool(new ToolClass(...args));
     }
-  });
+  };
+
+  registerCoreTool(LSTool, targetDir, config);
+  registerCoreTool(ReadFileTool, targetDir, config);
+  registerCoreTool(GrepTool, targetDir);
+  registerCoreTool(GlobTool, targetDir, config);
+  registerCoreTool(EditTool, config);
+  registerCoreTool(WriteFileTool, config);
+  registerCoreTool(WebFetchTool, config);
+  registerCoreTool(ReadManyFilesTool, targetDir, config);
+  registerCoreTool(ShellTool, config);
+  registerCoreTool(MemoryTool);
+  registerCoreTool(WebSearchTool, config);
+  registerCoreTool(FileOperationsTool, config, targetDir);
+  
+  await registry.discoverTools();
+  return registry;
 }
+

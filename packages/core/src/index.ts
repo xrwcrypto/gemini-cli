@@ -51,3 +51,9 @@ export * from './tools/mcp-tool.js';
 
 // Export telemetry functions
 export * from './telemetry/index.js';
+
+// Export FileOperations system
+export * from './tools/file-operations/file-operations.js';
+export * from './tools/file-operations/migration/migration-config.js';
+export * from './tools/file-operations/migration/migration-manager.js';
+export * from './tools/file-operations/migration/index.js';
