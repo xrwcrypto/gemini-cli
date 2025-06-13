@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import process from 'node:process';
 import { ContentGeneratorConfig } from '../core/contentGenerator.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
+import { CodeParserTool } from '../tools/code_parser.js'; // Added CodeParserTool
 import { LSTool } from '../tools/ls.js';
 import { ReadFileTool } from '../tools/read-file.js';
 import { GrepTool } from '../tools/grep.js';
@@ -366,6 +367,7 @@ export function createToolRegistry(config: Config): Promise<ToolRegistry> {
   registerCoreTool(ShellTool, config);
   registerCoreTool(MemoryTool);
   registerCoreTool(WebSearchTool, config);
+  registerCoreTool(CodeParserTool, targetDir, config); // Added CodeParserTool
   return (async () => {
     await registry.discoverTools();
     return registry;

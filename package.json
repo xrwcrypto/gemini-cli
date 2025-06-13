@@ -42,7 +42,8 @@
   "files": [
     "bundle/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "node_modules/tree-sitter-*/build/Release/*.node"
   ],
   "devDependencies": {
     "@types/micromatch": "^4.0.9",
@@ -66,5 +67,14 @@
     "react-devtools-core": "^4.28.5",
     "typescript-eslint": "^8.30.1",
     "yargs": "^17.7.2"
+  },
+  "dependencies": {
+    "tree-sitter": "^0.21.0",
+    "tree-sitter-c-sharp": "^0.21.0",
+    "tree-sitter-go": "^0.21.0",
+    "tree-sitter-java": "^0.21.0",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-rust": "^0.21.0",
+    "tree-sitter-typescript": "^0.21.0"
   }
 }
