@@ -9,6 +9,7 @@ import { LruCache } from '../../../utils/LruCache.js';
 import { CacheManager } from './cache-manager.js';
 // import { detectFileType } from '../../../utils/fileUtils.js';
 import mime from 'mime-types';
+import { createTypeScriptPlugin } from '../plugins/index.js';
 
 /**
  * Supported programming languages
@@ -88,7 +89,7 @@ export interface ParserConfig {
 /**
  * Language parser interface (for future tree-sitter integration)
  */
-interface LanguageParser {
+export interface LanguageParser {
   parse(content: string, filePath: string): Promise<ParseResult>;
   supportsIncremental(): boolean;
   parseIncremental(content: string, filePath: string, previousTree?: unknown): Promise<ParseResult>;
@@ -210,10 +211,18 @@ export class ASTParserService {
     this.parsers = new Map();
     this.parseCache = new LruCache<string, ParseResult>(100);
 
-    // Register basic parsers
-    const tsJsParser = new BasicTSJSParser();
-    this.parsers.set('typescript', tsJsParser);
-    this.parsers.set('javascript', tsJsParser);
+    // Register parsers
+    // Use enhanced TypeScript plugin if available, otherwise fall back to basic parser
+    try {
+      const tsPlugin = createTypeScriptPlugin(cacheManager);
+      this.parsers.set('typescript', tsPlugin);
+      this.parsers.set('javascript', tsPlugin);
+    } catch (error) {
+      // Fall back to basic parser if TypeScript plugin fails to load
+      const tsJsParser = new BasicTSJSParser();
+      this.parsers.set('typescript', tsJsParser);
+      this.parsers.set('javascript', tsJsParser);
+    }
   }
 
   /**
@@ -425,6 +434,20 @@ export class ASTParserService {
    */
   clearCache(): void {
     this.parseCache.clear();
+  }
+
+  /**
+   * Register a custom language parser
+   */
+  registerParser(language: SupportedLanguage, parser: LanguageParser): void {
+    this.parsers.set(language, parser);
+  }
+
+  /**
+   * Get registered parser for a language
+   */
+  getParser(language: SupportedLanguage): LanguageParser | undefined {
+    return this.parsers.get(language);
   }
 
   /**
