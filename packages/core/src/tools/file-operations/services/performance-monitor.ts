@@ -135,7 +135,7 @@ export class PerformanceMonitor {
   private resourceUtilizationGauge!: UpDownCounter;
   private errorCounter!: Counter;
 
-  private startTime = Date.now();
+  private startTime: number;
   private isInitialized = false;
 
   constructor(config: Partial<PerformanceConfig> = {}) {
@@ -157,6 +157,7 @@ export class PerformanceMonitor {
 
     this.meter = metrics.getMeter('file-operations-performance');
     this.initializeMetrics();
+    this.startTime = Date.now();
   }
 
   /**

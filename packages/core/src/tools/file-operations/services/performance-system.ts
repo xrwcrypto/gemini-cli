@@ -5,11 +5,11 @@
  */
 
 import { PerformanceMonitor, PerformanceConfig, PerformanceMetrics, PerformanceAlert } from './performance-monitor.js';
-import { PerformanceProfiler, ProfilerConfig, ProfileAnalysis } from './performance-profiler.js';
+import { PerformanceProfiler, ProfilerConfig } from './performance-profiler.js';
 import { MemoryAnalyzer, MemoryAnalyzerConfig, MemoryLeak } from './memory-analyzer.js';
 import { AnomalyDetector, AnomalyDetectorConfig, Anomaly } from './anomaly-detector.js';
-import { PerformanceDashboard, DashboardLayout } from './performance-dashboard.js';
-import { PerformanceBenchmark, BenchmarkResult } from './performance-benchmark.js';
+import { PerformanceDashboard } from './performance-dashboard.js';
+import { PerformanceBenchmark } from './performance-benchmark.js';
 import { PerformanceRegressionTester, RegressionTestConfig } from './performance-regression-tests.js';
 import { TelemetryIntegration, TelemetryIntegrationConfig } from './telemetry-integration.js';
 
@@ -80,7 +80,7 @@ export interface PerformancePlugin {
 export interface PerformanceSystemEvent {
   type: 'operation_start' | 'operation_end' | 'anomaly' | 'alert' | 'memory_leak' | 'profile_complete';
   timestamp: number;
-  data: any;
+  data: unknown;
   metadata?: Record<string, unknown>;
 }
 
@@ -563,7 +563,7 @@ export class PerformanceSystem {
   /**
    * Get performance summary
    */
-  getPerformanceSummary(): any {
+  getPerformanceSummary(): Record<string, unknown> {
     return this.monitor.getPerformanceSummary();
   }
 
@@ -582,9 +582,9 @@ export class PerformanceSystem {
   /**
    * Emit a system event
    */
-  private emitEvent(type: string, data: any): void {
+  private emitEvent(type: string, data: unknown): void {
     const event: PerformanceSystemEvent = {
-      type: type as any,
+      type: type as PerformanceSystemEvent['type'],
       timestamp: Date.now(),
       data,
     };
@@ -602,10 +602,10 @@ export class PerformanceSystem {
   /**
    * Notify plugins of events
    */
-  private notifyPlugins(method: string, ...args: any[]): void {
+  private notifyPlugins(method: string, ...args: unknown[]): void {
     for (const plugin of this.plugins.values()) {
       try {
-        const pluginMethod = (plugin as any)[method];
+        const pluginMethod = (plugin as unknown as Record<string, unknown>)[method];
         if (typeof pluginMethod === 'function') {
           pluginMethod.apply(plugin, args);
         }

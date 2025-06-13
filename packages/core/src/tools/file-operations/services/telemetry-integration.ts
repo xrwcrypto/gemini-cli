@@ -12,11 +12,10 @@ import {
   Counter,
   Histogram,
   UpDownCounter,
-  Gauge,
 } from '@opentelemetry/api';
 import { recordToolCallMetrics } from '../../../telemetry/metrics.js';
 import { PerformanceMonitor, PerformanceMetrics, PerformanceAlert } from './performance-monitor.js';
-import { MemoryAnalyzer, MemoryLeak, MemorySnapshot } from './memory-analyzer.js';
+import { MemoryAnalyzer } from './memory-analyzer.js';
 import { AnomalyDetector, Anomaly } from './anomaly-detector.js';
 import { PerformanceProfiler, ProfileAnalysis } from './performance-profiler.js';
 
@@ -124,7 +123,7 @@ export class TelemetryIntegration {
   private config: TelemetryIntegrationConfig;
   private meter: Meter;
   private metrics!: FileOperationMetrics;
-  private eventBuffer: any[] = [];
+  private eventBuffer: Array<FileOperationPerformanceEvent | FileOperationMemoryEvent | FileOperationAnomalyEvent | FileOperationThroughputEvent> = [];
   private flushTimer: NodeJS.Timeout | undefined;
   private isInitialized = false;
 
@@ -479,7 +478,7 @@ export class TelemetryIntegration {
   /**
    * Record cache performance metrics
    */
-  recordCacheMetrics(hitRatio: number, size: number, evictions: number): void {
+  recordCacheMetrics(hitRatio: number, _size: number, _evictions: number): void {
     if (!this.shouldSample()) return;
 
     this.metrics.cacheHitRatio.add(hitRatio);
@@ -499,7 +498,7 @@ export class TelemetryIntegration {
   /**
    * Buffer event for batch processing
    */
-  private bufferEvent(event: any): void {
+  private bufferEvent(event: FileOperationPerformanceEvent | FileOperationMemoryEvent | FileOperationAnomalyEvent | FileOperationThroughputEvent): void {
     this.eventBuffer.push(event);
     
     if (this.eventBuffer.length >= this.config.batchSize) {

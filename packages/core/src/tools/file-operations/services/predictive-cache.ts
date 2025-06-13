@@ -1910,7 +1910,7 @@ export class PredictiveCache {
       this.lastGitAnalysis = now;
       
       return patterns;
-    } catch (error) {
+    } catch {
       // Return empty patterns on error (git not available, etc.)
       return new Map();
     }
@@ -2448,7 +2448,7 @@ export class PredictiveCache {
   /**
    * Generate human-readable prediction reason
    */
-  private generatePredictionReason(features: PredictionFeatures, filePath: string): string {
+  private generatePredictionReason(features: PredictionFeatures, _filePath: string): string {
     const reasons: string[] = [];
     
     if (features.temporalProximity > 0.7) {

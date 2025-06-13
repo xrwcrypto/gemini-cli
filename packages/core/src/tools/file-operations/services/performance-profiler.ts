@@ -516,7 +516,7 @@ export class PerformanceProfiler {
   /**
    * Take memory snapshot
    */
-  private takeMemorySnapshot(label: string): void {
+  private takeMemorySnapshot(_label: string): void {
     if (!this.config.enableMemoryProfiling) return;
 
     this.memorySnapshots.push({
@@ -551,7 +551,7 @@ export class PerformanceProfiler {
     // This is a simplified version
     const originalGC = (global as any).gc;
     if (originalGC) {
-      (global as any).gc = (...args: any[]) => {
+      (global as unknown as { gc: (...args: unknown[]) => unknown }).gc = (...args: unknown[]) => {
         const start = performance.now();
         const result = originalGC.apply(this, args);
         const duration = performance.now() - start;
@@ -570,7 +570,7 @@ export class PerformanceProfiler {
   /**
    * Analyze memory usage for leaks and issues
    */
-  private analyzeMemoryUsage(entry: ProfileEntry): ProfileAnalysis['memoryUsage'] {
+  private analyzeMemoryUsage(_entry: ProfileEntry): ProfileAnalysis['memoryUsage'] {
     if (this.memorySnapshots.length === 0) {
       const currentUsage = process.memoryUsage();
       return {

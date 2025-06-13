@@ -51,7 +51,7 @@ export interface EnvironmentConfig {
  * Report configuration
  */
 export interface ReportConfig {
-  formats: ('json' | 'html' | 'markdown' | 'junit')[];
+  formats: Array<'json' | 'html' | 'markdown' | 'junit'>;
   includeGraphs: boolean;
   includeDetailedMetrics: boolean;
   includeMemoryAnalysis: boolean;
@@ -80,8 +80,8 @@ export interface RegressionTest {
   loadTest?: LoadTestConfig;
   expectedPerformance: Partial<PerformanceTargets>;
   testFunction: () => Promise<void> | void;
-  dataSetup?: () => Promise<any>;
-  dataCleanup?: (data: any) => Promise<void>;
+  dataSetup?: () => Promise<unknown>;
+  dataCleanup?: (data: unknown) => Promise<void>;
 }
 
 /**
@@ -242,7 +242,7 @@ export class PerformanceRegressionTester {
     config: RegressionTestConfig
   ): Promise<RegressionTestResult> {
     const startTime = Date.now();
-    let testData: any;
+    let testData: unknown;
 
     try {
       // Data setup
@@ -390,7 +390,7 @@ export class PerformanceRegressionTester {
    */
   private identifyWarnings(
     result: BenchmarkResult,
-    expected: Partial<PerformanceTargets>
+    _expected: Partial<PerformanceTargets>
   ): string[] {
     const warnings: string[] = [];
 
@@ -514,7 +514,7 @@ export class PerformanceRegressionTester {
     const environment = {
       ...process.versions,
       memory: `${Math.round(process.memoryUsage().heapTotal / (1024 * 1024))}MB`,
-      cpu: `${require('os').cpus().length} cores`,
+      cpu: `${process.env.NUMBER_OF_PROCESSORS || 'unknown'} cores`,
     };
 
     return {

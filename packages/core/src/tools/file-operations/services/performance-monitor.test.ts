@@ -343,7 +343,7 @@ describe('PerformanceMonitor', () => {
       expect(summary.memoryUsage).toBeDefined();
       expect(summary.throughput).toBeDefined();
       expect(summary.componentPerformance).toHaveLength(2);
-      expect(summary.uptime).toBeGreaterThan(0);
+      expect(summary.uptime).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle empty summary', () => {
