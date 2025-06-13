@@ -18,7 +18,7 @@
 // limitations under the License.
 
 import { execSync } from 'child_process';
-import { chmodSync, readFileSync, rmSync } from 'fs';
+import { chmodSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -107,8 +107,10 @@ function buildImage(imageName, dockerfile) {
   const buildCommand =
     sandboxCommand === 'podman'
       ? `${sandboxCommand} build --authfile=<(echo '{}')`
-      : `${sandboxCommand} --config=".docker" buildx build`;
-
+      : `${sandboxCommand} ${
+          existsSync('.docker') ? '--config=".docker"' : ''
+                } buildx build`;
+                
   execSync(
     `${buildCommand} ${process.env.BUILD_SANDBOX_FLAGS || ''} -f "${dockerfile}" -t "${imageName}" .`,
     { stdio: buildStdout, shell: '/bin/bash' },
