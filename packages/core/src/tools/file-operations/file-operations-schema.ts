@@ -37,7 +37,7 @@ export const fileOperationsSchema = {
           {
             // Analyze operation schema
             properties: {
-              type: { const: 'analyze' },
+              type: { enum: ['analyze'] },
               paths: {
                 type: 'array',
                 items: { type: 'string' },
@@ -76,7 +76,7 @@ export const fileOperationsSchema = {
           {
             // Edit operation schema
             properties: {
-              type: { const: 'edit' },
+              type: { enum: ['edit'] },
               edits: {
                 type: 'array',
                 description: 'Array of file edits to perform',
@@ -92,7 +92,7 @@ export const fileOperationsSchema = {
                           {
                             // Find-replace change
                             properties: {
-                              type: { const: 'find-replace' },
+                              type: { enum: ['find-replace'] },
                               find: { type: 'string' },
                               replace: { type: 'string' },
                               regex: { type: 'boolean' },
@@ -103,7 +103,7 @@ export const fileOperationsSchema = {
                           {
                             // Line change
                             properties: {
-                              type: { const: 'line' },
+                              type: { enum: ['line'] },
                               line: { type: 'number', minimum: 1 },
                               operation: { type: 'string', enum: ['insert', 'replace', 'delete'] },
                               content: { type: 'string' }
@@ -113,7 +113,7 @@ export const fileOperationsSchema = {
                           {
                             // Position change
                             properties: {
-                              type: { const: 'position' },
+                              type: { enum: ['position'] },
                               start: { type: 'number', minimum: 0 },
                               end: { type: 'number', minimum: 0 },
                               content: { type: 'string' }
@@ -123,7 +123,7 @@ export const fileOperationsSchema = {
                           {
                             // AST change
                             properties: {
-                              type: { const: 'ast' },
+                              type: { enum: ['ast'] },
                               query: { type: 'string' },
                               transform: {
                                 type: 'object',
@@ -159,7 +159,7 @@ export const fileOperationsSchema = {
           {
             // Create operation schema
             properties: {
-              type: { const: 'create' },
+              type: { enum: ['create'] },
               files: {
                 type: 'array',
                 description: 'Files to create',
@@ -182,7 +182,7 @@ export const fileOperationsSchema = {
           {
             // Delete operation schema
             properties: {
-              type: { const: 'delete' },
+              type: { enum: ['delete'] },
               paths: {
                 type: 'array',
                 items: { type: 'string' },
@@ -203,7 +203,7 @@ export const fileOperationsSchema = {
           {
             // Validate operation schema
             properties: {
-              type: { const: 'validate' },
+              type: { enum: ['validate'] },
               commands: {
                 type: 'array',
                 items: { type: 'string' },
