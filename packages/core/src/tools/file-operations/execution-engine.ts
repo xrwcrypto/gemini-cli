@@ -125,7 +125,7 @@ export class ExecutionEngine {
         return {
           operationId,
           type: operation.type,
-          status: 'skipped',
+          status: 'cancelled',
           error: {
             operationId,
             message: 'Operation was cancelled',
@@ -668,7 +668,7 @@ export class ExecutionEngine {
                 ? new RegExp(findReplaceChange.find, findReplaceChange.replaceAll ? 'g' : '')
                 : findReplaceChange.find;
               
-              const beforeLength = modifiedContent.length;
+              const beforeContent = modifiedContent;
               if (findReplaceChange.regex) {
                 modifiedContent = modifiedContent.replace(pattern as RegExp, findReplaceChange.replace);
               } else {
@@ -678,7 +678,8 @@ export class ExecutionEngine {
                   modifiedContent = modifiedContent.replace(findReplaceChange.find, findReplaceChange.replace);
                 }
               }
-              if (modifiedContent.length !== beforeLength) {
+              // Count change if content actually changed
+              if (modifiedContent !== beforeContent) {
                 changeCount++;
               }
               break;

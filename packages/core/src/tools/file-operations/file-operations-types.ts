@@ -324,7 +324,7 @@ export interface OperationResult {
   /** Operation type */
   type: string;
   /** Execution status */
-  status: 'success' | 'failed' | 'skipped';
+  status: 'success' | 'failed' | 'skipped' | 'cancelled';
   /** Operation-specific result data */
   data?: OperationResultData;
   /** Error if operation failed */
