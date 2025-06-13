@@ -110,6 +110,14 @@ export class CacheManager {
     if (this.predictiveCache) {
       return await this.predictiveCache.getWithPrediction(filePath);
     }
+    return this.getInternal(filePath);
+  }
+
+  /**
+   * Internal get method that doesn't use predictive caching
+   * Used by predictive cache to avoid circular dependency
+   */
+  async getInternal(filePath: string): Promise<ProcessedFileReadResult> {
     const normalizedPath = path.normalize(filePath);
     const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     const entry = internalCache.get(normalizedPath);

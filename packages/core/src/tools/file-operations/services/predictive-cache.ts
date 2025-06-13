@@ -1035,8 +1035,8 @@ export class PredictiveCache {
   async getWithPrediction(filePath: string): Promise<ProcessedFileReadResult> {
     const startTime = Date.now();
     
-    // Try cache first
-    const result = await this.cacheManager.get(filePath);
+    // Try cache first (use internal method to avoid circular dependency)
+    const result = await this.cacheManager.getInternal(filePath);
     
     // Record access for pattern learning
     this.recordAccess(filePath, 'read');
@@ -1145,7 +1145,7 @@ export class PredictiveCache {
           // Check if already cached
           const stats = this.cacheManager.getStats();
           if (stats.currentSize < stats.maxSize) {
-            await this.cacheManager.get(prediction.filePath);
+            await this.cacheManager.getInternal(prediction.filePath);
             loadedCount++;
             this.metrics.backgroundLoads++;
           }
@@ -2557,7 +2557,7 @@ export class PredictiveCache {
     let loaded = 0;
     for (const filePath of topFiles) {
       try {
-        await this.cacheManager.get(filePath);
+        await this.cacheManager.getInternal(filePath);
         loaded++;
       } catch {
         // Ignore errors
@@ -2593,7 +2593,7 @@ export class PredictiveCache {
         if (loaded >= strategy.maxFiles) break;
         
         try {
-          await this.cacheManager.get(dep.filePath);
+          await this.cacheManager.getInternal(dep.filePath);
           loaded++;
         } catch {
           // Ignore errors
@@ -2633,7 +2633,7 @@ export class PredictiveCache {
       let loaded = 0;
       for (const filePath of recentFiles) {
         try {
-          await this.cacheManager.get(filePath);
+          await this.cacheManager.getInternal(filePath);
           loaded++;
         } catch {
           // Ignore errors for files that don't exist
