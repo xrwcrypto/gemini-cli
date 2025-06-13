@@ -8,6 +8,7 @@ import { ASTParserService, SupportedLanguage, LanguageParser } from '../services
 import { createTypeScriptPlugin } from './typescript-plugin.js';
 import { createEnhancedTypeScriptPlugin } from './typescript-enhanced-plugin.js';
 import { createPythonPlugin } from './python-plugin.js';
+import { createGoPlugin } from './go-plugin.js';
 import { CacheManager } from '../services/cache-manager.js';
 
 /**
@@ -37,7 +38,7 @@ const DEFAULT_CONFIG: PluginConfig = {
   typescript: true,
   typescriptEnhanced: false, // Regular TypeScript plugin by default
   python: true, // Enable Python plugin by default
-  go: false,
+  go: true, // Enable Go plugin by default
   java: false,
   rust: false,
   customPlugins: []
@@ -136,11 +137,15 @@ export class PluginLoader {
   }
 
   /**
-   * Load Go plugin (placeholder for future implementation)
+   * Load Go plugin
    */
   private async loadGoPlugin(parserService: ASTParserService): Promise<void> {
-    // TODO: Implement Go plugin using tree-sitter or similar
-    console.warn('Go plugin not yet implemented');
+    try {
+      const plugin = createGoPlugin(this.cacheManager);
+      parserService.registerParser('go', plugin);
+    } catch (error) {
+      console.warn('Failed to load Go plugin:', error);
+    }
   }
 
   /**
@@ -213,6 +218,10 @@ export class PluginLoader {
     
     if (this.config.python) {
       available.push('python');
+    }
+    
+    if (this.config.go) {
+      available.push('go');
     }
     
     // Add other plugins when implemented

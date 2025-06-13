@@ -18,10 +18,47 @@ export {
 // Export Python plugin
 export { PythonPlugin, createPythonPlugin } from './python-plugin.js';
 
+// Export Go plugin
+export { GoPlugin, createGoPlugin, type GoParseResult } from './go-plugin.js';
+
 // Export plugin loader
 export { PluginLoader, createPluginLoader, PluginConfig } from './plugin-loader.js';
 
-// Export plugin registry interface
+// Export base plugin and new plugin system
+export {
+  BaseLanguagePlugin,
+  type PluginMetadata,
+  type PluginCapabilities,
+  type PluginConfiguration,
+  type PluginValidationResult,
+  type EnhancedLanguageParser
+} from './base-plugin.js';
+
+// Export plugin registry
+export {
+  PluginRegistry as EnhancedPluginRegistry,
+  createPluginRegistry as createEnhancedPluginRegistry,
+  type PluginRegistration,
+  type PluginDiscoveryResult
+} from './plugin-registry.js';
+
+// Export plugin validator
+export {
+  PluginValidator,
+  createPluginValidator,
+  type PluginValidationOptions,
+  type DetailedValidationResult
+} from './plugin-validator.js';
+
+// Export language detection
+export {
+  LanguageDetector,
+  createLanguageDetector,
+  type LanguageDetectionResult,
+  type LanguageDetectionOptions
+} from './language-detection.js';
+
+// Export plugin registry interface (legacy)
 export interface PluginRegistry {
   register(language: string, plugin: any): void;
   get(language: string): any | undefined;
@@ -30,9 +67,9 @@ export interface PluginRegistry {
 }
 
 /**
- * Create a plugin registry
+ * Create a simple plugin registry (legacy interface)
  */
-export function createPluginRegistry(): PluginRegistry {
+export function createSimplePluginRegistry(): PluginRegistry {
   const plugins = new Map<string, any>();
 
   return {
