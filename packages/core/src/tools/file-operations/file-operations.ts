@@ -134,15 +134,38 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
     for (const op of operations) {
       switch (op.type) {
         case 'edit':
-          op.edits.forEach(edit => files.add(edit.file));
+          // Handle both transformed and untransformed formats
+          if ('edits' in op && Array.isArray(op.edits)) {
+            op.edits.forEach(edit => files.add(edit.file));
+          } else {
+            // Legacy format: { type: "edit", file: "...", changes: [...] }
+            const legacyOp = op as any;
+            if (legacyOp.file || legacyOp.file_path) {
+              files.add(legacyOp.file || legacyOp.file_path);
+            }
+          }
           break;
         case 'create':
-          op.files.forEach(file => files.add(file.path));
+          // Handle both transformed and untransformed formats
+          if ('files' in op && Array.isArray(op.files)) {
+            op.files.forEach(file => files.add(file.path));
+          } else {
+            // Legacy format: { type: "create", path: "...", content: "..." }
+            const legacyOp = op as any;
+            if (legacyOp.path || legacyOp.file_path) {
+              files.add(legacyOp.path || legacyOp.file_path);
+            }
+          }
           break;
         case 'delete':
-          // Delete uses glob patterns, so we can't count exact files
-          // Just count the number of patterns
-          return op.paths.length;
+          // Handle both transformed and untransformed formats
+          if ('paths' in op && Array.isArray(op.paths)) {
+            return op.paths.length;
+          } else {
+            // Legacy format: { type: "delete", path: "..." }
+            const legacyOp = op as any;
+            return legacyOp.path || legacyOp.file_path ? 1 : 0;
+          }
         default:
           // Should never reach here due to filter
           break;
