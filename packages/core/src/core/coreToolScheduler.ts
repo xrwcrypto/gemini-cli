@@ -13,8 +13,6 @@ import {
   ToolResult,
   ToolRegistry,
   ApprovalMode,
-  EditTool,
-  EditToolParams,
 } from '../index.js';
 import { Part, PartListUnion } from '@google/genai';
 import { getResponseTextFromParts } from '../utils/generateContentResponseUtilities.js';
@@ -490,29 +488,8 @@ export class CoreToolScheduler {
       outcome === ToolConfirmationOutcome.ModifyCursor ||
       outcome === ToolConfirmationOutcome.ModifyVim
     ) {
-      const waitingToolCall = toolCall as WaitingToolCall;
-      if (waitingToolCall?.confirmationDetails?.type === 'edit') {
-        const editTool = waitingToolCall.tool as EditTool;
-        this.setStatusInternal(callId, 'awaiting_approval', {
-          ...waitingToolCall.confirmationDetails,
-          isModifying: true,
-        });
-
-        const modifyResults = await editTool.onModify(
-          waitingToolCall.request.args as unknown as EditToolParams,
-          signal,
-          outcome,
-        );
-
-        if (modifyResults) {
-          this.setArgsInternal(callId, modifyResults.updatedParams);
-          this.setStatusInternal(callId, 'awaiting_approval', {
-            ...waitingToolCall.confirmationDetails,
-            fileDiff: modifyResults.updatedDiff,
-            isModifying: false,
-          });
-        }
-      }
+      // External editor modification no longer supported with FileOperations
+      this.setStatusInternal(callId, 'cancelled', 'External editor modification not supported');
     } else {
       this.setStatusInternal(callId, 'scheduled');
     }

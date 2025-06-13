@@ -11,7 +11,7 @@ import {
   Type,
 } from '@google/genai';
 import { GeminiClient } from '../core/client.js';
-import { EditToolParams } from '../tools/edit.js';
+// EditToolParams removed with edit tool
 import { LruCache } from './LruCache.js';
 
 const EditModel = 'gemini-2.5-flash-preview-04-17';
@@ -38,6 +38,16 @@ interface CorrectedEditParams {
   file_path: string;
   old_string: string;
   new_string: string;
+}
+
+/**
+ * EditToolParams interface (originally from edit.ts)
+ */
+interface EditToolParams {
+  file_path: string;
+  old_string: string;
+  new_string: string;
+  expected_replacements?: number;
 }
 
 /**

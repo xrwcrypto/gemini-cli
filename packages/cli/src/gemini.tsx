@@ -20,17 +20,13 @@ import { loadExtensions, ExtensionConfig } from './config/extension.js';
 import {
   ApprovalMode,
   Config,
-  EditTool,
   GlobTool,
   GrepTool,
   LSTool,
   MemoryTool,
-  ReadFileTool,
-  ReadManyFilesTool,
   ShellTool,
   WebFetchTool,
   WebSearchTool,
-  WriteFileTool,
 } from '@gemini-cli/core';
 
 export async function main() {
@@ -156,19 +152,16 @@ async function loadNonInteractiveConfig(
 
   let existingCoreTools = config.getCoreTools();
   existingCoreTools = existingCoreTools || [
-    ReadFileTool.Name,
     LSTool.Name,
     GrepTool.Name,
     GlobTool.Name,
-    EditTool.Name,
-    WriteFileTool.Name,
+    'file_operations',
     WebFetchTool.Name,
     WebSearchTool.Name,
-    ReadManyFilesTool.Name,
     ShellTool.Name,
     MemoryTool.Name,
   ];
-  const interactiveTools = [ShellTool.Name, EditTool.Name, WriteFileTool.Name];
+  const interactiveTools = [ShellTool.Name, 'file_operations'];
   const nonInteractiveTools = existingCoreTools.filter(
     (tool) => !interactiveTools.includes(tool),
   );

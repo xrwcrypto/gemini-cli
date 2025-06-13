@@ -73,7 +73,7 @@ describe('FileOperationsTool Integration', () => {
         targetDir: tempDir,
         debugMode: false,
         sandbox: false,
-        coreTools: ['ReadFileTool', 'WriteFileTool'], // Exclude FileOperationsTool
+        coreTools: ['LSTool', 'GrepTool'], // Exclude FileOperationsTool
       };
       const limitedConfig = new Config(limitedConfigParams);
       

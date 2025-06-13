@@ -10,18 +10,10 @@ import * as process from 'node:process';
 
 // Mock tool names if they are dynamically generated or complex
 vi.mock('../tools/ls', () => ({ LSTool: { Name: 'list_directory' } }));
-vi.mock('../tools/edit', () => ({ EditTool: { Name: 'replace' } }));
 vi.mock('../tools/glob', () => ({ GlobTool: { Name: 'glob' } }));
 vi.mock('../tools/grep', () => ({ GrepTool: { Name: 'search_file_content' } }));
-vi.mock('../tools/read-file', () => ({ ReadFileTool: { Name: 'read_file' } }));
-vi.mock('../tools/read-many-files', () => ({
-  ReadManyFilesTool: { Name: 'read_many_files' },
-}));
 vi.mock('../tools/shell', () => ({
   ShellTool: { Name: 'run_shell_command' },
-}));
-vi.mock('../tools/write-file', () => ({
-  WriteFileTool: { Name: 'write_file' },
 }));
 
 describe('Core System Prompt (prompts.ts)', () => {

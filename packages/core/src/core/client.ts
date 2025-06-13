@@ -19,7 +19,6 @@ import { getFolderStructure } from '../utils/getFolderStructure.js';
 import { Turn, ServerGeminiStreamEvent, GeminiEventType } from './turn.js';
 import { Config } from '../config/config.js';
 import { getCoreSystemPrompt } from './prompts.js';
-import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 import { checkNextSpeaker } from '../utils/nextSpeakerChecker.js';
 import { reportError } from '../utils/errorReporting.js';
@@ -101,15 +100,18 @@ export class GeminiClient {
     // Add full file context if the flag is set
     if (this.config.getFullContext()) {
       try {
-        const readManyFilesTool = toolRegistry.getTool(
-          'read_many_files',
-        ) as ReadManyFilesTool;
-        if (readManyFilesTool) {
-          // Read all files in the target directory
-          const result = await readManyFilesTool.execute(
+        const fileOperationsTool = toolRegistry.getTool(
+          'file_operations',
+        );
+        if (fileOperationsTool) {
+          // Use FileOperations to analyze all files in the target directory
+          const result = await fileOperationsTool.execute(
             {
-              paths: ['**/*'], // Read everything recursively
-              useDefaultExcludes: true, // Use default excludes
+              operations: [{
+                type: 'analyze',
+                paths: ['**/*'], // Read everything recursively
+                extract: ['all']
+              }]
             },
             AbortSignal.timeout(30000),
           );
@@ -119,12 +121,12 @@ export class GeminiClient {
             });
           } else {
             console.warn(
-              'Full context requested, but read_many_files returned no content.',
+              'Full context requested, but file_operations returned no content.',
             );
           }
         } else {
           console.warn(
-            'Full context requested, but read_many_files tool not found.',
+            'Full context requested, but file_operations tool not found.',
           );
         }
       } catch (error) {
