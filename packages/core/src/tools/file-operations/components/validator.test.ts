@@ -4,10 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import * as child_process from 'child_process';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Validator, ValidationRule, ValidationContext, ValidationFix } from './validator.js';
-import { ASTParserService, ParseResult } from '../services/ast-parser.js';
+import { ASTParserService } from '../services/ast-parser.js';
 import { FileSystemService } from '../services/file-system-service.js';
 import { CacheManager } from '../services/cache-manager.js';
 import { ValidateOperation, ValidationIssue } from '../file-operations-types.js';
@@ -27,7 +26,35 @@ vi.mock('util', () => ({
 }));
 
 // Helper to create mock fs.Stats
-function createMockStats(overrides: Partial<any> = {}): any {
+interface MockStats {
+  size: number;
+  isFile: () => boolean;
+  isDirectory: () => boolean;
+  isBlockDevice: () => boolean;
+  isCharacterDevice: () => boolean;
+  isSymbolicLink: () => boolean;
+  isFIFO: () => boolean;
+  isSocket: () => boolean;
+  mtime: Date;
+  atime: Date;
+  ctime: Date;
+  birthtime: Date;
+  mode: number;
+  nlink: number;
+  uid: number;
+  gid: number;
+  rdev: number;
+  ino: number;
+  atimeMs: number;
+  mtimeMs: number;
+  ctimeMs: number;
+  birthtimeMs: number;
+  dev: number;
+  blksize: number;
+  blocks: number;
+}
+
+function createMockStats(overrides: Partial<MockStats> = {}): MockStats {
   return {
     size: 100,
     isFile: () => true,
@@ -430,7 +457,7 @@ describe('Validator', () => {
 
       // Mock execAsync for tsc
       execAsyncMock.mockRejectedValueOnce((() => {
-        const error = new Error('Command failed') as any;
+        const error = new Error('Command failed') as Error & { stdout: string; stderr: string };
         error.stdout = '';
         error.stderr = '/test/src/index.ts(1,29): error TS2322: Type \'number\' is not assignable to type \'string\'.';
         return error;
@@ -660,7 +687,7 @@ describe('Validator', () => {
 
   describe('Import Resolution', () => {
     it('should check relative import resolution', async () => {
-      const mockCheckFilesExist = vi.spyOn(fileService, 'checkFilesExist').mockImplementation(async (paths) => {
+      vi.spyOn(fileService, 'checkFilesExist').mockImplementation(async (paths) => {
         const results = new Map<string, boolean>();
         for (const path of paths) {
           results.set(path, path === '/test/src/utils.ts');

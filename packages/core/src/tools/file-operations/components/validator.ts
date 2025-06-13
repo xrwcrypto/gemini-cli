@@ -125,12 +125,11 @@ const BUILTIN_RULES: ValidationRule[] = [
       for (const imp of parseResult.imports) {
         if (imp.from.startsWith('.')) {
           // Check relative imports
-          const resolvedPath = path.resolve(fileDir, imp.from);
-          const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', ''];
+          const _resolvedPath = path.resolve(fileDir, imp.from);
+          const _extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', ''];
           
           let found = false;
-          for (const ext of extensions) {
-            const fullPath = resolvedPath + ext;
+          for (const _ext of _extensions) {
             try {
               const exists = await context.fileInfo.size > 0; // Simplified check
               if (exists) {
@@ -162,7 +161,7 @@ const BUILTIN_RULES: ValidationRule[] = [
     name: 'Unused Exports',
     description: 'Detects exported symbols that are not imported anywhere',
     severity: 'warning',
-    check: async (context) => {
+    check: async () => {
       const issues: ValidationIssue[] = [];
       // This would require project-wide analysis
       // Simplified implementation for now
@@ -329,8 +328,8 @@ const DEFAULT_EXTERNAL_VALIDATORS: ExternalValidatorConfig[] = [
         if (match) {
           issues.push({
             file: match[1],
-            line: parseInt(match[2]),
-            column: parseInt(match[3]),
+            line: parseInt(match[2], 10),
+            column: parseInt(match[3], 10),
             severity: 'error',
             message: match[4],
             rule: 'tsc'
@@ -638,8 +637,9 @@ export class Validator {
           output,
           issues
         });
-      } catch (error: any) {
-        const output = (error.stdout || '') + (error.stderr || '');
+      } catch (error) {
+        const err = error as Error & { stdout?: string; stderr?: string; message: string };
+        const output = (err.stdout || '') + (err.stderr || '');
         const issues = validator.parseOutput ? validator.parseOutput(output) : [];
 
         results.push({
@@ -647,7 +647,7 @@ export class Validator {
           command,
           success: false,
           output,
-          error: error.message,
+          error: err.message,
           issues
         });
       }
@@ -668,13 +668,14 @@ export class Validator {
             success: true,
             output: stdout + stderr
           });
-        } catch (error: any) {
+        } catch (error) {
+          const err = error as Error & { stdout?: string; stderr?: string; message: string };
           results.push({
             validator: 'Custom Command',
             command: cmd,
             success: false,
-            output: error.stdout + error.stderr,
-            error: error.message
+            output: (err.stdout || '') + (err.stderr || ''),
+            error: err.message
           });
         }
       }
