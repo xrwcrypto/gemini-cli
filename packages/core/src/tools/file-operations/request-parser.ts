@@ -118,7 +118,7 @@ export class RequestParser {
 
     // Validate options
     if (request.options) {
-      this.validateOptions(request.options);
+      this.validateOptions(request.options as Record<string, unknown>);
     }
   }
 
@@ -144,7 +144,7 @@ export class RequestParser {
         break;
       default:
         throw new ValidationError(
-          `Unknown operation type: ${(operation as any).type}`,
+          `Unknown operation type: ${(operation as Record<string, unknown>).type}`,
           operationId
         );
     }
@@ -296,7 +296,7 @@ export class RequestParser {
         break;
       default:
         throw new ValidationError(
-          `Unknown change type: ${(change as any).type} at index ${changeIndex}`,
+          `Unknown change type: ${(change as Record<string, unknown>).type} at index ${changeIndex}`,
           operationId
         );
     }
@@ -554,12 +554,12 @@ export class RequestParser {
   /**
    * Validate options
    */
-  private validateOptions(options: any): void {
-    if (options.returnFormat && !['raw', 'structured', 'minimal'].includes(options.returnFormat)) {
+  private validateOptions(options: Record<string, unknown>): void {
+    if (options.returnFormat && !['raw', 'structured', 'minimal'].includes(String(options.returnFormat))) {
       throw new ValidationError(`Invalid return format: ${options.returnFormat}`);
     }
 
-    if (options.cacheStrategy && !['none', 'session', 'persistent'].includes(options.cacheStrategy)) {
+    if (options.cacheStrategy && !['none', 'session', 'persistent'].includes(String(options.cacheStrategy))) {
       throw new ValidationError(`Invalid cache strategy: ${options.cacheStrategy}`);
     }
   }
@@ -577,7 +577,7 @@ export class RequestParser {
 
     // Check for dangerous patterns
     const dangerousPatterns = [
-      /\.\.[\/\\]\.\./, // Multiple parent directory traversals
+      /\.\.[/\\]\.\./, // Multiple parent directory traversals
       /^\/dev\//, // Device files
       /^\/proc\//, // Process files
       /^\/sys\//, // System files
@@ -751,7 +751,7 @@ export class RequestParser {
   /**
    * Group edit operations by file
    */
-  private groupEditsByFile(operations: Operation[], optimizations: string[]): Operation[] {
+  private groupEditsByFile(operations: Operation[], _optimizations: string[]): Operation[] {
     // Check if any operations have dependencies - if so, skip optimization
     const hasDependencies = operations.some(op => 
       (op.dependsOn && op.dependsOn.length > 0) || 
@@ -783,7 +783,7 @@ export class RequestParser {
     });
 
     if (editGroups.size > 0 && editGroups.size < editOpIds.length) {
-      optimizations.push(`Grouped ${editOpIds.length} edit operations by file into ${editGroups.size} operations`);
+      _optimizations.push(`Grouped ${editOpIds.length} edit operations by file into ${editGroups.size} operations`);
       
       // Create new grouped edit operations
       const groupedEditOps: EditOperation[] = Array.from(editGroups.entries()).map(([file, edits], index) => ({
@@ -804,7 +804,7 @@ export class RequestParser {
   /**
    * Merge sequential edits on the same file
    */
-  private mergeSequentialEdits(operations: Operation[], optimizations: string[]): Operation[] {
+  private mergeSequentialEdits(operations: Operation[], _optimizations: string[]): Operation[] {
     // This is a simplified implementation
     // In a real implementation, you would analyze the changes to see if they can be merged
     return operations;
@@ -813,7 +813,7 @@ export class RequestParser {
   /**
    * Reorder operations for better parallelism
    */
-  private reorderForParallelism(operations: Operation[], optimizations: string[]): Operation[] {
+  private reorderForParallelism(operations: Operation[], _optimizations: string[]): Operation[] {
     // This would use topological sort to maximize parallelism
     // For now, return as-is
     return operations;
@@ -822,7 +822,7 @@ export class RequestParser {
   /**
    * Remove redundant operations
    */
-  private removeRedundantOperations(operations: Operation[], optimizations: string[]): Operation[] {
+  private removeRedundantOperations(operations: Operation[], _optimizations: string[]): Operation[] {
     // Example: Remove analyze operations on files that will be deleted
     const deleteTargets = new Set<string>();
     
@@ -842,7 +842,7 @@ export class RequestParser {
         const analyzeOp = op as AnalyzeOperation;
         const hasDeletedPath = analyzeOp.paths.some(path => deleteTargets.has(path));
         if (hasDeletedPath) {
-          optimizations.push(`Removed analyze operation on files that will be deleted`);
+          _optimizations.push(`Removed analyze operation on files that will be deleted`);
           return false;
         }
       }

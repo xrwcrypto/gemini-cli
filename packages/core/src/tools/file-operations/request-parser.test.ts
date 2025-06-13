@@ -8,11 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { RequestParser } from './request-parser.js';
 import {
   FileOperationRequest,
-  AnalyzeOperation,
   EditOperation,
-  CreateOperation,
-  DeleteOperation,
-  ValidateOperation,
 } from './file-operations-types.js';
 import { ValidationError, DependencyError } from './file-operations-errors.js';
 import path from 'path';
@@ -206,7 +202,7 @@ describe('RequestParser', () => {
         operations: [{
           type: 'analyze',
           paths: ['src/**/*.ts'],
-          extract: ['functions', 'invalid-type' as any],
+          extract: ['functions', 'invalid-type' as unknown as 'functions'],
         }],
       };
 
@@ -360,7 +356,7 @@ describe('RequestParser', () => {
             changes: [{
               type: 'line',
               line: 1,
-              operation: 'invalid' as any,
+              operation: 'invalid' as 'insert',
               content: 'test',
             }],
           }],
@@ -465,7 +461,7 @@ describe('RequestParser', () => {
               type: 'ast',
               query: 'FunctionDeclaration',
               transform: {
-                type: 'invalid' as any,
+                type: 'invalid' as 'rename',
                 params: {},
               },
             }],
@@ -642,7 +638,7 @@ describe('RequestParser', () => {
       const request: FileOperationRequest = {
         operations: [{
           type: 'validate',
-          checks: ['syntax', 'invalid-check' as any],
+          checks: ['syntax', 'invalid-check' as 'syntax'],
         }],
       };
 
@@ -888,7 +884,7 @@ describe('RequestParser', () => {
           paths: ['src/**/*.ts'],
         }],
         options: {
-          returnFormat: 'invalid' as any,
+          returnFormat: 'invalid' as 'raw',
         },
       };
 
@@ -903,7 +899,7 @@ describe('RequestParser', () => {
           paths: ['src/**/*.ts'],
         }],
         options: {
-          cacheStrategy: 'invalid' as any,
+          cacheStrategy: 'invalid' as 'none',
         },
       };
 
@@ -1024,7 +1020,7 @@ describe('RequestParser', () => {
 
   describe('unknown operation type', () => {
     it('should reject unknown operation type', async () => {
-      const request: any = {
+      const request = {
         operations: [{
           type: 'unknown-type',
           someField: 'value',
