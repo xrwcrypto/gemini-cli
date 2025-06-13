@@ -27,6 +27,9 @@ import { GeminiClient } from '../core/client.js';
 import { GEMINI_CONFIG_DIR as GEMINI_DIR } from '../tools/memoryTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { initializeTelemetry } from '../telemetry/index.js';
+import { FileOperationsMigrationConfig, MigrationPhase } from '../tools/file-operations/migration/migration-config.js';
+import { MigrationManager } from '../tools/file-operations/migration/migration-manager.js';
+import { LegacyToolCompatibility } from '../tools/file-operations/adapters/legacy-compatibility.js';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -80,6 +83,7 @@ export interface ConfigParameters {
   fileFilteringRespectGitIgnore?: boolean;
   fileFilteringAllowBuildArtifacts?: boolean;
   enableModifyWithExternalEditors?: boolean;
+  fileOperationsMigration?: Partial<FileOperationsMigrationConfig>;
 }
 
 export class Config {
@@ -109,6 +113,7 @@ export class Config {
   private readonly fileFilteringRespectGitIgnore: boolean;
   private readonly fileFilteringAllowBuildArtifacts: boolean;
   private readonly enableModifyWithExternalEditors: boolean;
+  private readonly fileOperationsMigration: Partial<FileOperationsMigrationConfig>;
   private fileDiscoveryService: FileDiscoveryService | null = null;
 
   constructor(params: ConfigParameters) {
@@ -140,6 +145,7 @@ export class Config {
       params.fileFilteringAllowBuildArtifacts ?? false;
     this.enableModifyWithExternalEditors =
       params.enableModifyWithExternalEditors ?? false;
+    this.fileOperationsMigration = params.fileOperationsMigration ?? {};
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -275,6 +281,10 @@ export class Config {
     return this.enableModifyWithExternalEditors;
   }
 
+  getFileOperationsMigration(): Partial<FileOperationsMigrationConfig> {
+    return this.fileOperationsMigration;
+  }
+
   async getFileService(): Promise<FileDiscoveryService> {
     if (!this.fileDiscoveryService) {
       this.fileDiscoveryService = new FileDiscoveryService(this.targetDir);
@@ -324,7 +334,40 @@ export function loadEnvironment(): void {
 }
 
 export function createToolRegistry(config: Config): Promise<ToolRegistry> {
-  const registry = new ToolRegistry(config);
+  const migrationConfig = config.getFileOperationsMigration();
+  const useMigration = migrationConfig.phase && migrationConfig.phase !== MigrationPhase.DISABLED;
+  
+  let registry: ToolRegistry;
+  let migrationManager: MigrationManager | undefined;
+  let legacyCompatibility: LegacyToolCompatibility | undefined;
+  
+  if (useMigration) {
+    // Initialize migration system
+    migrationManager = new MigrationManager(migrationConfig);
+    legacyCompatibility = new LegacyToolCompatibility(
+      config,
+      config.getTargetDir(),
+      {
+        useFileOperationsAdapters: true,
+        debugMode: migrationConfig.debug?.enabled ?? false,
+      }
+    );
+    
+    // Create enhanced registry with migration support
+    registry = LegacyToolCompatibility.createRegistryShim(
+      new ToolRegistry(config),
+      config,
+      config.getTargetDir(),
+      {
+        useFileOperationsAdapters: true,
+        debugMode: migrationConfig.debug?.enabled ?? false,
+      }
+    );
+  } else {
+    // Use standard registry
+    registry = new ToolRegistry(config);
+  }
+  
   const targetDir = config.getTargetDir();
   const tools = config.getCoreTools()
     ? new Set(config.getCoreTools())
@@ -335,7 +378,14 @@ export function createToolRegistry(config: Config): Promise<ToolRegistry> {
   const registerCoreTool = (ToolClass: any, ...args: unknown[]) => {
     // check both the tool name (.Name) and the class name (.name)
     if (!tools || tools.has(ToolClass.Name) || tools.has(ToolClass.name)) {
-      registry.registerTool(new ToolClass(...args));
+      let toolInstance = new ToolClass(...args);
+      
+      // Wrap with migration tracking if enabled
+      if (useMigration && migrationManager && isLegacyTool(ToolClass.name)) {
+        toolInstance = createMigrationTrackingProxy(toolInstance, migrationManager);
+      }
+      
+      registry.registerTool(toolInstance);
     }
   };
 
@@ -351,8 +401,58 @@ export function createToolRegistry(config: Config): Promise<ToolRegistry> {
   registerCoreTool(MemoryTool);
   registerCoreTool(WebSearchTool, config);
   registerCoreTool(FileOperationsTool, config, targetDir);
+  
   return (async () => {
     await registry.discoverTools();
     return registry;
   })();
+}
+
+/**
+ * Check if a tool is a legacy tool that can be migrated
+ */
+function isLegacyTool(toolName: string): boolean {
+  const legacyTools = [
+    'ReadFileTool',
+    'WriteFileTool', 
+    'EditTool',
+    'GlobTool',
+    'GrepTool'
+  ];
+  
+  return legacyTools.includes(toolName);
+}
+
+/**
+ * Create a proxy that wraps tool execution with migration tracking
+ */
+function createMigrationTrackingProxy(tool: any, migrationManager: MigrationManager): any {
+  const toolName = tool.constructor.name;
+  
+  return new Proxy(tool, {
+    get(target, prop, receiver) {
+      // Intercept execute method to add migration tracking
+      if (prop === 'execute') {
+        return async function(this: any, params: any, ...args: any[]) {
+          const startTime = Date.now();
+          let success = false;
+          
+          try {
+            const result = await target.execute.call(this, params, ...args);
+            success = true;
+            return result;
+          } catch (err) {
+            throw err;
+          } finally {
+            // Record performance metrics
+            const executionTime = Date.now() - startTime;
+            // Migration manager will handle metrics internally
+          }
+        };
+      }
+      
+      // Pass through other properties
+      return Reflect.get(target, prop, receiver);
+    }
+  });
 }
