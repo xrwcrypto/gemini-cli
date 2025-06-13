@@ -15,6 +15,9 @@ export {
   type EnhancedParseResult
 } from './typescript-enhanced-plugin.js';
 
+// Export Python plugin
+export { PythonPlugin, createPythonPlugin } from './python-plugin.js';
+
 // Export plugin loader
 export { PluginLoader, createPluginLoader, PluginConfig } from './plugin-loader.js';
 

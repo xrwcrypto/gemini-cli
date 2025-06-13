@@ -7,6 +7,7 @@
 import { ASTParserService, SupportedLanguage, LanguageParser } from '../services/ast-parser.js';
 import { createTypeScriptPlugin } from './typescript-plugin.js';
 import { createEnhancedTypeScriptPlugin } from './typescript-enhanced-plugin.js';
+import { createPythonPlugin } from './python-plugin.js';
 import { CacheManager } from '../services/cache-manager.js';
 
 /**
@@ -35,7 +36,7 @@ export interface PluginConfig {
 const DEFAULT_CONFIG: PluginConfig = {
   typescript: true,
   typescriptEnhanced: false, // Regular TypeScript plugin by default
-  python: false,
+  python: true, // Enable Python plugin by default
   go: false,
   java: false,
   rust: false,
@@ -123,11 +124,15 @@ export class PluginLoader {
   }
 
   /**
-   * Load Python plugin (placeholder for future implementation)
+   * Load Python plugin
    */
   private async loadPythonPlugin(parserService: ASTParserService): Promise<void> {
-    // TODO: Implement Python plugin using tree-sitter or similar
-    console.warn('Python plugin not yet implemented');
+    try {
+      const plugin = createPythonPlugin(this.cacheManager);
+      parserService.registerParser('python', plugin);
+    } catch (error) {
+      console.warn('Failed to load Python plugin:', error);
+    }
   }
 
   /**
@@ -204,6 +209,10 @@ export class PluginLoader {
     
     if (this.config.typescriptEnhanced || this.config.typescript) {
       available.push('typescript', 'javascript');
+    }
+    
+    if (this.config.python) {
+      available.push('python');
     }
     
     // Add other plugins when implemented
