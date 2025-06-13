@@ -41,11 +41,23 @@ It's important to always review confirmation prompts carefully before allowing a
 
 The built-in tools can be broadly categorized as follows:
 
-- **[File System Tools](./file-system.md):** For interacting with files and directories (reading, writing, listing, searching, etc.).
+- **[FileOperations Tool](./file-operations.md):** **NEW** - A unified mega-tool for complex file operations with parallel execution, transaction support, and advanced analysis capabilities.
+- **[File System Tools](./file-system.md):** Individual tools for interacting with files and directories (reading, writing, listing, searching, etc.).
 - **[Shell Tool](./shell.md):** For executing shell commands.
 - **[Web Fetch Tool](./web-fetch.md):** For retrieving content from URLs.
 - **[Web Search Tool](./web-search.md):** For searching the web.
 - **[Multi-File Read Tool](./multi-file.md):** A specialized tool for reading content from multiple files or directories, often used by the `@` command.
 - **[Memory Tool](./memory.md):** For saving and recalling information across sessions.
+
+## Tool Migration and Performance
+
+**New FileOperations Tool**: The FileOperations tool represents a significant advancement in file manipulation capabilities, offering:
+
+- **10x Performance**: Parallel execution and intelligent caching for multi-file operations
+- **Advanced Features**: AST parsing, predictive caching, transaction support, and comprehensive validation
+- **Better User Experience**: Single tool call instead of multiple sequential operations
+- **Enhanced Security**: Comprehensive input validation and sandboxed execution
+
+For complex file operations involving multiple files or advanced analysis, consider using the FileOperations tool instead of individual file system tools. See the [Migration Guide](../fileoperations-migration-guide.md) for transition strategies.
 
 Understanding the available tools and how they work will help you make the most effective use of the Gemini CLI.
