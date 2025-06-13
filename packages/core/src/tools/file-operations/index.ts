@@ -10,5 +10,4 @@ export * from './file-operations-errors.js';
 export { FileOperationsValidator } from './file-operations-validator.js';
 export { fileOperationsSchema } from './file-operations-schema.js';
 
-// Legacy tool adapters
-export * from './adapters/index.js';
+// Legacy tool adapters removed - feature complete

@@ -176,7 +176,7 @@ export async function loadCliConfig(
     fileFilteringAllowBuildArtifacts:
       settings.fileFiltering?.allowBuildArtifacts,
     enableModifyWithExternalEditors: settings.enableModifyWithExternalEditors,
-    fileOperationsMigration: settings.fileOperationsMigration,
+    // fileOperationsMigration removed - feature complete
   });
 }
 

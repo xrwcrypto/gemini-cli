@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { homedir } from 'os';
 import { MCPServerConfig, getErrorMessage } from '@gemini-cli/core';
-import { FileOperationsMigrationConfig } from '@gemini-cli/core';
+// FileOperationsMigrationConfig import removed - feature complete
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
@@ -47,7 +47,7 @@ export interface Settings {
   };
 
   // FileOperations migration configuration
-  fileOperationsMigration?: Partial<FileOperationsMigrationConfig>;
+  // fileOperationsMigration removed - feature complete
 
   // UI setting. Does not display the ANSI-controlled terminal title.
   hideWindowTitle?: boolean;

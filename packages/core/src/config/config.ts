@@ -27,7 +27,7 @@ import { GeminiClient } from '../core/client.js';
 import { GEMINI_CONFIG_DIR as GEMINI_DIR } from '../tools/memoryTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { initializeTelemetry } from '../telemetry/index.js';
-import { FileOperationsMigrationConfig, MigrationPhase } from '../tools/file-operations/migration/migration-config.js';
+// Migration imports removed - feature complete
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -81,7 +81,7 @@ export interface ConfigParameters {
   fileFilteringRespectGitIgnore?: boolean;
   fileFilteringAllowBuildArtifacts?: boolean;
   enableModifyWithExternalEditors?: boolean;
-  fileOperationsMigration?: Partial<FileOperationsMigrationConfig>;
+  // fileOperationsMigration removed - feature complete
 }
 
 export class Config {
@@ -111,7 +111,7 @@ export class Config {
   private readonly fileFilteringRespectGitIgnore: boolean;
   private readonly fileFilteringAllowBuildArtifacts: boolean;
   private readonly enableModifyWithExternalEditors: boolean;
-  private readonly fileOperationsMigration: Partial<FileOperationsMigrationConfig>;
+  // fileOperationsMigration removed - feature complete
   private fileDiscoveryService: FileDiscoveryService | null = null;
 
   constructor(params: ConfigParameters) {
@@ -143,7 +143,7 @@ export class Config {
       params.fileFilteringAllowBuildArtifacts ?? false;
     this.enableModifyWithExternalEditors =
       params.enableModifyWithExternalEditors ?? false;
-    this.fileOperationsMigration = params.fileOperationsMigration ?? {};
+    // fileOperationsMigration removed - feature complete
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -279,8 +279,8 @@ export class Config {
     return this.enableModifyWithExternalEditors;
   }
 
-  getFileOperationsMigration(): Partial<FileOperationsMigrationConfig> {
-    return this.fileOperationsMigration;
+  getFileOperationsMigration(): any {
+    return {}; // Migration complete
   }
 
   async getFileService(): Promise<FileDiscoveryService> {
@@ -332,57 +332,11 @@ export function loadEnvironment(): void {
 }
 
 export function createToolRegistry(config: Config): Promise<ToolRegistry> {
-  const migrationConfig = config.getFileOperationsMigration();
-  const useMigration = migrationConfig.phase && migrationConfig.phase !== MigrationPhase.DISABLED;
-  
-  // Import the migration-aware registry if needed
-  if (useMigration) {
-    // Use enhanced migration-aware registry
-    return createMigrationAwareRegistry(config);
-  } else {
-    // Use standard registry
-    return createStandardRegistry(config);
-  }
+  // Migration complete - always use standard registry with FileOperations
+  return createStandardRegistry(config);
 }
 
-/**
- * Create migration-aware tool registry
- */
-async function createMigrationAwareRegistry(config: Config): Promise<ToolRegistry> {
-  // Dynamic import to avoid circular dependencies
-  const { MigrationAwareToolRegistry } = await import('../tools/file-operations/migration/migration-tool-registry.js');
-  
-  const registry = new MigrationAwareToolRegistry(config);
-  const targetDir = config.getTargetDir();
-  const tools = config.getCoreTools()
-    ? new Set(config.getCoreTools())
-    : undefined;
-
-  // helper to create & register core tools that are enabled
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const registerCoreTool = (ToolClass: any, ...args: unknown[]) => {
-    // check both the tool name (.Name) and the class name (.name)
-    if (!tools || tools.has(ToolClass.Name) || tools.has(ToolClass.name)) {
-      registry.registerTool(new ToolClass(...args));
-    }
-  };
-
-  registerCoreTool(LSTool, targetDir, config);
-  registerCoreTool(ReadFileTool, targetDir, config);
-  registerCoreTool(GrepTool, targetDir);
-  registerCoreTool(GlobTool, targetDir, config);
-  registerCoreTool(EditTool, config);
-  registerCoreTool(WriteFileTool, config);
-  registerCoreTool(WebFetchTool, config);
-  registerCoreTool(ReadManyFilesTool, targetDir, config);
-  registerCoreTool(ShellTool, config);
-  registerCoreTool(MemoryTool);
-  registerCoreTool(WebSearchTool, config);
-  registerCoreTool(FileOperationsTool, config, targetDir);
-  
-  await registry.discoverTools();
-  return registry;
-}
+// Migration-aware registry removed - feature complete
 
 /**
  * Create standard tool registry without migration features

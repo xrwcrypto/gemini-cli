@@ -309,9 +309,7 @@ global.Function = undefined;
             resolve(result);
             break;
 
-          case 'log':
-            this.emit('sandbox-log', message.data);
-            break;
+          // 'log' case removed - not in WorkerMessage type
         }
       });
 

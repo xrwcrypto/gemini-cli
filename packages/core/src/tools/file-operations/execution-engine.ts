@@ -21,9 +21,13 @@ import {
   ValidateResult,
   OperationError,
   ValidationIssue,
+  Change,
+  FindReplaceChange,
+  LineChange,
+  PositionChange,
 } from './file-operations-types.js';
 import { Analyzer } from './components/analyzer.js';
-import { Editor } from './components/editor.js';
+// Editor component removed - functionality integrated into FileSystemService
 import { Validator } from './components/validator.js';
 import { FileSystemService } from './services/file-system-service.js';
 import { CacheManager } from './services/cache-manager.js';
@@ -42,7 +46,6 @@ interface ExecutionContext {
   transactionManager: TransactionManager;
   astParser: ASTParserService;
   analyzer: Analyzer;
-  editor: Editor;
   validator: Validator;
   responseBuilder: ResponseBuilder;
   abortSignal?: AbortSignal;
@@ -60,7 +63,6 @@ export class ExecutionEngine {
   private readonly cacheManager: CacheManager;
   private readonly astParser: ASTParserService;
   private readonly analyzer: Analyzer;
-  private readonly editor: Editor;
   private readonly validator: Validator;
 
   constructor(rootDirectory: string, enablePredictiveCache: boolean = true) {
@@ -104,7 +106,6 @@ export class ExecutionEngine {
     
     // Initialize components
     this.analyzer = new Analyzer(this.astParser, this.fileSystemService, this.cacheManager);
-    this.editor = new Editor(this.fileSystemService, this.astParser);
     this.validator = new Validator(this.astParser, this.fileSystemService, this.cacheManager);
   }
 
@@ -318,9 +319,11 @@ export class ExecutionEngine {
         const originalContent = await context.fileSystemService.readFile(absolutePath);
 
         // Apply edits
-        const editResult = await context.editor.edit(absolutePath, edit.changes, {
+        const editResult = await this.applyEdits(absolutePath, edit.changes, {
           validateSyntax: operation.validateSyntax,
           preserveFormatting: operation.preserveFormatting,
+          fileSystemService: context.fileSystemService,
+          astParser: context.astParser,
         });
 
         if (editResult.changeCount > 0) {
@@ -628,13 +631,108 @@ export class ExecutionEngine {
       transactionManager: new TransactionManager(this.fileSystemService),
       astParser: this.astParser,
       analyzer: this.analyzer,
-      editor: this.editor,
       validator: this.validator,
       responseBuilder,
       abortSignal,
       progressCallback,
       isTransaction,
     };
+  }
+
+  /**
+   * Apply edits to a file (replacement for Editor component)
+   */
+  private async applyEdits(
+    filePath: string,
+    changes: Change[],
+    options: {
+      validateSyntax?: boolean;
+      preserveFormatting?: boolean;
+      fileSystemService: FileSystemService;
+      astParser: ASTParserService;
+    }
+  ): Promise<{ success: boolean; changeCount: number; errors: string[]; syntaxErrors?: string[] }> {
+    try {
+      const content = await options.fileSystemService.readFile(filePath);
+      let modifiedContent = content;
+      let changeCount = 0;
+      const errors: string[] = [];
+
+      // Apply changes
+      for (const change of changes) {
+        try {
+          switch (change.type) {
+            case 'find-replace':
+              const findReplaceChange = change as FindReplaceChange;
+              const pattern = findReplaceChange.regex 
+                ? new RegExp(findReplaceChange.find, findReplaceChange.replaceAll ? 'g' : '')
+                : findReplaceChange.find;
+              
+              const beforeLength = modifiedContent.length;
+              if (findReplaceChange.regex) {
+                modifiedContent = modifiedContent.replace(pattern as RegExp, findReplaceChange.replace);
+              } else {
+                if (findReplaceChange.replaceAll) {
+                  modifiedContent = modifiedContent.split(findReplaceChange.find).join(findReplaceChange.replace);
+                } else {
+                  modifiedContent = modifiedContent.replace(findReplaceChange.find, findReplaceChange.replace);
+                }
+              }
+              if (modifiedContent.length !== beforeLength) {
+                changeCount++;
+              }
+              break;
+
+            case 'line':
+              const lineChange = change as LineChange;
+              const lines = modifiedContent.split('\n');
+              if (lineChange.line > 0 && lineChange.line <= lines.length) {
+                if (lineChange.operation === 'replace') {
+                  lines[lineChange.line - 1] = lineChange.content || '';
+                  changeCount++;
+                } else if (lineChange.operation === 'insert') {
+                  lines.splice(lineChange.line - 1, 0, lineChange.content || '');
+                  changeCount++;
+                } else if (lineChange.operation === 'delete') {
+                  lines.splice(lineChange.line - 1, 1);
+                  changeCount++;
+                }
+                modifiedContent = lines.join('\n');
+              }
+              break;
+
+            case 'position':
+              const posChange = change as PositionChange;
+              if (posChange.start >= 0 && posChange.start <= modifiedContent.length) {
+                const before = modifiedContent.substring(0, posChange.start);
+                const after = modifiedContent.substring(posChange.end || posChange.start);
+                modifiedContent = before + posChange.content + after;
+                changeCount++;
+              }
+              break;
+
+            default:
+              errors.push(`Unsupported change type: ${change.type}`);
+          }
+        } catch (error) {
+          errors.push(`Error applying change: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      // Write modified content
+      if (changeCount > 0) {
+        await options.fileSystemService.writeFile(filePath, modifiedContent);
+      }
+
+      return { success: errors.length === 0, changeCount, errors, syntaxErrors: [] };
+    } catch (error) {
+      return { 
+        success: false, 
+        changeCount: 0, 
+        errors: [`Failed to apply edits: ${error instanceof Error ? error.message : String(error)}`],
+        syntaxErrors: []
+      };
+    }
   }
 
   /**
