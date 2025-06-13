@@ -170,11 +170,14 @@ describe('App UI', () => {
   ): LoadedSettings => {
     const userSettingsFile: SettingsFile = {
       path: '/user/settings.json',
-      settings: {},
+      settings: {
+        ...settings,
+        disable_data_collection: false,
+      },
     };
     const workspaceSettingsFile: SettingsFile = {
       path: '/workspace/.gemini/settings.json',
-      settings,
+      settings: {},
     };
     return new LoadedSettings(userSettingsFile, workspaceSettingsFile, []);
   };
@@ -205,7 +208,10 @@ describe('App UI', () => {
     mockConfig.getShowMemoryUsage.mockReturnValue(false); // Default for most tests
 
     // Ensure a theme is set so the theme dialog does not appear.
-    mockSettings = createMockSettings({ theme: 'Default' });
+    mockSettings = createMockSettings({
+      theme: 'Default',
+      disable_data_collection: false,
+    });
   });
 
   afterEach(() => {
@@ -354,7 +360,7 @@ describe('App UI', () => {
     beforeEach(() => {
       originalNoColor = process.env.NO_COLOR;
       // Ensure no theme is set for these tests
-      mockSettings = createMockSettings({});
+      mockSettings = createMockSettings({ disable_data_collection: false });
       mockConfig.getDebugMode.mockReturnValue(false);
       mockConfig.getShowMemoryUsage.mockReturnValue(false);
     });

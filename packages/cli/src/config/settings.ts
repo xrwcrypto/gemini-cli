@@ -49,6 +49,9 @@ export interface Settings {
   // UI setting. Does not display the ANSI-controlled terminal title.
   hideWindowTitle?: boolean;
 
+  // Opt-out of data collection.
+  disable_data_collection?: boolean;
+
   // Add other settings here.
 }
 

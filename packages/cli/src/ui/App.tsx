@@ -32,9 +32,10 @@ import { Footer } from './components/Footer.js';
 import { ThemeDialog } from './components/ThemeDialog.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
 import { Colors } from './colors.js';
+import { OnboardingDialog } from './components/OnboardingDialog.js';
 import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
-import { LoadedSettings } from '../config/settings.js';
+import { LoadedSettings, SettingScope } from '../config/settings.js';
 import { Tips } from './components/Tips.js';
 import { useConsolePatcher } from './components/ConsolePatcher.js';
 import { DetailedMessagesDisplay } from './components/DetailedMessagesDisplay.js';
@@ -98,6 +99,9 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     HistoryItem[] | null
   >(null);
   const ctrlCTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(
+    settings.user.settings.disable_data_collection === undefined,
+  );
 
   const errorCount = useMemo(
     () => consoleMessages.filter((msg) => msg.type === 'error').length,
@@ -391,210 +395,232 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
 
   return (
     <StreamingContext.Provider value={streamingState}>
-      <Box flexDirection="column" marginBottom={1} width="90%">
-        {/*
-         * The Static component is an Ink intrinsic in which there can only be 1 per application.
-         * Because of this restriction we're hacking it slightly by having a 'header' item here to
-         * ensure that it's statically rendered.
-         *
-         * Background on the Static Item: Anything in the Static component is written a single time
-         * to the console. Think of it like doing a console.log and then never using ANSI codes to
-         * clear that content ever again. Effectively it has a moving frame that every time new static
-         * content is set it'll flush content to the terminal and move the area which it's "clearing"
-         * down a notch. Without Static the area which gets erased and redrawn continuously grows.
-         */}
-        <Static
-          key={staticKey}
-          items={[
-            <Box flexDirection="column" key="header">
-              <Header terminalWidth={terminalWidth} />
-              <Tips config={config} />
-            </Box>,
-            ...history.map((h) => (
+      {showOnboarding ? (
+        <OnboardingDialog
+          onSelect={(value) => {
+            if (value === 'disable') {
+              settings.setValue(
+                SettingScope.User,
+                'disable_data_collection',
+                'true',
+              );
+            } else {
+              settings.setValue(
+                SettingScope.User,
+                'disable_data_collection',
+                'false',
+              );
+            }
+            setShowOnboarding(false);
+          }}
+        />
+      ) : (
+        <Box flexDirection="column" marginBottom={1} width="90%">
+          {/*
+           * The Static component is an Ink intrinsic in which there can only be 1 per application.
+           * Because of this restriction we're hacking it slightly by having a 'header' item here to
+           * ensure that it's statically rendered.
+           *
+           * Background on the Static Item: Anything in the Static component is written a single time
+           * to the console. Think of it like doing a console.log and then never using ANSI codes to
+           * clear that content ever again. Effectively it has a moving frame that every time new static
+           * content is set it'll flush content to the terminal and move the area which it's "clearing"
+           * down a notch. Without Static the area which gets erased and redrawn continuously grows.
+           */}
+          <Static
+            key={staticKey}
+            items={[
+              <Box flexDirection="column" key="header">
+                <Header terminalWidth={terminalWidth} />
+                <Tips config={config} />
+              </Box>,
+              ...history.map((h) => (
+                <HistoryItemDisplay
+                  availableTerminalHeight={availableTerminalHeight}
+                  key={h.id}
+                  item={h}
+                  isPending={false}
+                  config={config}
+                />
+              )),
+            ]}
+          >
+            {(item) => item}
+          </Static>
+          <Box ref={pendingHistoryItemRef}>
+            {pendingHistoryItems.map((item, i) => (
               <HistoryItemDisplay
+                key={i}
                 availableTerminalHeight={availableTerminalHeight}
-                key={h.id}
-                item={h}
-                isPending={false}
+                // TODO(taehykim): It seems like references to ids aren't necessary in
+                // HistoryItemDisplay. Refactor later. Use a fake id for now.
+                item={{ ...item, id: 0 }}
+                isPending={true}
                 config={config}
+                isFocused={!isEditorDialogOpen}
               />
-            )),
-          ]}
-        >
-          {(item) => item}
-        </Static>
-        <Box ref={pendingHistoryItemRef}>
-          {pendingHistoryItems.map((item, i) => (
-            <HistoryItemDisplay
-              key={i}
-              availableTerminalHeight={availableTerminalHeight}
-              // TODO(taehykim): It seems like references to ids aren't necessary in
-              // HistoryItemDisplay. Refactor later. Use a fake id for now.
-              item={{ ...item, id: 0 }}
-              isPending={true}
-              config={config}
-              isFocused={!isEditorDialogOpen}
-            />
-          ))}
-        </Box>
-        {showHelp && <Help commands={slashCommands} />}
+            ))}
+          </Box>
+          {showHelp && <Help commands={slashCommands} />}
 
-        <Box flexDirection="column" ref={mainControlsRef}>
-          {startupWarnings.length > 0 && (
-            <Box
-              borderStyle="round"
-              borderColor={Colors.AccentYellow}
-              paddingX={1}
-              marginY={1}
-              flexDirection="column"
-            >
-              {startupWarnings.map((warning, index) => (
-                <Text key={index} color={Colors.AccentYellow}>
-                  {warning}
-                </Text>
-              ))}
-            </Box>
-          )}
-
-          {isThemeDialogOpen ? (
-            <Box flexDirection="column">
-              {themeError && (
-                <Box marginBottom={1}>
-                  <Text color={Colors.AccentRed}>{themeError}</Text>
-                </Box>
-              )}
-              <ThemeDialog
-                onSelect={handleThemeSelect}
-                onHighlight={handleThemeHighlight}
-                settings={settings}
-              />
-            </Box>
-          ) : isEditorDialogOpen ? (
-            <Box flexDirection="column">
-              {editorError && (
-                <Box marginBottom={1}>
-                  <Text color={Colors.AccentRed}>{editorError}</Text>
-                </Box>
-              )}
-              <EditorSettingsDialog
-                onSelect={handleEditorSelect}
-                settings={settings}
-                onExit={exitEditorDialog}
-              />
-            </Box>
-          ) : (
-            <>
-              <LoadingIndicator
-                currentLoadingPhrase={
-                  config.getAccessibility()?.disableLoadingPhrases
-                    ? undefined
-                    : currentLoadingPhrase
-                }
-                elapsedTime={elapsedTime}
-              />
+          <Box flexDirection="column" ref={mainControlsRef}>
+            {startupWarnings.length > 0 && (
               <Box
-                marginTop={1}
-                display="flex"
-                justifyContent="space-between"
-                width="100%"
+                borderStyle="round"
+                borderColor={Colors.AccentYellow}
+                paddingX={1}
+                marginY={1}
+                flexDirection="column"
               >
-                <Box>
-                  {process.env.GEMINI_SYSTEM_MD && (
-                    <Text color={Colors.AccentRed}>|⌐■_■| </Text>
-                  )}
-                  {ctrlCPressedOnce ? (
-                    <Text color={Colors.AccentYellow}>
-                      Press Ctrl+C again to exit.
-                    </Text>
-                  ) : (
-                    <ContextSummaryDisplay
-                      geminiMdFileCount={geminiMdFileCount}
-                      contextFileName={
-                        settings.merged.contextFileName ||
-                        getCurrentGeminiMdFilename()
-                      }
-                      mcpServers={config.getMcpServers()}
-                      showToolDescriptions={showToolDescriptions}
-                    />
-                  )}
-                </Box>
-                <Box>
-                  {showAutoAcceptIndicator !== ApprovalMode.DEFAULT &&
-                    !shellModeActive && (
-                      <AutoAcceptIndicator
-                        approvalMode={showAutoAcceptIndicator}
+                {startupWarnings.map((warning, index) => (
+                  <Text key={index} color={Colors.AccentYellow}>
+                    {warning}
+                  </Text>
+                ))}
+              </Box>
+            )}
+
+            {isThemeDialogOpen ? (
+              <Box flexDirection="column">
+                {themeError && (
+                  <Box marginBottom={1}>
+                    <Text color={Colors.AccentRed}>{themeError}</Text>
+                  </Box>
+                )}
+                <ThemeDialog
+                  onSelect={handleThemeSelect}
+                  onHighlight={handleThemeHighlight}
+                  settings={settings}
+                />
+              </Box>
+            ) : isEditorDialogOpen ? (
+              <Box flexDirection="column">
+                {editorError && (
+                  <Box marginBottom={1}>
+                    <Text color={Colors.AccentRed}>{editorError}</Text>
+                  </Box>
+                )}
+                <EditorSettingsDialog
+                  onSelect={handleEditorSelect}
+                  settings={settings}
+                  onExit={exitEditorDialog}
+                />
+              </Box>
+            ) : (
+              <>
+                <LoadingIndicator
+                  currentLoadingPhrase={
+                    config.getAccessibility()?.disableLoadingPhrases
+                      ? undefined
+                      : currentLoadingPhrase
+                  }
+                  elapsedTime={elapsedTime}
+                />
+                <Box
+                  marginTop={1}
+                  display="flex"
+                  justifyContent="space-between"
+                  width="100%"
+                >
+                  <Box>
+                    {process.env.GEMINI_SYSTEM_MD && (
+                      <Text color={Colors.AccentRed}>|⌐■_■| </Text>
+                    )}
+                    {ctrlCPressedOnce ? (
+                      <Text color={Colors.AccentYellow}>
+                        Press Ctrl+C again to exit.
+                      </Text>
+                    ) : (
+                      <ContextSummaryDisplay
+                        geminiMdFileCount={geminiMdFileCount}
+                        contextFileName={
+                          settings.merged.contextFileName ||
+                          getCurrentGeminiMdFilename()
+                        }
+                        mcpServers={config.getMcpServers()}
+                        showToolDescriptions={showToolDescriptions}
                       />
                     )}
-                  {shellModeActive && <ShellModeIndicator />}
+                  </Box>
+                  <Box>
+                    {showAutoAcceptIndicator !== ApprovalMode.DEFAULT &&
+                      !shellModeActive && (
+                        <AutoAcceptIndicator
+                          approvalMode={showAutoAcceptIndicator}
+                        />
+                      )}
+                    {shellModeActive && <ShellModeIndicator />}
+                  </Box>
                 </Box>
+
+                {showErrorDetails && (
+                  <DetailedMessagesDisplay messages={filteredConsoleMessages} />
+                )}
+
+                {isInputActive && (
+                  <InputPrompt
+                    widthFraction={0.9}
+                    onSubmit={handleFinalSubmit}
+                    userMessages={userMessages}
+                    onClearScreen={handleClearScreen}
+                    config={config}
+                    slashCommands={slashCommands}
+                    shellModeActive={shellModeActive}
+                    setShellModeActive={setShellModeActive}
+                  />
+                )}
+              </>
+            )}
+
+            {initError && streamingState !== StreamingState.Responding && (
+              <Box
+                borderStyle="round"
+                borderColor={Colors.AccentRed}
+                paddingX={1}
+                marginBottom={1}
+              >
+                {history.find(
+                  (item) =>
+                    item.type === 'error' && item.text?.includes(initError),
+                )?.text ? (
+                  <Text color={Colors.AccentRed}>
+                    {
+                      history.find(
+                        (item) =>
+                          item.type === 'error' &&
+                          item.text?.includes(initError),
+                      )?.text
+                    }
+                  </Text>
+                ) : (
+                  <>
+                    <Text color={Colors.AccentRed}>
+                      Initialization Error: {initError}
+                    </Text>
+                    <Text color={Colors.AccentRed}>
+                      {' '}
+                      Please check API key and configuration.
+                    </Text>
+                  </>
+                )}
               </Box>
-
-              {showErrorDetails && (
-                <DetailedMessagesDisplay messages={filteredConsoleMessages} />
-              )}
-
-              {isInputActive && (
-                <InputPrompt
-                  widthFraction={0.9}
-                  onSubmit={handleFinalSubmit}
-                  userMessages={userMessages}
-                  onClearScreen={handleClearScreen}
-                  config={config}
-                  slashCommands={slashCommands}
-                  shellModeActive={shellModeActive}
-                  setShellModeActive={setShellModeActive}
-                />
-              )}
-            </>
-          )}
-
-          {initError && streamingState !== StreamingState.Responding && (
-            <Box
-              borderStyle="round"
-              borderColor={Colors.AccentRed}
-              paddingX={1}
-              marginBottom={1}
-            >
-              {history.find(
-                (item) =>
-                  item.type === 'error' && item.text?.includes(initError),
-              )?.text ? (
-                <Text color={Colors.AccentRed}>
-                  {
-                    history.find(
-                      (item) =>
-                        item.type === 'error' && item.text?.includes(initError),
-                    )?.text
-                  }
-                </Text>
-              ) : (
-                <>
-                  <Text color={Colors.AccentRed}>
-                    Initialization Error: {initError}
-                  </Text>
-                  <Text color={Colors.AccentRed}>
-                    {' '}
-                    Please check API key and configuration.
-                  </Text>
-                </>
-              )}
-            </Box>
-          )}
-          <Footer
-            model={config.getModel()}
-            targetDir={config.getTargetDir()}
-            debugMode={config.getDebugMode()}
-            branchName={branchName}
-            debugMessage={debugMessage}
-            corgiMode={corgiMode}
-            errorCount={errorCount}
-            showErrorDetails={showErrorDetails}
-            showMemoryUsage={
-              config.getDebugMode() || config.getShowMemoryUsage()
-            }
-          />
+            )}
+            <Footer
+              model={config.getModel()}
+              targetDir={config.getTargetDir()}
+              debugMode={config.getDebugMode()}
+              branchName={branchName}
+              debugMessage={debugMessage}
+              corgiMode={corgiMode}
+              errorCount={errorCount}
+              showErrorDetails={showErrorDetails}
+              showMemoryUsage={
+                config.getDebugMode() || config.getShowMemoryUsage()
+              }
+            />
+          </Box>
         </Box>
-      </Box>
+      )}
     </StreamingContext.Provider>
   );
 };
