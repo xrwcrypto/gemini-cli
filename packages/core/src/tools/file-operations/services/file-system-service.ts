@@ -56,6 +56,122 @@ export class FileSystemService {
   }
 
   /**
+   * Write a single file
+   */
+  async writeFile(filePath: string, content: string, encoding: BufferEncoding = 'utf8'): Promise<void> {
+    const absolutePath = path.resolve(this.rootDirectory, filePath);
+    
+    if (!isWithinRoot(absolutePath, this.rootDirectory)) {
+      throw new FileSystemError(`File path must be within root directory: ${filePath}`);
+    }
+    
+    // Ensure directory exists
+    await fsPromises.mkdir(path.dirname(absolutePath), { recursive: true });
+    
+    await fsPromises.writeFile(absolutePath, content, encoding);
+  }
+
+  /**
+   * Read a single file
+   */
+  async readFile(filePath: string, encoding: BufferEncoding = 'utf8'): Promise<string> {
+    const absolutePath = path.resolve(this.rootDirectory, filePath);
+    
+    if (!isWithinRoot(absolutePath, this.rootDirectory)) {
+      throw new FileSystemError(`File path must be within root directory: ${filePath}`);
+    }
+    
+    return await fsPromises.readFile(absolutePath, encoding);
+  }
+
+  /**
+   * Check if file exists
+   */
+  async exists(filePath: string): Promise<boolean> {
+    const absolutePath = path.resolve(this.rootDirectory, filePath);
+    
+    if (!isWithinRoot(absolutePath, this.rootDirectory)) {
+      return false;
+    }
+    
+    try {
+      await fsPromises.access(absolutePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Delete a single file
+   */
+  async unlink(filePath: string): Promise<void> {
+    const absolutePath = path.resolve(this.rootDirectory, filePath);
+    
+    if (!isWithinRoot(absolutePath, this.rootDirectory)) {
+      throw new FileSystemError(`File path must be within root directory: ${filePath}`);
+    }
+    
+    await fsPromises.unlink(absolutePath);
+  }
+
+  /**
+   * Change file permissions
+   */
+  async chmod(filePath: string, mode: string): Promise<void> {
+    const absolutePath = path.resolve(this.rootDirectory, filePath);
+    
+    if (!isWithinRoot(absolutePath, this.rootDirectory)) {
+      throw new FileSystemError(`File path must be within root directory: ${filePath}`);
+    }
+    
+    const modeNum = parseInt(mode, 8);
+    await fsPromises.chmod(absolutePath, modeNum);
+  }
+
+  /**
+   * Read directory contents
+   */
+  async readdir(dirPath: string): Promise<string[]> {
+    const absolutePath = path.resolve(this.rootDirectory, dirPath);
+    
+    if (!isWithinRoot(absolutePath, this.rootDirectory)) {
+      throw new FileSystemError(`Directory path must be within root directory: ${dirPath}`);
+    }
+    
+    return await fsPromises.readdir(absolutePath);
+  }
+
+  /**
+   * Remove directory
+   */
+  async rmdir(dirPath: string): Promise<void> {
+    const absolutePath = path.resolve(this.rootDirectory, dirPath);
+    
+    if (!isWithinRoot(absolutePath, this.rootDirectory)) {
+      throw new FileSystemError(`Directory path must be within root directory: ${dirPath}`);
+    }
+    
+    await fsPromises.rmdir(absolutePath);
+  }
+
+  /**
+   * Glob files matching pattern
+   */
+  async glob(pattern: string): Promise<string[]> {
+    const glob = (await import('glob')).glob;
+    const absolutePattern = path.join(this.rootDirectory, pattern);
+    
+    const files = await glob(absolutePattern, {
+      cwd: this.rootDirectory,
+      nodir: true,
+    });
+    
+    // Convert to relative paths
+    return files.map(f => path.relative(this.rootDirectory, f));
+  }
+
+  /**
    * Write multiple files atomically
    */
   async writeFiles(writes: Map<string, string>): Promise<Map<string, { success: boolean; error?: string }>> {

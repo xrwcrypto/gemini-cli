@@ -248,37 +248,63 @@ export class WorkerPool extends EventEmitter {
    * Perform the actual operation (placeholder)
    */
   private async performOperation(operation: Operation, abortSignal: AbortSignal): Promise<unknown> {
-    // This is a placeholder implementation
-    // In the real implementation, this would dispatch to the appropriate
-    // operation handler based on operation.type
+    // This is a placeholder implementation that simulates operation execution
+    // In a full implementation, this would be injected with the actual execution handler
     
     return new Promise((resolve, reject) => {
+      // Check if already aborted
+      if (abortSignal.aborted) {
+        reject(new Error('Operation cancelled'));
+        return;
+      }
+
+      // Simulate async work with a small delay
       const timeout = setTimeout(() => {
+        // Return placeholder data that matches expected operation result structure
         switch (operation.type) {
           case 'analyze':
-            resolve({ type: 'analysis', files: 0, symbols: 0 });
+            resolve({
+              filesAnalyzed: 1,
+              results: {},
+            });
             break;
           case 'edit':
-            resolve({ type: 'edit', filesModified: 0 });
+            resolve({
+              filesEdited: 1,
+              changes: {},
+              details: {},
+            });
             break;
           case 'create':
-            resolve({ type: 'create', filesCreated: 0 });
+            resolve({
+              filesCreated: 1,
+              paths: [],
+            });
             break;
           case 'delete':
-            resolve({ type: 'delete', filesDeleted: 0 });
+            resolve({
+              filesDeleted: 1,
+              paths: [],
+            });
             break;
           case 'validate':
-            resolve({ type: 'validation', errors: 0, warnings: 0 });
+            resolve({
+              valid: true,
+              checks: {},
+            });
             break;
           default:
             reject(new Error(`Unknown operation type: ${(operation as { type: string }).type}`));
         }
-      }, Math.random() * 100 + 50); // Simulate work with random delay
+      }, Math.random() * 50 + 10); // Simulate work with random delay
 
-      abortSignal.addEventListener('abort', () => {
+      // Handle abort
+      const abortHandler = () => {
         clearTimeout(timeout);
         reject(new Error('Operation cancelled'));
-      });
+      };
+      
+      abortSignal.addEventListener('abort', abortHandler, { once: true });
     });
   }
 

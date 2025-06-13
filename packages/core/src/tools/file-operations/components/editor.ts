@@ -50,23 +50,40 @@ export interface FileEditResult {
  */
 export class Editor {
   private readonly fileService: FileSystemService;
-  private readonly cacheManager: CacheManager;
   private readonly astParser: ASTParserService;
 
   constructor(
     fileService: FileSystemService,
-    cacheManager: CacheManager,
     astParser: ASTParserService
   ) {
     this.fileService = fileService;
-    this.cacheManager = cacheManager;
     this.astParser = astParser;
+  }
+
+  /**
+   * Edit a single file with changes
+   */
+  async edit(filePath: string, changes: Change[], options: EditorOptions = {}): Promise<{
+    changeCount: number;
+    syntaxErrors?: string[];
+  }> {
+    const fileEdit: FileEdit = {
+      file: filePath,
+      changes
+    };
+    
+    const result = await this.editFile(fileEdit, options);
+    
+    return {
+      changeCount: result.changesApplied,
+      syntaxErrors: result.syntaxValid === false ? [filePath] : undefined
+    };
   }
 
   /**
    * Execute edit operation
    */
-  async edit(operation: EditOperation, options: EditorOptions = {}): Promise<EditResult> {
+  async editOperation(operation: EditOperation, options: EditorOptions = {}): Promise<EditResult> {
     const results = new Map<string, FileEditResult>();
     const syntaxErrors: string[] = [];
 
@@ -101,9 +118,10 @@ export class Editor {
   private async editFile(fileEdit: FileEdit, options: EditorOptions): Promise<FileEditResult> {
     try {
       // Get file content
-      const content = await this.cacheManager.get(fileEdit.file);
-      
-      if (!content || content.error) {
+      let content: string;
+      try {
+        content = await this.fileService.readFile(fileEdit.file);
+      } catch (error) {
         if (fileEdit.createIfMissing) {
           // Create new file
           return this.createAndEditFile(fileEdit, options);
@@ -113,21 +131,12 @@ export class Editor {
           path: fileEdit.file,
           success: false,
           changesApplied: 0,
-          error: content?.error || 'File not found'
-        };
-      }
-
-      if (typeof content.llmContent !== 'string') {
-        return {
-          path: fileEdit.file,
-          success: false,
-          changesApplied: 0,
-          error: 'File content is not text'
+          error: error instanceof Error ? error.message : 'File not found'
         };
       }
 
       // Apply changes
-      let modifiedContent = content.llmContent;
+      let modifiedContent = content;
       let changesApplied = 0;
 
       for (const change of fileEdit.changes) {
@@ -139,7 +148,7 @@ export class Editor {
       }
 
       // Check if content actually changed
-      if (modifiedContent === content.llmContent) {
+      if (modifiedContent === content) {
         return {
           path: fileEdit.file,
           success: true,
@@ -155,27 +164,12 @@ export class Editor {
 
       // Apply formatting preservation
       if (options.preserveFormatting) {
-        modifiedContent = this.preserveFormatting(content.llmContent, modifiedContent);
+        modifiedContent = this.preserveFormatting(content, modifiedContent);
       }
 
       // Write file if not in dry run mode
       if (!options.dryRun) {
-        const writeResult = await this.fileService.writeFiles(
-          new Map([[fileEdit.file, modifiedContent]])
-        );
-        
-        const result = writeResult.get(fileEdit.file);
-        if (!result?.success) {
-          return {
-            path: fileEdit.file,
-            success: false,
-            changesApplied: 0,
-            error: result?.error || 'Failed to write file'
-          };
-        }
-
-        // Invalidate cache
-        await this.cacheManager.invalidate(fileEdit.file);
+        await this.fileService.writeFile(fileEdit.file, modifiedContent);
       }
 
       return {
@@ -217,17 +211,14 @@ export class Editor {
 
     // Write file if not in dry run mode
     if (!options.dryRun) {
-      const writeResult = await this.fileService.writeFiles(
-        new Map([[fileEdit.file, content]])
-      );
-      
-      const result = writeResult.get(fileEdit.file);
-      if (!result?.success) {
+      try {
+        await this.fileService.writeFile(fileEdit.file, content);
+      } catch (error) {
         return {
           path: fileEdit.file,
           success: false,
           changesApplied: 0,
-          error: result?.error || 'Failed to create file'
+          error: error instanceof Error ? error.message : 'Failed to create file'
         };
       }
     }

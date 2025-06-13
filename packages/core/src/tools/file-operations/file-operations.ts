@@ -17,9 +17,15 @@ import {
   EditOperation,
   CreateOperation,
   DeleteOperation,
+  Operation,
 } from './file-operations-types.js';
 import { fileOperationsSchema } from './file-operations-schema.js';
 import { FileOperationsValidator } from './file-operations-validator.js';
+import { RequestParser } from './request-parser.js';
+import { ResponseBuilder } from './response-builder.js';
+import { ExecutionEngine } from './execution-engine.js';
+import { OperationPlanner } from './services/operation-planner.js';
+import { recordToolCallMetrics } from '../../telemetry/metrics.js';
 
 /**
  * FileOperations mega tool for batch file operations with parallel execution and transaction support
@@ -27,6 +33,8 @@ import { FileOperationsValidator } from './file-operations-validator.js';
 export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResult> {
   static readonly Name = 'file_operations';
   private readonly validator: FileOperationsValidator;
+  private readonly requestParser: RequestParser;
+  private readonly executionEngine: ExecutionEngine;
   
   constructor(
     private readonly config: Config,
@@ -39,10 +47,28 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
       fileOperationsSchema
     );
     this.validator = new FileOperationsValidator(rootDirectory);
+    this.requestParser = new RequestParser(rootDirectory);
+    this.executionEngine = new ExecutionEngine(rootDirectory);
   }
   
   validateToolParams(params: FileOperationRequest): string | null {
-    return this.validator.validateRequest(params);
+    // Basic validation using validator (sync)
+    const basicError = this.validator.validateRequest(params);
+    if (basicError) return basicError;
+    
+    // Additional path validation for security
+    for (const operation of params.operations) {
+      if (operation.type === 'create') {
+        const createOp = operation as CreateOperation;
+        for (const file of createOp.files) {
+          if (file.path.includes('../') || file.path.startsWith('/')) {
+            return `Path is outside root directory in create operation: ${file.path}`;
+          }
+        }
+      }
+    }
+    
+    return null;
   }
   
   getDescription(params: FileOperationRequest): string {
@@ -146,74 +172,233 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
   ): Promise<ToolResult> {
     const startTime = Date.now();
     
-    // Initialize response
-    const response: FileOperationResponse = {
-      success: true,
-      results: [],
-      summary: {
-        totalOperations: params.operations.length,
-        successful: 0,
-        failed: 0,
-        duration: 0,
-        filesAffected: []
-      },
-      errors: []
-    };
-    
     try {
-      // TODO: Implement execution engine in next phase
-      updateOutput?.('FileOperations tool execution started...');
+      // Record telemetry
+      const telemetryStartTime = Date.now();
       
-      // Placeholder for now
-      for (const operation of params.operations) {
-        const result: OperationResult = {
-          operationId: operation.id || `op-${params.operations.indexOf(operation)}`,
-          type: operation.type,
-          status: 'success',
-          data: undefined // Will be implemented with actual operation results
+      // Parse and validate request
+      updateOutput?.('Parsing and validating request...');
+      const parsedRequest = await this.requestParser.parseRequest(params);
+      
+      // Initialize response builder
+      const responseBuilder = new ResponseBuilder(this.rootDirectory);
+      const progressCallback = responseBuilder.createProgressCallback(updateOutput);
+      
+      // Create execution context
+      const context = this.executionEngine.createExecutionContext(
+        responseBuilder,
+        signal,
+        progressCallback,
+        parsedRequest.options?.transaction === true
+      );
+      
+      // Determine execution strategy
+      const isParallel = parsedRequest.options?.parallel !== false;
+      const operations = parsedRequest.operations;
+      
+      let results: OperationResult[];
+      
+      if (isParallel && operations.length > 1) {
+        // Use parallel execution engine
+        progressCallback('Executing operations in parallel...');
+        
+        const executionOptions: ExecutionOptions = {
+          abortSignal: signal,
+          progressCallback: (progress) => {
+            progressCallback(`Progress: ${progress.percentComplete}% (${progress.completedOperations}/${progress.totalOperations})`);
+          },
+          continueOnError: !parsedRequest.options?.transaction,
         };
-        response.results.push(result);
-        response.summary.successful++;
+        
+        // Execute operations in parallel batches based on dependencies
+        const plan = new OperationPlanner().createExecutionPlan(operations);
+        results = [];
+        
+        for (const stage of plan.stages) {
+          progressCallback(`Executing stage ${plan.stages.indexOf(stage) + 1}/${plan.stages.length}`);
+          
+          if (stage.canRunInParallel && stage.operations.length > 1) {
+            // Execute operations in parallel
+            const stagePromises = stage.operations.map(op => 
+              this.executionEngine.executeOperation(op, context)
+            );
+            const stageResults = await Promise.all(stagePromises);
+            results.push(...stageResults);
+          } else {
+            // Execute operations sequentially
+            for (const op of stage.operations) {
+              if (signal.aborted) break;
+              const result = await this.executionEngine.executeOperation(op, context);
+              results.push(result);
+              
+              // Stop on error if in transaction mode
+              if (result.status === 'failed' && parsedRequest.options?.transaction) {
+                progressCallback('Stopping execution due to error in transaction mode');
+                break;
+              }
+            }
+          }
+          
+          // Check if we should continue after this stage
+          if (results.some(r => r.status === 'failed') && parsedRequest.options?.transaction) {
+            break;
+          }
+        }
+        
+      } else {
+        // Execute sequentially
+        progressCallback('Executing operations sequentially...');
+        results = [];
+        
+        for (const operation of operations) {
+          if (signal.aborted) {
+            break;
+          }
+          
+          const result = await this.executionEngine.executeOperation(operation, context);
+          results.push(result);
+          
+          // Stop on error if in transaction mode
+          if (result.status === 'failed' && parsedRequest.options?.transaction) {
+            progressCallback('Stopping execution due to error in transaction mode');
+            break;
+          }
+        }
       }
       
-      response.summary.duration = Date.now() - startTime;
+      // Build response
+      const response = this.buildResponse(results, operations, startTime);
+      
+      // Record success metrics
+      const duration = Date.now() - telemetryStartTime;
+      recordToolCallMetrics('file_operations', duration, true);
+      
+      // Build final tool result
+      return responseBuilder.buildToolResult(response, parsedRequest.options);
       
     } catch (error) {
-      response.success = false;
-      response.errors?.push({
-        operationId: 'system',
-        message: error instanceof Error ? error.message : 'Unknown error occurred'
-      });
+      // Record error metrics
+      const duration = Date.now() - startTime;
+      recordToolCallMetrics('file_operations', duration, false);
+      
+      // Build error response
+      const errorResponse: FileOperationResponse = {
+        success: false,
+        results: [],
+        summary: {
+          totalOperations: params.operations.length,
+          successful: 0,
+          failed: params.operations.length,
+          duration,
+          filesAffected: []
+        },
+        errors: [{
+          operationId: 'system',
+          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          code: 'SYSTEM_ERROR'
+        }]
+      };
+      
+      return {
+        llmContent: JSON.stringify(errorResponse, null, 2),
+        returnDisplay: this.formatDisplay(errorResponse)
+      };
+    } finally {
+      // Cleanup resources
+      await this.executionEngine.cleanup();
+    }
+  }
+  
+  
+  /**
+   * Build response from operation results
+   */
+  private buildResponse(
+    results: OperationResult[],
+    operations: Operation[],
+    startTime: number
+  ): FileOperationResponse {
+    let successful = 0;
+    let failed = 0;
+    const filesAffected = new Set<string>();
+    const errors: any[] = [];
+    
+    for (const result of results) {
+      if (result.status === 'success') {
+        successful++;
+        // Extract affected files from result data
+        if (result.data) {
+          const files = this.extractAffectedFiles(result);
+          files.forEach(f => filesAffected.add(f));
+        }
+      } else {
+        failed++;
+        if (result.error) {
+          errors.push({
+            operationId: result.operationId,
+            message: result.error.message,
+            code: result.error.code
+          });
+        }
+      }
     }
     
     return {
-      llmContent: JSON.stringify(response, null, 2),
-      returnDisplay: this.formatDisplay(response)
+      success: failed === 0,
+      results,
+      summary: {
+        totalOperations: operations.length,
+        successful,
+        failed,
+        duration: Date.now() - startTime,
+        filesAffected: Array.from(filesAffected)
+      },
+      errors: errors.length > 0 ? errors : undefined
     };
   }
   
+  /**
+   * Extract affected files from operation result
+   */
+  private extractAffectedFiles(result: OperationResult): string[] {
+    const files: string[] = [];
+    
+    if (!result.data) return files;
+    
+    switch (result.type) {
+      case 'analyze':
+        if ('results' in result.data) {
+          files.push(...Object.keys(result.data.results));
+        }
+        break;
+      case 'edit':
+        if ('details' in result.data) {
+          files.push(...Object.keys(result.data.details));
+        }
+        break;
+      case 'create':
+        if ('paths' in result.data) {
+          files.push(...result.data.paths);
+        }
+        break;
+      case 'delete':
+        if ('paths' in result.data) {
+          files.push(...result.data.paths);
+        }
+        break;
+      case 'validate':
+        if ('fixed' in result.data && result.data.fixed) {
+          files.push(...result.data.fixed);
+        }
+        break;
+    }
+    
+    return files;
+  }
+  
   private formatDisplay(response: FileOperationResponse): string {
-    let display = '## FileOperations Execution Summary\n\n';
-    
-    display += `**Total Operations:** ${response.summary.totalOperations}\n`;
-    display += `**Successful:** ${response.summary.successful}\n`;
-    display += `**Failed:** ${response.summary.failed}\n`;
-    display += `**Duration:** ${response.summary.duration}ms\n\n`;
-    
-    if (response.results.length > 0) {
-      display += '### Results\n\n';
-      for (const result of response.results) {
-        display += `- **${result.operationId}** (${result.type}): ${result.status}\n`;
-      }
-    }
-    
-    if (response.errors && response.errors.length > 0) {
-      display += '\n### Errors\n\n';
-      for (const error of response.errors) {
-        display += `- **${error.operationId}**: ${error.message}\n`;
-      }
-    }
-    
-    return display;
+    // Simple fallback display for error cases where ResponseBuilder wasn't used
+    const status = response.success ? 'Success' : 'Failed';
+    return `FileOperations ${status}: ${response.summary.successful}/${response.summary.totalOperations} operations completed in ${response.summary.duration}ms`;
   }
 }
