@@ -8,16 +8,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ResponseBuilder } from './response-builder.js';
 import {
   FileOperationResponse,
-  OperationResult,
   AnalyzeResult,
   EditResult,
   CreateResult,
   DeleteResult,
   ValidateResult,
   ExtractedData,
-  SearchMatch,
   OperationError,
-  ValidationCheckResult,
 } from './file-operations-types.js';
 import { FileDiff } from '../tools.js';
 

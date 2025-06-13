@@ -17,9 +17,6 @@ import {
   CreateResult,
   DeleteResult,
   ValidateResult,
-  ExtractedData,
-  SearchMatch,
-  ValidationCheckResult,
   OperationError,
   FileOperationOptions,
 } from './file-operations-types.js';
@@ -96,7 +93,7 @@ export class ResponseBuilder {
     response: FileOperationResponse,
     options?: FileOperationOptions,
   ): string {
-    const content: any = {
+    const content: Record<string, unknown> = {
       success: response.success,
       summary: {
         totalOperations: response.summary.totalOperations,
@@ -140,8 +137,8 @@ export class ResponseBuilder {
   private formatOperationResultForLLM(
     result: OperationResult,
     includeRawData: boolean,
-  ): any {
-    const formatted: any = {
+  ): Record<string, unknown> {
+    const formatted: Record<string, unknown> = {
       operationId: result.operationId,
       type: result.type,
       status: result.status,
@@ -168,46 +165,51 @@ export class ResponseBuilder {
   /**
    * Gets a concise summary of operation result data
    */
-  private getOperationSummary(type: string, data: OperationResultData): any {
+  private getOperationSummary(type: string, data: OperationResultData): Record<string, unknown> {
     switch (type) {
-      case 'analyze':
+      case 'analyze': {
         const analyzeData = data as AnalyzeResult;
         return {
           filesAnalyzed: analyzeData.filesAnalyzed,
           matchesFound: analyzeData.matches?.length || 0,
           extractedFiles: analyzeData.extracted ? Object.keys(analyzeData.extracted).length : 0,
         };
+      }
 
-      case 'edit':
+      case 'edit': {
         const editData = data as EditResult;
         return {
           filesEdited: editData.filesEdited,
           totalChanges: Object.values(editData.changes).reduce((sum, count) => sum + count, 0),
           syntaxErrors: editData.syntaxErrors?.length || 0,
         };
+      }
 
-      case 'create':
+      case 'create': {
         const createData = data as CreateResult;
         return {
           filesCreated: createData.filesCreated,
           alreadyExisted: createData.alreadyExisted?.length || 0,
         };
+      }
 
-      case 'delete':
+      case 'delete': {
         const deleteData = data as DeleteResult;
         return {
           filesDeleted: deleteData.filesDeleted,
           notFound: deleteData.notFound?.length || 0,
           directoriesRemoved: deleteData.directoriesRemoved?.length || 0,
         };
+      }
 
-      case 'validate':
+      case 'validate': {
         const validateData = data as ValidateResult;
         return {
           valid: validateData.valid,
           checksPerformed: Object.keys(validateData.checks).length,
           filesFixed: validateData.fixed?.length || 0,
         };
+      }
 
       default:
         return {};
@@ -412,7 +414,7 @@ export class ResponseBuilder {
     const lines: string[] = [];
 
     switch (type) {
-      case 'analyze':
+      case 'analyze': {
         const analyzeData = data as AnalyzeResult;
         lines.push(`- Files analyzed: ${analyzeData.filesAnalyzed}`);
         
@@ -438,8 +440,9 @@ export class ResponseBuilder {
           lines.push(`- Extracted data from ${fileCount} files`);
         }
         break;
+      }
 
-      case 'edit':
+      case 'edit': {
         const editData = data as EditResult;
         lines.push(`- Files edited: ${editData.filesEdited}`);
         
@@ -450,8 +453,9 @@ export class ResponseBuilder {
           lines.push(`- Syntax errors: ${editData.syntaxErrors.length}`);
         }
         break;
+      }
 
-      case 'create':
+      case 'create': {
         const createData = data as CreateResult;
         lines.push(`- Files created: ${createData.filesCreated}`);
         
@@ -459,8 +463,9 @@ export class ResponseBuilder {
           lines.push(`- Already existed: ${createData.alreadyExisted.length}`);
         }
         break;
+      }
 
-      case 'delete':
+      case 'delete': {
         const deleteData = data as DeleteResult;
         lines.push(`- Files deleted: ${deleteData.filesDeleted}`);
         
@@ -472,8 +477,9 @@ export class ResponseBuilder {
           lines.push(`- Directories removed: ${deleteData.directoriesRemoved.length}`);
         }
         break;
+      }
 
-      case 'validate':
+      case 'validate': {
         const validateData = data as ValidateResult;
         lines.push(`- Validation: ${validateData.valid ? 'Passed' : 'Failed'}`);
         lines.push(`- Checks performed: ${Object.keys(validateData.checks).length}`);
@@ -486,6 +492,10 @@ export class ResponseBuilder {
         if (validateData.fixed && validateData.fixed.length > 0) {
           lines.push(`- Files auto-fixed: ${validateData.fixed.length}`);
         }
+        break;
+      }
+
+      default:
         break;
     }
 
@@ -516,6 +526,9 @@ export class ResponseBuilder {
           break;
         case 'deleted':
           grouped.deleted.push(path);
+          break;
+        default:
+          // This should never happen as FileChange type is strictly typed
           break;
       }
     }
