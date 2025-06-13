@@ -28,7 +28,7 @@ describe('Editor', () => {
     astParser = new ASTParserService(cacheManager);
 
     // Create editor
-    editor = new Editor(fileService, cacheManager, astParser);
+    editor = new Editor(fileService, astParser);
 
     // Reset mocks
     vi.clearAllMocks();
@@ -61,7 +61,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.ts']).toBe(1);
@@ -97,7 +97,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.ts']).toBe(3);
@@ -134,7 +134,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.ts']).toBe(2);
@@ -165,10 +165,10 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
-      expect(result.filesEdited).toBe(1);
-      expect(result.changes['/test/file.ts']).toBe(0);
+      expect(result.filesEdited).toBe(0);
+      expect(result.changes).toEqual({});
       expect(fileService.writeFiles).not.toHaveBeenCalled();
     });
   });
@@ -200,7 +200,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.txt']).toBe(1);
@@ -236,7 +236,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.txt']).toBe(1);
@@ -271,7 +271,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.txt']).toBe(1);
@@ -303,10 +303,10 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
-      expect(result.filesEdited).toBe(1);
-      expect(result.changes['/test/file.txt']).toBe(0);
+      expect(result.filesEdited).toBe(0);
+      expect(result.changes).toEqual({});
       expect(fileService.writeFiles).not.toHaveBeenCalled();
     });
   });
@@ -338,7 +338,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.txt']).toBe(1);
@@ -370,10 +370,10 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
-      expect(result.filesEdited).toBe(1);
-      expect(result.changes['/test/file.txt']).toBe(0);
+      expect(result.filesEdited).toBe(0);
+      expect(result.changes).toEqual({});
       expect(fileService.writeFiles).not.toHaveBeenCalled();
     });
   });
@@ -413,7 +413,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.ts']).toBe(3); // 2 replacements + 1 insert
@@ -450,7 +450,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/newfile.ts']).toBe(1);
@@ -481,7 +481,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(0);
       expect(result.changes).toEqual({});
@@ -525,7 +525,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation, { validateSyntax: true });
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.syntaxErrors).toBeUndefined();
@@ -567,7 +567,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation, { validateSyntax: true });
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       expect(result.syntaxErrors).toEqual(['/test/file.ts']);
@@ -597,7 +597,9 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation, { dryRun: true });
+      editor = new Editor(fileService, astParser);
+      const editOptions = { dryRun: true };
+      const result = await editor.editOperation(operation, editOptions);
 
       expect(result.filesEdited).toBe(1);
       expect(result.changes['/test/file.ts']).toBe(1);
@@ -676,7 +678,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(0);
       expect(result.changes).toEqual({});
@@ -700,7 +702,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation);
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(0);
       expect(result.changes).toEqual({});
@@ -735,7 +737,7 @@ describe('Editor', () => {
         }]
       };
 
-      const result = await editor.edit(operation, { preserveFormatting: true });
+      const result = await editor.editOperation(operation);
 
       expect(result.filesEdited).toBe(1);
       

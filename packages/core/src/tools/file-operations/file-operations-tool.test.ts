@@ -93,7 +93,7 @@ describe('FileOperationsTool Integration Tests', () => {
       const abortController = new AbortController();
       const result = await tool.execute(request, abortController.signal);
 
-      const response = JSON.parse(result.llmContent);
+      const response = JSON.parse(result.llmContent as string);
       expect(response.success).toBe(true);
       expect(response.summary.successful).toBe(1);
       expect(response.results[0].status).toBe('success');
@@ -202,7 +202,7 @@ describe('FileOperationsTool Integration Tests', () => {
       const abortController = new AbortController();
       const result = await tool.execute(request, abortController.signal);
 
-      const response = JSON.parse(result.llmContent);
+      const response = JSON.parse(result.llmContent as string);
       expect(response.success).toBe(true);
       expect(response.summary.successful).toBe(3);
 
@@ -250,7 +250,7 @@ describe('FileOperationsTool Integration Tests', () => {
       const abortController = new AbortController();
       const result = await tool.execute(request, abortController.signal);
 
-      const response = JSON.parse(result.llmContent);
+      const response = JSON.parse(result.llmContent as string);
       expect(response.success).toBe(true);
       expect(response.summary.successful).toBe(3);
 
@@ -287,7 +287,7 @@ describe('FileOperationsTool Integration Tests', () => {
       const abortController = new AbortController();
       const result = await tool.execute(request, abortController.signal);
 
-      const response = JSON.parse(result.llmContent);
+      const response = JSON.parse(result.llmContent as string);
       expect(response.success).toBe(false);
       expect(response.summary.failed).toBe(1);
       expect(response.results[0].status).toBe('failed');
@@ -339,7 +339,7 @@ describe('FileOperationsTool Integration Tests', () => {
       const abortController = new AbortController();
       const result = await tool.execute(request, abortController.signal);
 
-      const response = JSON.parse(result.llmContent);
+      const response = JSON.parse(result.llmContent as string);
       expect(response.success).toBe(false);
       expect(response.summary.successful).toBe(1);
       expect(response.summary.failed).toBe(1);
@@ -383,7 +383,7 @@ describe('FileOperationsTool Integration Tests', () => {
 
       const result = await tool.execute(request, abortController.signal);
 
-      const response = JSON.parse(result.llmContent);
+      const response = JSON.parse(result.llmContent as string);
       // Should have at least one cancelled operation
       expect(response.results.some((r: any) => r.status === 'cancelled')).toBe(true);
     });
@@ -470,7 +470,7 @@ describe('FileOperationsTool Integration Tests', () => {
 
     it('should require confirmation for modifying operations in normal mode', async () => {
       // Override config to return normal mode
-      config.getApprovalMode = () => ApprovalMode.NORMAL;
+      config.getApprovalMode = () => ApprovalMode.DEFAULT;
 
       const request: FileOperationRequest = {
         operations: [

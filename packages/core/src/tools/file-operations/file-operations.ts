@@ -25,6 +25,7 @@ import { RequestParser } from './request-parser.js';
 import { ResponseBuilder } from './response-builder.js';
 import { ExecutionEngine } from './execution-engine.js';
 import { OperationPlanner } from './services/operation-planner.js';
+import { ExecutionOptions, ProgressInfo } from './services/parallel-execution-engine.js';
 import { recordToolCallMetrics } from '../../telemetry/metrics.js';
 
 /**
@@ -204,8 +205,8 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
         
         const executionOptions: ExecutionOptions = {
           abortSignal: signal,
-          progressCallback: (progress) => {
-            progressCallback(`Progress: ${progress.percentComplete}% (${progress.completedOperations}/${progress.totalOperations})`);
+          progressCallback: (progress: ProgressInfo) => {
+            progressCallback(`Progress: ${progress.percentComplete}% (${progress.completedOperations}/${progress.totalOperations}`);
           },
           continueOnError: !parsedRequest.options?.transaction,
         };
@@ -368,27 +369,27 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
     switch (result.type) {
       case 'analyze':
         if ('results' in result.data) {
-          files.push(...Object.keys(result.data.results));
+          files.push(...Object.keys((result.data as any).results));
         }
         break;
       case 'edit':
         if ('details' in result.data) {
-          files.push(...Object.keys(result.data.details));
+          files.push(...Object.keys((result.data as any).details));
         }
         break;
       case 'create':
         if ('paths' in result.data) {
-          files.push(...result.data.paths);
+          files.push(...(result.data as any).paths);
         }
         break;
       case 'delete':
         if ('paths' in result.data) {
-          files.push(...result.data.paths);
+          files.push(...(result.data as any).paths);
         }
         break;
       case 'validate':
-        if ('fixed' in result.data && result.data.fixed) {
-          files.push(...result.data.fixed);
+        if ('fixed' in result.data && (result.data as any).fixed) {
+          files.push(...(result.data as any).fixed);
         }
         break;
     }

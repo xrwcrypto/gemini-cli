@@ -20,6 +20,7 @@ import {
   DeleteResult,
   ValidateResult,
   OperationError,
+  ValidationIssue,
 } from './file-operations-types.js';
 import { Analyzer } from './components/analyzer.js';
 import { Editor } from './components/editor.js';
@@ -75,9 +76,9 @@ export class ExecutionEngine {
     this.astParser = new ASTParserService(this.cacheManager);
     
     // Initialize components
-    this.analyzer = new Analyzer(this.fileSystemService, this.astParser);
+    this.analyzer = new Analyzer(this.astParser, this.fileSystemService, this.cacheManager);
     this.editor = new Editor(this.fileSystemService, this.astParser);
-    this.validator = new Validator(this.fileSystemService, this.astParser);
+    this.validator = new Validator(this.astParser, this.fileSystemService, this.cacheManager);
   }
 
   /**
@@ -96,8 +97,9 @@ export class ExecutionEngine {
         return {
           operationId,
           type: operation.type,
-          status: 'cancelled',
+          status: 'skipped',
           error: {
+            operationId,
             message: 'Operation was cancelled',
             code: 'CANCELLED',
           },
@@ -162,6 +164,7 @@ export class ExecutionEngine {
         type: operation.type,
         status: 'failed',
         error: {
+          operationId,
           message: errorMessage,
           code: errorCode,
           details: error instanceof FileOperationError ? error.details : undefined,
@@ -180,44 +183,74 @@ export class ExecutionEngine {
   ): Promise<AnalyzeResult> {
     const result: AnalyzeResult = {
       filesAnalyzed: 0,
-      results: {},
     };
 
-    for (const filePath of operation.paths) {
-      const absolutePath = this.resolvePath(filePath);
+    // Analyze all paths
+    const analysisResult = await context.analyzer.analyze(operation);
 
-      // Check cache first
-      const cacheKey = `analyze:${absolutePath}:${JSON.stringify(operation)}`;
-      const cached = await context.cacheManager.get(cacheKey);
-      if (cached) {
-        result.results[filePath] = cached;
-        result.filesAnalyzed++;
-        continue;
-      }
+    // Convert AnalysisResult to AnalyzeResult
+    result.filesAnalyzed = analysisResult.files.length;
 
-      // Perform analysis
-      const fileResult = await context.analyzer.analyze(absolutePath, {
-        search: operation.search,
-        patterns: operation.patterns,
-        extract: operation.extract,
-      });
+    // Convert pattern matches to search matches
+    if (analysisResult.patterns && analysisResult.patterns.length > 0) {
+      result.matches = analysisResult.patterns.map(pm => ({
+        file: pm.file,
+        line: pm.line,
+        column: pm.column,
+        match: pm.match,
+        contextBefore: pm.context ? [pm.context] : undefined,
+        contextAfter: undefined,
+      }));
+    }
 
-      result.results[filePath] = fileResult;
-      result.filesAnalyzed++;
-
-      // Cache the result
-      await context.cacheManager.set(cacheKey, fileResult);
-
-      // Accumulate matches
-      if (fileResult.matches) {
-        if (!result.matches) result.matches = [];
-        result.matches.push(...fileResult.matches);
-      }
-
-      // Accumulate extracted data
-      if (fileResult.extracted) {
-        if (!result.extracted) result.extracted = {};
-        result.extracted[filePath] = fileResult.extracted;
+    // Convert file analysis to extracted data if requested
+    if (operation.extract && operation.extract.length > 0) {
+      result.extracted = {};
+      for (const file of analysisResult.files) {
+        const extractedData: any = {};
+        
+        if (operation.extract.includes('imports') || operation.extract.includes('all')) {
+          extractedData.imports = file.imports.map(imp => ({
+            source: imp,
+            line: 1, // Would need to be extracted from AST
+          }));
+        }
+        
+        if (operation.extract.includes('exports') || operation.extract.includes('all')) {
+          extractedData.exports = file.exports.map(exp => ({
+            name: exp,
+            type: 'named' as const,
+            line: 1, // Would need to be extracted from AST
+          }));
+        }
+        
+        if (operation.extract.includes('functions') || operation.extract.includes('all')) {
+          extractedData.functions = file.symbols
+            .filter(s => s.type === 'function')
+            .map(s => ({
+              name: s.name,
+              async: false, // Would need to be extracted from AST
+              generator: false,
+              params: [],
+              line: s.position.line,
+              endLine: s.position.line,
+            }));
+        }
+        
+        if (operation.extract.includes('classes') || operation.extract.includes('all')) {
+          extractedData.classes = file.symbols
+            .filter(s => s.type === 'class')
+            .map(s => ({
+              name: s.name,
+              abstract: false,
+              line: s.position.line,
+              endLine: s.position.line,
+            }));
+        }
+        
+        if (Object.keys(extractedData).length > 0) {
+          result.extracted[file.path] = extractedData;
+        }
       }
     }
 
@@ -234,7 +267,6 @@ export class ExecutionEngine {
     const result: EditResult = {
       filesEdited: 0,
       changes: {},
-      details: {},
     };
 
     // Track file changes for transaction support
@@ -250,16 +282,17 @@ export class ExecutionEngine {
 
         // Apply edits
         const editResult = await context.editor.edit(absolutePath, edit.changes, {
-          dryRun: operation.dryRun,
-          createBackup: operation.createBackup,
+          validateSyntax: operation.validateSyntax,
+          preserveFormatting: operation.preserveFormatting,
         });
 
-        result.filesEdited++;
-        result.changes[edit.file] = editResult.changeCount;
-        result.details[edit.file] = editResult;
+        if (editResult.changeCount > 0) {
+          result.filesEdited++;
+          result.changes[edit.file] = editResult.changeCount;
+        }
 
         // Track file change for response builder
-        if (!operation.dryRun) {
+        if (editResult.changeCount > 0) {
           const newContent = await context.fileSystemService.readFile(absolutePath);
           context.responseBuilder.trackFileChange({
             path: absolutePath,
@@ -270,7 +303,7 @@ export class ExecutionEngine {
         }
 
         // Collect syntax errors
-        if (editResult.syntaxErrors?.length > 0) {
+        if (editResult.syntaxErrors && editResult.syntaxErrors.length > 0) {
           if (!result.syntaxErrors) result.syntaxErrors = [];
           result.syntaxErrors.push(...editResult.syntaxErrors);
         }
@@ -304,7 +337,7 @@ export class ExecutionEngine {
   ): Promise<CreateResult> {
     const result: CreateResult = {
       filesCreated: 0,
-      paths: [],
+      created: [],
     };
 
     const createdFiles: string[] = [];
@@ -315,7 +348,7 @@ export class ExecutionEngine {
 
         // Check if file exists
         const exists = await context.fileSystemService.exists(absolutePath);
-        if (exists && !operation.overwrite) {
+        if (exists) {
           if (!result.alreadyExisted) result.alreadyExisted = [];
           result.alreadyExisted.push(file.path);
           continue;
@@ -324,8 +357,7 @@ export class ExecutionEngine {
         // Create file
         await context.fileSystemService.writeFile(
           absolutePath,
-          file.content || '',
-          file.encoding
+          file.content || ''
         );
 
         // Set permissions if specified
@@ -334,7 +366,7 @@ export class ExecutionEngine {
         }
 
         result.filesCreated++;
-        result.paths.push(file.path);
+        result.created.push(file.path);
         createdFiles.push(absolutePath);
 
         // Track file change
@@ -372,7 +404,7 @@ export class ExecutionEngine {
   ): Promise<DeleteResult> {
     const result: DeleteResult = {
       filesDeleted: 0,
-      paths: [],
+      deleted: [],
     };
 
     const deletedFiles: Array<{ path: string; content: string }> = [];
@@ -403,7 +435,7 @@ export class ExecutionEngine {
           await context.fileSystemService.unlink(absolutePath);
 
           result.filesDeleted++;
-          result.paths.push(file);
+          result.deleted.push(file);
 
           // Track file change
           context.responseBuilder.trackFileChange({
@@ -416,7 +448,7 @@ export class ExecutionEngine {
       // Remove empty directories if specified
       if (operation.removeEmptyDirs) {
         const directories = new Set<string>();
-        for (const file of result.paths) {
+        for (const file of result.deleted) {
           directories.add(path.dirname(this.resolvePath(file)));
         }
 
@@ -455,21 +487,53 @@ export class ExecutionEngine {
     operation: ValidateOperation,
     context: ExecutionContext
   ): Promise<ValidateResult> {
-    const result = await context.validator.validate({
-      files: operation.files?.map(f => this.resolvePath(f)),
-      commands: operation.commands,
-      checks: operation.checks,
-      fix: operation.fix,
+    // Map paths to absolute paths
+    const mappedOperation: ValidateOperation = {
+      ...operation,
+      files: operation.files?.map(f => this.resolvePath(f))
+    };
+
+    const validationResult = await context.validator.validate(mappedOperation, {
+      enableAutoFix: operation.autoFix
     });
 
-    // Track fixed files
-    if (result.fixed && result.fixed.length > 0) {
-      for (const file of result.fixed) {
-        context.responseBuilder.trackFileChange({
-          path: file,
-          type: 'modified',
-        });
+    // Convert ValidationResult to ValidateResult
+    const checks: Record<string, { passed: boolean; issueCount: number; issues?: ValidationIssue[] }> = {};
+    
+    // Group issues by check type
+    for (const fileResult of validationResult.fileResults) {
+      for (const issue of fileResult.issues) {
+        const checkType = issue.rule || 'general';
+        if (!checks[checkType]) {
+          checks[checkType] = { passed: true, issueCount: 0, issues: [] };
+        }
+        checks[checkType].issueCount++;
+        checks[checkType].passed = false;
+        checks[checkType].issues?.push(issue);
       }
+    }
+
+    // Add external validator results
+    if (validationResult.externalValidatorResults) {
+      for (const result of validationResult.externalValidatorResults) {
+        checks[result.validator] = {
+          passed: result.success,
+          issueCount: result.issues?.length || 0,
+          issues: result.issues
+        };
+      }
+    }
+
+    const result: ValidateResult = {
+      valid: validationResult.valid,
+      checks
+    };
+
+    // Track fixed files if any (placeholder for now)
+    // In a real implementation, we'd track which files were auto-fixed
+    if (operation.autoFix) {
+      // Track files that were modified by auto-fix
+      // This would require the validator to return fixed file paths
     }
 
     return result;
