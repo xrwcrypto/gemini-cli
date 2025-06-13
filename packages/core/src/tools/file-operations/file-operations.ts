@@ -174,12 +174,24 @@ export class FileOperationsTool extends BaseTool<FileOperationRequest, ToolResul
     const startTime = Date.now();
     
     try {
+      // Debug: Log what we received
+      console.log('[FileOperations] Raw params received:', JSON.stringify(params, null, 2));
+      
       // Record telemetry
       const telemetryStartTime = Date.now();
       
       // Parse and validate request
       updateOutput?.('Parsing and validating request...');
-      const parsedRequest = await this.requestParser.parseRequest(params);
+      console.log('[FileOperations] About to parse request...');
+      
+      let parsedRequest;
+      try {
+        parsedRequest = await this.requestParser.parseRequest(params);
+        console.log('[FileOperations] Successfully parsed request:', JSON.stringify(parsedRequest, null, 2));
+      } catch (parseError) {
+        console.error('[FileOperations] Parse error:', parseError);
+        throw parseError;
+      }
       
       // Initialize response builder
       const responseBuilder = new ResponseBuilder(this.rootDirectory);

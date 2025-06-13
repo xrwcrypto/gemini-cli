@@ -213,6 +213,13 @@ export class ExecutionEngine {
       filesAnalyzed: 0,
     };
 
+    // Ensure operation has paths array
+    if (!operation.paths || !Array.isArray(operation.paths)) {
+      // Handle legacy format where AI sends { type: "analyze", path: "..." }
+      const legacyOp = operation as any;
+      operation.paths = [legacyOp.path || legacyOp.file_path || '**/*'];
+    }
+
     // Record access patterns for predictive caching
     operation.paths.forEach(filePath => {
       context.cacheManager.recordAccess(filePath, 'analyze', operation.id);
@@ -302,6 +309,16 @@ export class ExecutionEngine {
       changes: {},
     };
 
+    // Ensure operation has edits array
+    if (!operation.edits || !Array.isArray(operation.edits)) {
+      // Handle legacy format where AI sends { type: "edit", file: "...", changes: [...] }
+      const legacyOp = operation as any;
+      operation.edits = [{
+        file: legacyOp.file || legacyOp.file_path || legacyOp.path || 'edited-file.txt',
+        changes: legacyOp.changes || [],
+      }];
+    }
+
     // Record access patterns for predictive caching
     operation.edits.forEach(edit => {
       context.cacheManager.recordAccess(edit.file, 'edit', operation.id);
@@ -380,6 +397,19 @@ export class ExecutionEngine {
       created: [],
     };
 
+    // Ensure operation has files array
+    if (!operation.files || !Array.isArray(operation.files)) {
+      // Handle legacy format where AI sends { type: "create", content: "...", path: "..." }
+      const legacyOp = operation as any;
+      operation.files = [{
+        path: legacyOp.path || legacyOp.file_path || 'created-file.txt',
+        content: legacyOp.content || '',
+        template: legacyOp.template,
+        templateVars: legacyOp.templateVars,
+        mode: legacyOp.mode,
+      }];
+    }
+
     // Record access patterns for predictive caching
     operation.files.forEach(file => {
       context.cacheManager.recordAccess(file.path, 'create', operation.id);
@@ -451,6 +481,13 @@ export class ExecutionEngine {
       filesDeleted: 0,
       deleted: [],
     };
+
+    // Ensure operation has paths array
+    if (!operation.paths || !Array.isArray(operation.paths)) {
+      // Handle legacy format where AI sends { type: "delete", path: "..." }
+      const legacyOp = operation as any;
+      operation.paths = [legacyOp.path || legacyOp.file_path || ''];
+    }
 
     // Record access patterns for predictive caching
     operation.paths.forEach(filePath => {
@@ -537,7 +574,14 @@ export class ExecutionEngine {
     operation: ValidateOperation,
     context: ExecutionContext
   ): Promise<ValidateResult> {
-    // Record access patterns for predictive caching
+    // Ensure operation has files or commands array
+    if (!operation.commands || !Array.isArray(operation.commands)) {
+      // Handle legacy format where AI sends { type: "validate", command: "..." }
+      const legacyOp = operation as any;
+      operation.commands = [legacyOp.command || 'echo "No validation command specified"'];
+    }
+
+    // Record access patterns for predictive caching (files is optional for validate)
     operation.files?.forEach((filePath: string) => {
       context.cacheManager.recordAccess(filePath, 'validate', operation.id);
     });

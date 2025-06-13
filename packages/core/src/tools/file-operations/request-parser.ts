@@ -28,6 +28,9 @@ export class RequestParser {
    * Parse and validate a FileOperation request
    */
   async parseRequest(params: any): Promise<FileOperationRequest> {
+    // Debug logging
+    console.log('[RequestParser] Received params:', JSON.stringify(params, null, 2));
+
     // Basic validation
     if (!params || typeof params !== 'object') {
       throw new Error('Invalid request parameters');
@@ -54,6 +57,7 @@ export class RequestParser {
 
       // Transform AI's format to our expected format
       const transformedOp = this.transformOperation(op, index);
+      console.log(`[RequestParser] Transformed operation ${index}:`, JSON.stringify(transformedOp, null, 2));
 
       return transformedOp as Operation;
     });
