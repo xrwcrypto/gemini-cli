@@ -52,6 +52,7 @@ interface CliArgs {
   telemetryTarget: string | undefined;
   telemetryOtlpEndpoint: string | undefined;
   telemetryLogPrompts: boolean | undefined;
+  ideMode: boolean | undefined;
 }
 
 async function parseArguments(): Promise<CliArgs> {
@@ -122,6 +123,10 @@ async function parseArguments(): Promise<CliArgs> {
       type: 'boolean',
       description: 'Enables checkpointing of file edits',
       default: false,
+    })
+    .option('ide-mode', {
+      type: 'boolean',
+      description: 'Run in IDE mode',
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
@@ -234,6 +239,7 @@ export async function loadCliConfig(
     cwd: process.cwd(),
     fileDiscoveryService: fileService,
     bugCommand: settings.bugCommand,
+    ideMode: argv.ideMode ?? settings.ideMode,
   });
 }
 
