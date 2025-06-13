@@ -77,6 +77,134 @@ Your PR should have a clear, descriptive title and a detailed description of the
 
 In the PR description, explain the "why" behind your changes and link to the relevant issue (e.g., `Fixes #123`).
 
+## FileOperations Tool Development
+
+The FileOperations mega tool is a core feature of Gemini CLI that provides unified file manipulation capabilities. When working on FileOperations or related functionality, please follow these guidelines:
+
+### FileOperations Development Guidelines
+
+#### Architecture Overview
+The FileOperations tool is located in `packages/core/src/tools/file-operations/` and follows a modular architecture:
+- **Core Tool**: `file-operations-tool.ts` - Main tool implementation extending BaseTool
+- **Components**: `components/` - Analyzer, Editor, and Validator components
+- **Services**: `services/` - Core services for file system, AST parsing, caching, etc.
+- **Plugins**: `plugins/` - Language-specific plugins for TypeScript, Python, Go, etc.
+- **Migration**: `migration/` - Legacy tool compatibility and migration utilities
+
+#### Code Organization Patterns
+Follow these established patterns when contributing to FileOperations:
+
+1. **Service Pattern**: All services should implement proper initialization, cleanup, and error handling
+2. **Component Pattern**: Components should be stateless and take dependencies via constructor injection
+3. **Plugin Pattern**: Language plugins should extend `BaseLanguagePlugin` and follow the established interface
+4. **Test Pattern**: Each module should have comprehensive tests using Vitest with proper mocking
+
+#### Testing Requirements
+FileOperations has specific testing requirements:
+
+```bash
+# Run FileOperations-specific tests
+npm test -- file-operations
+
+# Run with coverage
+npm run test:ci -- file-operations
+
+# Test specific components
+npm test -- file-operations/components
+npm test -- file-operations/services
+npm test -- file-operations/plugins
+```
+
+**Test Coverage Requirements:**
+- Minimum 80% coverage for all FileOperations modules
+- Integration tests for end-to-end workflows
+- Performance tests for large file operations
+- Security tests for path validation and input sanitization
+
+#### Plugin Development Guide
+
+To create a new language plugin for FileOperations:
+
+1. **Create Plugin File**: `packages/core/src/tools/file-operations/plugins/your-language-plugin.ts`
+2. **Extend Base Class**: Implement `BaseLanguagePlugin` interface
+3. **Add Language Detection**: Update `language-detection.ts` with file patterns
+4. **Register Plugin**: Add to `plugin-loader.ts` default plugins
+5. **Write Tests**: Create comprehensive test suite following existing patterns
+
+**Plugin Template:**
+```typescript
+import { BaseLanguagePlugin } from './base-plugin.js';
+import type { LanguagePluginInfo, ParseResult, Symbol } from './types.js';
+
+export class YourLanguagePlugin extends BaseLanguagePlugin {
+  getInfo(): LanguagePluginInfo {
+    return {
+      name: 'your-language',
+      version: '1.0.0',
+      extensions: ['.ext'],
+      description: 'Support for Your Language'
+    };
+  }
+
+  async parseFile(content: string, filePath: string): Promise<ParseResult> {
+    // Implement parsing logic
+  }
+
+  async searchSymbols(content: string, query: any): Promise<Symbol[]> {
+    // Implement symbol search
+  }
+}
+```
+
+#### Code Style and Patterns
+
+**Error Handling:**
+```typescript
+// Use FileOperations error types
+import { FileOperationError, ValidationError } from '../file-operations-errors.js';
+
+// Wrap with context
+throw new FileOperationError(`Failed to process file: ${error.message}`, { cause: error });
+```
+
+**Async Patterns:**
+```typescript
+// Use AbortSignal for cancellation
+async executeOperation(params: any, signal: AbortSignal): Promise<Result> {
+  signal.throwIfAborted();
+  
+  const result = await someAsyncOperation(params);
+  
+  signal.throwIfAborted();
+  return result;
+}
+```
+
+**Path Handling:**
+```typescript
+// Always use path utilities
+import { isWithinRoot, normalizePath } from '../../utils/fileUtils.js';
+
+// Validate paths
+if (!isWithinRoot(filePath, rootDirectory)) {
+  throw new ValidationError('Path outside allowed directory');
+}
+```
+
+#### Performance Considerations
+
+1. **Caching**: Use the CacheManager service for expensive operations
+2. **Parallel Processing**: Leverage ParallelExecutionEngine for independent operations
+3. **Memory Management**: Monitor memory usage with ResourceMonitor
+4. **Large Files**: Use streaming when possible for files > 10MB
+
+#### Security Guidelines
+
+1. **Path Validation**: Always validate file paths using SecurityService
+2. **Input Sanitization**: Sanitize regex patterns and user inputs
+3. **Resource Limits**: Respect memory and time limits
+4. **Sandboxing**: Use SandboxService for executing untrusted code
+
 ## Development Setup and Workflow
 
 This section guides contributors on how to build, modify, and understand the development setup of this project.
