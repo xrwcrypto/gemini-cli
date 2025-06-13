@@ -63,7 +63,7 @@ export class ExecutionEngine {
   private readonly editor: Editor;
   private readonly validator: Validator;
 
-  constructor(rootDirectory: string) {
+  constructor(rootDirectory: string, enablePredictiveCache: boolean = true) {
     this.rootDirectory = rootDirectory;
     
     // Initialize services
@@ -71,7 +71,34 @@ export class ExecutionEngine {
     this.cacheManager = new CacheManager(this.fileSystemService, {
       maxSizeBytes: 100 * 1024 * 1024, // 100MB
       maxEntries: 1000,
-      ttlMs: 15 * 60 * 1000, // 15 minutes
+      ttlMs: 15 * 60 * 1000, // 15 minutes,
+      predictiveCache: enablePredictiveCache ? {
+        enabled: true,
+        maxPredictions: 5,
+        predictionThreshold: 0.6,
+        backgroundLoadingConcurrency: 2,
+        patternWindowMs: 1000 * 60 * 60 * 24, // 24 hours
+        warmingStrategies: [
+          {
+            name: 'startup',
+            priority: 10,
+            enabled: true,
+            trigger: 'startup',
+            maxFiles: 10,
+            patterns: ['**/*.ts', '**/*.js', '**/*.json']
+          },
+          {
+            name: 'pattern',
+            priority: 5,
+            enabled: true,
+            trigger: 'pattern',
+            maxFiles: 5,
+            patterns: ['**/*']
+          }
+        ],
+        modelUpdateInterval: 1000 * 60 * 10, // 10 minutes
+        enableOnlineLearning: true
+      } : undefined
     });
     this.astParser = new ASTParserService(this.cacheManager);
     
@@ -185,6 +212,11 @@ export class ExecutionEngine {
       filesAnalyzed: 0,
     };
 
+    // Record access patterns for predictive caching
+    operation.paths.forEach(filePath => {
+      context.cacheManager.recordAccess(filePath, 'analyze', operation.id);
+    });
+
     // Analyze all paths
     const analysisResult = await context.analyzer.analyze(operation);
 
@@ -269,6 +301,11 @@ export class ExecutionEngine {
       changes: {},
     };
 
+    // Record access patterns for predictive caching
+    operation.edits.forEach(edit => {
+      context.cacheManager.recordAccess(edit.file, 'edit', operation.id);
+    });
+
     // Track file changes for transaction support
     const modifiedFiles: string[] = [];
 
@@ -340,6 +377,11 @@ export class ExecutionEngine {
       created: [],
     };
 
+    // Record access patterns for predictive caching
+    operation.files.forEach(file => {
+      context.cacheManager.recordAccess(file.path, 'create', operation.id);
+    });
+
     const createdFiles: string[] = [];
 
     try {
@@ -406,6 +448,11 @@ export class ExecutionEngine {
       filesDeleted: 0,
       deleted: [],
     };
+
+    // Record access patterns for predictive caching
+    operation.paths.forEach(filePath => {
+      context.cacheManager.recordAccess(filePath, 'delete', operation.id);
+    });
 
     const deletedFiles: Array<{ path: string; content: string }> = [];
 
@@ -487,6 +534,11 @@ export class ExecutionEngine {
     operation: ValidateOperation,
     context: ExecutionContext
   ): Promise<ValidateResult> {
+    // Record access patterns for predictive caching
+    operation.files?.forEach((filePath: string) => {
+      context.cacheManager.recordAccess(filePath, 'validate', operation.id);
+    });
+
     // Map paths to absolute paths
     const mappedOperation: ValidateOperation = {
       ...operation,

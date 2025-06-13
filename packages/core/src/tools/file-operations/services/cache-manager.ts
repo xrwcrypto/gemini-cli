@@ -7,6 +7,8 @@
 import { LruCache } from '../../../utils/LruCache.js';
 import { FileSystemService } from './file-system-service.js';
 import { ProcessedFileReadResult } from '../../../utils/fileUtils.js';
+import { PredictiveCache, DEFAULT_PREDICTIVE_CACHE_CONFIG, type PredictiveCacheConfig } from './predictive-cache.js';
+import { ASTParserService } from './ast-parser.js';
 import * as crypto from 'crypto';
 import * as path from 'path';
 
@@ -48,20 +50,23 @@ export interface CacheConfig {
   maxEntries: number;
   ttlMs?: number;
   enableWatching?: boolean;
+  predictiveCache?: PredictiveCacheConfig;
 }
 
 /**
  * Cache manager for file operations
  * Provides LRU caching with file watching and memory management
+ * Enhanced with predictive caching capabilities
  */
 export class CacheManager {
   private readonly cache: LruCache<string, CacheEntry>;
   private readonly fileService: FileSystemService;
-  private readonly config: Required<CacheConfig>;
+  private readonly config: Required<Omit<CacheConfig, 'predictiveCache'>> & { predictiveCache?: PredictiveCacheConfig };
   private currentSizeBytes: number = 0;
   private stats: CacheStats;
   private watchedFiles: Set<string> = new Set();
   private sessionId: string;
+  private predictiveCache?: PredictiveCache;
   
   constructor(
     fileService: FileSystemService,
@@ -72,7 +77,8 @@ export class CacheManager {
       maxSizeBytes: config.maxSizeBytes,
       maxEntries: config.maxEntries,
       ttlMs: config.ttlMs ?? 0,
-      enableWatching: config.enableWatching ?? true
+      enableWatching: config.enableWatching ?? true,
+      predictiveCache: config.predictiveCache
     };
     
     this.cache = new LruCache<string, CacheEntry>(config.maxEntries);
@@ -86,12 +92,24 @@ export class CacheManager {
     
     // Generate session ID for cache lifecycle
     this.sessionId = crypto.randomBytes(8).toString('hex');
+    
+    // Initialize predictive cache if enabled
+    if (config.predictiveCache?.enabled) {
+      const predictiveConfig = { ...DEFAULT_PREDICTIVE_CACHE_CONFIG, ...config.predictiveCache };
+      const astParser = new ASTParserService(this);
+      this.predictiveCache = new PredictiveCache(fileService, this, predictiveConfig, undefined, astParser);
+    }
   }
 
   /**
    * Get file content from cache or load it
+   * Enhanced with predictive caching
    */
   async get(filePath: string): Promise<ProcessedFileReadResult> {
+    // Use predictive cache if available
+    if (this.predictiveCache) {
+      return await this.predictiveCache.getWithPrediction(filePath);
+    }
     const normalizedPath = path.normalize(filePath);
     const internalCache = (this.cache as unknown as { cache: Map<string, CacheEntry> }).cache;
     const entry = internalCache.get(normalizedPath);
@@ -275,6 +293,78 @@ export class CacheManager {
   }
 
   /**
+   * Record file access for predictive analysis
+   */
+  recordAccess(filePath: string, operation: string, context?: string): void {
+    if (this.predictiveCache) {
+      this.predictiveCache.recordAccess(filePath, operation, context);
+    }
+  }
+
+  /**
+   * Get predictive cache metrics
+   */
+  getPredictiveMetrics() {
+    return this.predictiveCache?.getMetrics();
+  }
+
+  /**
+   * Warm cache using predictive strategies
+   */
+  async warmCache(strategy?: string): Promise<number> {
+    if (this.predictiveCache) {
+      return await this.predictiveCache.warmCache(strategy);
+    }
+    return 0;
+  }
+
+  /**
+   * Train the prediction model
+   */
+  async trainPredictionModel(): Promise<void> {
+    if (this.predictiveCache) {
+      await this.predictiveCache.trainModel();
+    }
+  }
+
+  /**
+   * Get predicted next files
+   */
+  async getPredictedFiles(currentFile?: string, limit?: number) {
+    if (this.predictiveCache) {
+      return await this.predictiveCache.predictNextFiles(currentFile, limit);
+    }
+    return [];
+  }
+
+  /**
+   * Get feature importance from prediction model
+   */
+  getFeatureImportance(): Map<string, number> | undefined {
+    return this.predictiveCache?.getFeatureImportance();
+  }
+
+  /**
+   * Analyze workspace dependencies
+   */
+  async analyzeWorkspace(workspaceRoot?: string) {
+    if (this.predictiveCache) {
+      return await this.predictiveCache.analyzeWorkspace(workspaceRoot);
+    }
+    return null;
+  }
+
+  /**
+   * Get dependency-based predictions
+   */
+  async getDependencyPredictions(currentFile: string, limit?: number) {
+    if (this.predictiveCache) {
+      return await this.predictiveCache.getPredictionsBasedOnDependencies(currentFile, limit);
+    }
+    return [];
+  }
+
+  /**
    * Handle memory pressure
    */
   handleMemoryPressure(targetReduction: number): number {
@@ -301,6 +391,9 @@ export class CacheManager {
    */
   destroy(): void {
     this.clear();
+    if (this.predictiveCache) {
+      this.predictiveCache.destroy();
+    }
   }
 
   /**
