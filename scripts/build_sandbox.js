@@ -108,8 +108,8 @@ function buildImage(imageName, dockerfile) {
     sandboxCommand === 'podman'
       ? `${sandboxCommand} build --authfile=<(echo '{}')`
       : `${sandboxCommand} ${
-          existsSync('.docker') ? '--config=".docker"' : ''
-                } buildx build`;
+          existsSync('.docker') ? '--config=".docker" buildx' : ''
+                } build`;
                 
   execSync(
     `${buildCommand} ${process.env.BUILD_SANDBOX_FLAGS || ''} -f "${dockerfile}" -t "${imageName}" .`,

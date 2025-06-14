@@ -44,5 +44,8 @@ RUN npm install -g /usr/local/share/npm-global/gemini-cli-cli.tgz /usr/local/sha
   && npm cache clean --force \
   && rm -f /usr/local/share/npm-global/gemini-cli-{cli,core}.tgz
 
+COPY esbuild.config.js .
+RUN npm install -g $(sed -n "/external: \[/,/\]/p" esbuild.config.js | sed '1d;$d' | tr -d "' ," | xargs)
+
 # default entrypoint when none specified
 CMD ["gemini"]
