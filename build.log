@@ -1,0 +1,322 @@
+
+> gemini-cli@0.1.0 build
+> node scripts/build.js
+
+
+> gemini-cli@0.1.0 generate
+> node scripts/generate-git-commit-info.js
+
+
+> @gemini-cli/cli@0.1.0 build
+> node ../../scripts/build_package.js
+
+../core/src/config/config.ts(28,53): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+../core/src/core/swarmChat.ts(17,56): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+../core/src/tools/swarmAwareTool.ts(10,67): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+../core/src/tools/swarmReadFile.ts(13,32): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+../core/src/tools/swarmToolRegistry.ts(10,67): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+../core/src/utils/swarmMigration.ts(14,54): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+../core/src/utils/swarmMigration.ts(296,20): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/hooks/useDashboardState.ts(8,30): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/SwarmCommand.test.tsx(121,43): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/SwarmCommand.test.tsx(160,43): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/SwarmCommand.test.tsx(223,43): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/SwarmCommand.test.tsx(289,43): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/SwarmCommand.tsx(9,46): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/SwarmCommand.tsx(10,27): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/ui/components/swarm/SwarmCommand.tsx(97,43): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(97,52): error TS7031: Binding element 'role' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(122,46): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(144,45): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(144,54): error TS7031: Binding element 'details' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(162,51): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(162,60): error TS7031: Binding element 'prompt' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(174,42): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(174,51): error TS7031: Binding element 'task' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(196,43): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(196,52): error TS7031: Binding element 'taskId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(196,60): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(231,42): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(231,51): error TS7031: Binding element 'taskId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(231,59): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(272,43): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(272,52): error TS7031: Binding element 'taskId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(272,60): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(272,69): error TS7031: Binding element 'progress' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(272,79): error TS7031: Binding element 'status' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(283,44): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(283,53): error TS7031: Binding element 'taskId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(283,61): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(283,70): error TS7031: Binding element 'result' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(319,41): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(319,50): error TS7031: Binding element 'error' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(319,57): error TS7031: Binding element 'prompt' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(337,40): error TS7031: Binding element 'swarmId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(337,49): error TS7031: Binding element 'message' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(337,58): error TS7031: Binding element 'details' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(349,42): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/ui/components/swarm/SwarmCommand.tsx(349,51): error TS7031: Binding element 'output' implicitly has an 'any' type.
+src/ui/components/swarm/utils/taskQueueUtils.ts(7,58): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+
+> @gemini-cli/core@0.1.0 build
+> node ../../scripts/build_package.js
+
+src/config/config.ts(28,53): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/core/swarmChat.ts(17,56): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/tools/swarmAwareTool.ts(10,67): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/tools/swarmReadFile.ts(13,32): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/tools/swarmToolRegistry.ts(10,67): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/utils/swarmMigration.ts(14,54): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+src/utils/swarmMigration.ts(296,20): error TS2307: Cannot find module '@gemini-cli/swarm' or its corresponding type declarations.
+
+> @gemini-cli/swarm@0.1.0 build
+> node ../../scripts/build_package.js
+
+src/agents/gemini-agent-process.ts(8,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/agents/gemini-agent-process.ts(130,12): error TS2339: Property 'emit' does not exist on type 'GeminiAgentProcess'.
+src/agents/gemini-agent-process.ts(236,10): error TS2339: Property 'emit' does not exist on type 'GeminiAgentProcess'.
+src/agents/gemini-agent-process.ts(434,12): error TS2339: Property 'emit' does not exist on type 'GeminiAgentProcess'.
+src/communication/EventBus.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/communication/EventBus.ts(550,10): error TS2339: Property 'removeAllListeners' does not exist on type 'EventBus'.
+src/communication/IPCProtocol.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/communication/IPCProtocol.ts(16,30): error TS7016: Could not find a declaration file for module 'uuid'. '/Users/keithballinger/Desktop/projects/gemini-cli/node_modules/uuid/wrapper.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/uuid` if it exists or add a new declaration (.d.ts) file containing `declare module 'uuid';`
+src/communication/IPCProtocol.ts(134,12): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(171,12): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(201,14): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(206,10): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(229,14): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(234,14): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(291,18): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(296,14): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(335,10): error TS2339: Property 'emit' does not exist on type 'IPCProtocol'.
+src/communication/IPCProtocol.ts(516,10): error TS2339: Property 'removeAllListeners' does not exist on type 'IPCProtocol'.
+src/communication/message-bus.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/communication/message-bus.ts(21,10): error TS2339: Property 'emit' does not exist on type 'MessageBus'.
+src/communication/message-bus.ts(26,14): error TS2339: Property 'emit' does not exist on type 'MessageBus'.
+src/communication/message-bus.ts(29,12): error TS2339: Property 'emit' does not exist on type 'MessageBus'.
+src/communication/MessageRouter.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/communication/MessageRouter.ts(150,10): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(160,12): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(172,12): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(207,10): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(219,14): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(229,10): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(238,12): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(332,12): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(363,10): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(530,14): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(624,12): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(669,12): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/communication/MessageRouter.ts(691,14): error TS2339: Property 'emit' does not exist on type 'MessageRouter'.
+src/conductor/ConductorController.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/conductor/ConductorController.ts(8,30): error TS7016: Could not find a declaration file for module 'uuid'. '/Users/keithballinger/Desktop/projects/gemini-cli/node_modules/uuid/wrapper.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/uuid` if it exists or add a new declaration (.d.ts) file containing `declare module 'uuid';`
+src/conductor/ConductorController.ts(185,19): error TS2339: Property 'on' does not exist on type 'EventBus'.
+src/conductor/ConductorController.ts(189,19): error TS2339: Property 'on' does not exist on type 'EventBus'.
+src/conductor/ConductorController.ts(193,19): error TS2339: Property 'on' does not exist on type 'EventBus'.
+src/conductor/ConductorController.ts(199,19): error TS2339: Property 'on' does not exist on type 'EventBus'.
+src/conductor/ConductorController.ts(203,19): error TS2339: Property 'on' does not exist on type 'EventBus'.
+src/conductor/ConductorController.ts(207,19): error TS2339: Property 'on' does not exist on type 'EventBus'.
+src/conductor/ConductorController.ts(213,19): error TS2339: Property 'on' does not exist on type 'EventBus'.
+src/conductor/ConductorController.ts(219,23): error TS2339: Property 'on' does not exist on type 'SwarmManager'.
+src/conductor/ConductorController.ts(220,23): error TS2339: Property 'on' does not exist on type 'SwarmManager'.
+src/conductor/ConductorController.ts(232,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(252,18): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(261,16): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(268,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(277,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(291,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(331,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(333,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(385,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(394,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(428,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(483,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(523,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(555,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(752,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(778,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(781,14): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(825,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(827,12): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(835,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(839,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(854,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(869,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(873,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(877,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(881,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(885,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/conductor/ConductorController.ts(917,10): error TS2339: Property 'emit' does not exist on type 'ConductorController'.
+src/examples/custom-agent-example.ts(160,9): error TS2339: Property 'on' does not exist on type 'DataAnalysisAgent'.
+src/examples/custom-agent-example.ts(161,9): error TS2339: Property 'on' does not exist on type 'DataAnalysisAgent'.
+src/examples/custom-agent-example.ts(162,9): error TS2339: Property 'on' does not exist on type 'DataAnalysisAgent'.
+src/examples/custom-agent-example.ts(163,9): error TS2339: Property 'on' does not exist on type 'DataAnalysisAgent'.
+src/examples/custom-agent-example.ts(164,9): error TS2339: Property 'on' does not exist on type 'DataAnalysisAgent'.
+src/examples/custom-agent-example.ts(164,22): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/factory/AgentFactory.ts(126,5): error TS2739: Type 'BaseAgent' is missing the following properties from type 'IAgent': on, off, emit
+src/factory/AgentFactory.ts(321,30): error TS2345: Argument of type 'BaseAgent' is not assignable to parameter of type 'IAgent'.
+  Type 'BaseAgent' is missing the following properties from type 'IAgent': on, off, emit
+src/factory/AgentFactory.ts(324,31): error TS2345: Argument of type 'BaseAgent' is not assignable to parameter of type 'IAgent'.
+  Type 'BaseAgent' is missing the following properties from type 'IAgent': on, off, emit
+src/factory/AgentFactory.ts(327,36): error TS2345: Argument of type 'BaseAgent' is not assignable to parameter of type 'IAgent'.
+  Type 'BaseAgent' is missing the following properties from type 'IAgent': on, off, emit
+src/factory/AgentFactory.ts(330,29): error TS2345: Argument of type 'BaseAgent' is not assignable to parameter of type 'IAgent'.
+  Type 'BaseAgent' is missing the following properties from type 'IAgent': on, off, emit
+src/process/AgentProcess.ts(8,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/process/AgentProcess.ts(11,30): error TS7016: Could not find a declaration file for module 'uuid'. '/Users/keithballinger/Desktop/projects/gemini-cli/node_modules/uuid/wrapper.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/uuid` if it exists or add a new declaration (.d.ts) file containing `declare module 'uuid';`
+src/process/AgentProcess.ts(92,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(149,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(214,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(235,16): error TS2339: Property 'removeListener' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(240,12): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(245,10): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(250,14): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(253,14): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(256,14): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(281,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(286,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(290,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(296,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(308,10): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(318,14): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(323,14): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(352,12): error TS2339: Property 'once' does not exist on type 'AgentProcess'.
+src/process/AgentProcess.ts(377,12): error TS2339: Property 'emit' does not exist on type 'AgentProcess'.
+src/process/example.ts(25,20): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/example.ts(25,37): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/process/example.ts(29,20): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/example.ts(29,35): error TS7006: Parameter 'message' implicitly has an 'any' type.
+src/process/example.ts(33,20): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/example.ts(33,35): error TS7006: Parameter 'metrics' implicitly has an 'any' type.
+src/process/example.ts(37,20): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/example.ts(37,33): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/process/example.ts(41,20): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/example.ts(41,40): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/process/example.ts(41,49): error TS7031: Binding element 'restartCount' implicitly has an 'any' type.
+src/process/example.ts(41,63): error TS7031: Binding element 'delay' implicitly has an 'any' type.
+src/process/example.ts(47,20): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/example.ts(47,37): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/process/example.ts(47,46): error TS7031: Binding element 'code' implicitly has an 'any' type.
+src/process/example.ts(47,52): error TS7031: Binding element 'signal' implicitly has an 'any' type.
+src/process/example.ts(53,20): error TS2339: Property 'on' does not exist on type 'AgentProcess'.
+src/process/example.ts(53,43): error TS7031: Binding element 'oldState' implicitly has an 'any' type.
+src/process/example.ts(53,53): error TS7031: Binding element 'newState' implicitly has an 'any' type.
+src/process/example.ts(53,63): error TS7031: Binding element 'agentId' implicitly has an 'any' type.
+src/roles/base-agent.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/roles/base-agent.ts(26,23): error TS2420: Class 'BaseAgent' incorrectly implements interface 'IAgent'.
+  Type 'BaseAgent' is missing the following properties from type 'IAgent': on, off, emit
+src/roles/base-agent.ts(141,12): error TS2339: Property 'removeAllListeners' does not exist on type 'BaseAgent'.
+src/roles/base-agent.ts(402,10): error TS2339: Property 'emit' does not exist on type 'BaseAgent'.
+src/security/AuditLogger.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/security/AuditLogger.ts(142,14): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(150,14): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(161,14): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(167,12): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(204,12): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(313,16): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(317,12): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(453,10): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/AuditLogger.ts(494,12): error TS2339: Property 'emit' does not exist on type 'AuditLogger'.
+src/security/Encryption.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/security/Encryption.ts(98,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(106,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(145,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(152,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(206,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(213,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(238,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(246,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(268,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(301,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(309,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(500,14): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Encryption.ts(523,12): error TS2339: Property 'emit' does not exist on type 'MessageEncryption'.
+src/security/Permissions.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/security/Permissions.ts(159,12): error TS2339: Property 'emit' does not exist on type 'PermissionManager'.
+src/security/Permissions.ts(194,12): error TS2339: Property 'emit' does not exist on type 'PermissionManager'.
+src/security/Permissions.ts(224,12): error TS2339: Property 'emit' does not exist on type 'PermissionManager'.
+src/security/Permissions.ts(745,10): error TS2339: Property 'emit' does not exist on type 'PermissionManager'.
+src/security/ResourceIsolation.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/security/ResourceIsolation.ts(124,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(197,12): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(227,12): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(264,12): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(295,12): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(323,12): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(385,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(395,16): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(628,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(633,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(641,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(646,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(654,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(659,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(667,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(672,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/ResourceIsolation.ts(677,10): error TS2339: Property 'emit' does not exist on type 'ResourceIsolation'.
+src/security/Sandbox.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/security/Sandbox.ts(92,10): error TS2339: Property 'emit' does not exist on type 'AgentSandbox'.
+src/security/Sandbox.ts(129,10): error TS2339: Property 'emit' does not exist on type 'AgentSandbox'.
+src/security/Sandbox.ts(147,12): error TS2339: Property 'emit' does not exist on type 'AgentSandbox'.
+src/security/Sandbox.ts(176,10): error TS2339: Property 'emit' does not exist on type 'AgentSandbox'.
+src/security/Sandbox.ts(589,12): error TS2339: Property 'emit' does not exist on type 'AgentSandbox'.
+src/security/SecurityManager.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/security/SecurityManager.ts(439,18): error TS2339: Property 'on' does not exist on type 'AgentSandbox'.
+src/security/SecurityManager.ts(439,43): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/security/SecurityManager.ts(444,22): error TS2339: Property 'on' does not exist on type 'PermissionManager'.
+src/security/SecurityManager.ts(444,49): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/security/SecurityManager.ts(449,20): error TS2339: Property 'on' does not exist on type 'ResourceIsolation'.
+src/security/SecurityManager.ts(449,42): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/security/SecurityManager.ts(454,21): error TS2339: Property 'on' does not exist on type 'MessageEncryption'.
+src/security/SecurityManager.ts(454,45): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/security/SecurityManager.ts(459,22): error TS2339: Property 'on' does not exist on type 'AuditLogger'.
+src/security/SecurityManager.ts(459,46): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/security/SecurityManager.ts(463,22): error TS2339: Property 'on' does not exist on type 'AuditLogger'.
+src/security/SecurityManager.ts(463,46): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/security/SecurityManager.ts(612,10): error TS2339: Property 'emit' does not exist on type 'SecurityManager'.
+src/security/SecurityManager.ts(625,10): error TS2339: Property 'emit' does not exist on type 'SecurityManager'.
+src/state/DistributedMemory.ts(7,22): error TS2307: Cannot find module 'better-sqlite3' or its corresponding type declarations.
+src/state/DistributedMemory.ts(8,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/SwarmManager.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/SwarmManager.ts(8,30): error TS7016: Could not find a declaration file for module 'uuid'. '/Users/keithballinger/Desktop/projects/gemini-cli/node_modules/uuid/wrapper.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/uuid` if it exists or add a new declaration (.d.ts) file containing `declare module 'uuid';`
+src/SwarmManager.ts(97,19): error TS2739: Type 'GeminiAgentProcess' is missing the following properties from type 'IAgent': on, off, emit
+src/SwarmManager.ts(101,19): error TS2739: Type 'GeminiAgentProcess' is missing the following properties from type 'IAgent': on, off, emit
+src/SwarmManager.ts(105,19): error TS2739: Type 'GeminiAgentProcess' is missing the following properties from type 'IAgent': on, off, emit
+src/SwarmManager.ts(109,19): error TS2739: Type 'GeminiAgentProcess' is missing the following properties from type 'IAgent': on, off, emit
+src/SwarmManager.ts(114,19): error TS2739: Type 'DeveloperAgent' is missing the following properties from type 'IAgent': on, off, emit
+src/SwarmManager.ts(145,18): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(161,18): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(189,18): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(226,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(231,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(304,12): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(373,12): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(375,12): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(427,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(456,16): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(465,16): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(475,16): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(488,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(508,14): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(518,14): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(536,16): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(583,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(641,14): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(655,12): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(690,12): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(697,12): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(701,12): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(1028,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(1029,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/SwarmManager.ts(1230,10): error TS2339: Property 'emit' does not exist on type 'SwarmManager'.
+src/task/TaskAnalyzer.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/task/TaskAnalyzer.ts(282,12): error TS2339: Property 'emit' does not exist on type 'TaskAnalyzer'.
+src/task/TaskAnalyzer.ts(297,12): error TS2339: Property 'emit' does not exist on type 'TaskAnalyzer'.
+src/task/TaskDistributor.ts(7,30): error TS2307: Cannot find module 'eventemitter3' or its corresponding type declarations.
+src/task/TaskDistributor.ts(220,10): error TS2339: Property 'emit' does not exist on type 'TaskDistributor'.
+src/task/TaskDistributor.ts(323,10): error TS2339: Property 'emit' does not exist on type 'TaskDistributor'.
+src/task/TaskDistributor.ts(992,16): error TS2339: Property 'emit' does not exist on type 'TaskDistributor'.

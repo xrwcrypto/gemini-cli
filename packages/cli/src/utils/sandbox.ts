@@ -159,7 +159,8 @@ export function sandbox_command(sandbox?: string | boolean): string {
 // parse those out and make the name a little shorter
 function parseImageName(image: string): string {
   const [fullName, tag] = image.split(':');
-  const name = fullName.split('/').at(-1) ?? 'unknown-image';
+  const parts = fullName.split('/');
+  const name = parts[parts.length - 1] ?? 'unknown-image';
   return tag ? `${name}-${tag}` : name;
 }
 
