@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { beforeEach, describe, it, expect, vi } from 'vitest';
-import path from 'node:path';
+import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('node:path', async () => {
   const actual = await vi.importActual('node:path');

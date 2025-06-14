@@ -21,9 +21,8 @@ import os from 'node:os';
 import mime from 'mime-types';
 
 import {
-  isWithinRoot,
-  isBinaryFile,
   detectFileType,
+  isBinaryFile,
   processSingleFileContent,
 } from './fileUtils.js';
 
