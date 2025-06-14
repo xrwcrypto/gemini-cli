@@ -9,11 +9,12 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import { EOL } from 'os';
 import { spawn } from 'child_process';
-import fastGlob from 'fast-glob';
+import { globStream } from 'glob';
 import { BaseTool, ToolResult } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
+import { isGitRepository } from '../utils/gitUtils.js';
 
 // --- Interfaces ---
 
@@ -168,7 +169,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
    */
   async execute(
     params: GrepToolParams,
-    _signal: AbortSignal,
+    signal: AbortSignal,
   ): Promise<ToolResult> {
     const validationError = this.validateToolParams(params);
     if (validationError) {
@@ -187,6 +188,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
         pattern: params.pattern,
         path: searchDirAbs,
         include: params.include,
+        signal,
       });
 
       if (matches.length === 0) {
@@ -259,47 +261,6 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
         resolve(false);
       }
     });
-  }
-
-  /**
-   * Checks if a directory or its parent directories contain a .git folder.
-   * @param {string} dirPath Absolute path to the directory to check.
-   * @returns {Promise<boolean>} True if it's a Git repository, false otherwise.
-   */
-  private async isGitRepository(dirPath: string): Promise<boolean> {
-    let currentPath = path.resolve(dirPath);
-    const root = path.parse(currentPath).root;
-
-    try {
-      while (true) {
-        const gitPath = path.join(currentPath, '.git');
-        try {
-          const stats = await fsPromises.stat(gitPath);
-          if (stats.isDirectory() || stats.isFile()) {
-            return true;
-          }
-          // If .git exists but isn't a file/dir, something is weird, return false
-          return false;
-        } catch (error: unknown) {
-          if (!isNodeError(error) || error.code !== 'ENOENT') {
-            console.debug(
-              `Error checking for .git in ${currentPath}: ${error}`,
-            );
-            return false;
-          }
-        }
-
-        if (currentPath === root) {
-          break;
-        }
-        currentPath = path.dirname(currentPath);
-      }
-    } catch (error: unknown) {
-      console.debug(
-        `Error traversing directory structure upwards from ${dirPath}: ${getErrorMessage(error)}`,
-      );
-    }
-    return false;
   }
 
   /**
@@ -382,13 +343,14 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
     pattern: string;
     path: string; // Expects absolute path
     include?: string;
+    signal: AbortSignal;
   }): Promise<GrepMatch[]> {
     const { pattern, path: absolutePath, include } = options;
     let strategyUsed = 'none';
 
     try {
       // --- Strategy 1: git grep ---
-      const isGit = await this.isGitRepository(absolutePath);
+      const isGit = isGitRepository(absolutePath);
       const gitAvailable = isGit && (await this.isCommandAvailable('git'));
 
       if (gitAvailable) {
@@ -533,14 +495,13 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
         '.hg/**',
       ]; // Use glob patterns for ignores here
 
-      const filesStream = fastGlob.stream(globPattern, {
+      const filesStream = globStream(globPattern, {
         cwd: absolutePath,
         dot: true,
         ignore: ignorePatterns,
         absolute: true,
-        onlyFiles: true,
-        suppressErrors: true,
-        stats: false,
+        nodir: true,
+        signal: options.signal,
       });
 
       const regex = new RegExp(pattern, 'i');

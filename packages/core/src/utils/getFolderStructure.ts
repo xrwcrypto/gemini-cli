@@ -8,8 +8,7 @@ import * as fs from 'fs/promises';
 import { Dirent } from 'fs';
 import * as path from 'path';
 import { getErrorMessage, isNodeError } from './errors.js';
-import { GitIgnoreParser, GitIgnoreFilter } from './gitIgnoreParser.js';
-import { isGitRepository } from './gitUtils.js';
+import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 
 const MAX_ITEMS = 200;
 const TRUNCATION_INDICATOR = '...';
@@ -25,18 +24,18 @@ interface FolderStructureOptions {
   ignoredFolders?: Set<string>;
   /** Optional regex to filter included files by name. */
   fileIncludePattern?: RegExp;
-  /** Whether to respect .gitignore patterns. Defaults to true. */
+  /** For filtering files. */
+  fileService?: FileDiscoveryService;
+  /** Whether to use .gitignore patterns. */
   respectGitIgnore?: boolean;
-  /** The root of the project, used for gitignore resolution. */
-  projectRoot?: string;
 }
 
 // Define a type for the merged options where fileIncludePattern remains optional
 type MergedFolderStructureOptions = Required<
-  Omit<FolderStructureOptions, 'fileIncludePattern' | 'projectRoot'>
+  Omit<FolderStructureOptions, 'fileIncludePattern' | 'fileService'>
 > & {
   fileIncludePattern?: RegExp;
-  projectRoot?: string;
+  fileService?: FileDiscoveryService;
 };
 
 /** Represents the full, unfiltered information about a folder and its contents. */
@@ -59,7 +58,6 @@ interface FullFolderInfo {
 async function readFullStructure(
   rootPath: string,
   options: MergedFolderStructureOptions,
-  gitIgnoreFilter: GitIgnoreFilter | null,
 ): Promise<FullFolderInfo | null> {
   const rootName = path.basename(rootPath);
   const rootNode: FullFolderInfo = {
@@ -128,8 +126,8 @@ async function readFullStructure(
         }
         const fileName = entry.name;
         const filePath = path.join(currentPath, fileName);
-        if (gitIgnoreFilter) {
-          if (gitIgnoreFilter.isIgnored(filePath)) {
+        if (options.respectGitIgnore && options.fileService) {
+          if (options.fileService.shouldGitIgnoreFile(filePath)) {
             continue;
           }
         }
@@ -163,8 +161,8 @@ async function readFullStructure(
         const subFolderPath = path.join(currentPath, subFolderName);
 
         let isIgnoredByGit = false;
-        if (gitIgnoreFilter) {
-          if (gitIgnoreFilter.isIgnored(subFolderPath)) {
+        if (options.respectGitIgnore && options.fileService) {
+          if (options.fileService.shouldGitIgnoreFile(subFolderPath)) {
             isIgnoredByGit = true;
           }
         }
@@ -296,26 +294,13 @@ export async function getFolderStructure(
     maxItems: options?.maxItems ?? MAX_ITEMS,
     ignoredFolders: options?.ignoredFolders ?? DEFAULT_IGNORED_FOLDERS,
     fileIncludePattern: options?.fileIncludePattern,
+    fileService: options?.fileService,
     respectGitIgnore: options?.respectGitIgnore ?? true,
-    projectRoot: options?.projectRoot ?? resolvedPath,
   };
-
-  let gitIgnoreFilter: GitIgnoreFilter | null = null;
-  if (mergedOptions.respectGitIgnore && mergedOptions.projectRoot) {
-    if (isGitRepository(mergedOptions.projectRoot)) {
-      const parser = new GitIgnoreParser(mergedOptions.projectRoot);
-      await parser.initialize();
-      gitIgnoreFilter = parser;
-    }
-  }
 
   try {
     // 1. Read the structure using BFS, respecting maxItems
-    const structureRoot = await readFullStructure(
-      resolvedPath,
-      mergedOptions,
-      gitIgnoreFilter,
-    );
+    const structureRoot = await readFullStructure(resolvedPath, mergedOptions);
 
     if (!structureRoot) {
       return `Error: Could not read directory "${resolvedPath}". Check path and permissions.`;

@@ -10,7 +10,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { quote } from 'shell-quote';
-import { readPackageUp } from 'read-package-up';
+import { getPackageJson } from './package.js';
 import commandExists from 'command-exists';
 import {
   USER_SETTINGS_DIR,
@@ -102,13 +102,10 @@ async function shouldUseCurrentUserInSandbox(): Promise<boolean> {
 async function getSandboxImageName(
   isCustomProjectSandbox: boolean,
 ): Promise<string> {
-  const packageJsonResult = await readPackageUp();
-  const packageJsonConfig = packageJsonResult?.packageJson.config as
-    | { sandboxImageUri?: string }
-    | undefined;
+  const packageJson = await getPackageJson();
   return (
     process.env.GEMINI_SANDBOX_IMAGE ??
-    packageJsonConfig?.sandboxImageUri ??
+    packageJson?.config?.sandboxImageUri ??
     (isCustomProjectSandbox
       ? LOCAL_DEV_SANDBOX_IMAGE_NAME + '-' + path.basename(path.resolve())
       : LOCAL_DEV_SANDBOX_IMAGE_NAME)
@@ -535,9 +532,12 @@ export async function start_sandbox(sandbox: string) {
   const containerName = `${imageName}-${index}`;
   args.push('--name', containerName, '--hostname', containerName);
 
-  // copy GEMINI_API_KEY
+  // copy GEMINI_API_KEY(s)
   if (process.env.GEMINI_API_KEY) {
     args.push('--env', `GEMINI_API_KEY=${process.env.GEMINI_API_KEY}`);
+  }
+  if (process.env.GOOGLE_API_KEY) {
+    args.push('--env', `GOOGLE_API_KEY=${process.env.GOOGLE_API_KEY}`);
   }
 
   // copy GEMINI_MODEL

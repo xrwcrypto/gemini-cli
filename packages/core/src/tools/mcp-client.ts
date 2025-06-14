@@ -7,6 +7,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { parse } from 'shell-quote';
 import { MCPServerConfig } from '../config/config.js';
 import { DiscoveredMCPTool } from './mcp-tool.js';
@@ -162,7 +163,11 @@ async function connectAndDiscover(
   updateMCPServerStatus(mcpServerName, MCPServerStatus.CONNECTING);
 
   let transport;
-  if (mcpServerConfig.url) {
+  if (mcpServerConfig.httpUrl) {
+    transport = new StreamableHTTPClientTransport(
+      new URL(mcpServerConfig.httpUrl),
+    );
+  } else if (mcpServerConfig.url) {
     transport = new SSEClientTransport(new URL(mcpServerConfig.url));
   } else if (mcpServerConfig.command) {
     transport = new StdioClientTransport({
@@ -177,7 +182,7 @@ async function connectAndDiscover(
     });
   } else {
     console.error(
-      `MCP server '${mcpServerName}' has invalid configuration: missing both url (for SSE) and command (for stdio). Skipping.`,
+      `MCP server '${mcpServerName}' has invalid configuration: missing httpUrl (for Streamable HTTP), url (for SSE), and command (for stdio). Skipping.`,
     );
     // Update status to disconnected
     updateMCPServerStatus(mcpServerName, MCPServerStatus.DISCONNECTED);
@@ -254,9 +259,11 @@ async function connectAndDiscover(
       console.error(
         `MCP server '${mcpServerName}' did not return valid tool function declarations. Skipping.`,
       );
-      if (transport instanceof StdioClientTransport) {
-        await transport.close();
-      } else if (transport instanceof SSEClientTransport) {
+      if (
+        transport instanceof StdioClientTransport ||
+        transport instanceof SSEClientTransport ||
+        transport instanceof StreamableHTTPClientTransport
+      ) {
         await transport.close();
       }
       // Update status to disconnected
@@ -315,7 +322,8 @@ async function connectAndDiscover(
     // Ensure transport is cleaned up on error too
     if (
       transport instanceof StdioClientTransport ||
-      transport instanceof SSEClientTransport
+      transport instanceof SSEClientTransport ||
+      transport instanceof StreamableHTTPClientTransport
     ) {
       await transport.close();
     }
@@ -334,7 +342,8 @@ async function connectAndDiscover(
     );
     if (
       transport instanceof StdioClientTransport ||
-      transport instanceof SSEClientTransport
+      transport instanceof SSEClientTransport ||
+      transport instanceof StreamableHTTPClientTransport
     ) {
       await transport.close();
       // Update status to disconnected

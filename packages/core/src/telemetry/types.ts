@@ -29,7 +29,6 @@ export interface ApiRequestEvent {
   'event.name': 'api_request';
   'event.timestamp': string; // ISO 8601
   model: string;
-  input_token_count: number;
   request_text?: string;
 }
 
@@ -68,7 +67,6 @@ export interface CliConfigEvent {
   vertex_ai_enabled: boolean;
   log_user_prompts_enabled: boolean;
   file_filtering_respect_git_ignore: boolean;
-  file_filtering_allow_build_artifacts: boolean;
 }
 
 export type TelemetryEvent =

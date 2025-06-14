@@ -15,10 +15,13 @@ import {
   ApprovalMode,
   ContentGeneratorConfig,
   GEMINI_CONFIG_DIR as GEMINI_DIR,
+  DEFAULT_GEMINI_MODEL,
+  DEFAULT_GEMINI_EMBEDDING_MODEL,
+  FileDiscoveryService,
 } from '@gemini-cli/core';
 import { Settings } from './settings.js';
 import { getEffectiveModel } from '../utils/modelCheck.js';
-import { ExtensionConfig } from './extension.js';
+import { Extension } from './extension.js';
 import * as dotenv from 'dotenv';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -33,10 +36,6 @@ const logger = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error: (...args: any[]) => console.error('[ERROR]', ...args),
 };
-
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-pro-preview-06-05';
-export const DEFAULT_GEMINI_FLASH_MODEL = 'gemini-2.5-flash-preview-05-20';
-export const DEFAULT_GEMINI_EMBEDDING_MODEL = 'gemini-embedding-001';
 
 interface CliArgs {
   model: string | undefined;
@@ -116,6 +115,7 @@ async function parseArguments(): Promise<CliArgs> {
 export async function loadHierarchicalGeminiMemory(
   currentWorkingDirectory: string,
   debugMode: boolean,
+  fileService: FileDiscoveryService,
   extensionContextFilePaths: string[] = [],
 ): Promise<{ memoryContent: string; fileCount: number }> {
   if (debugMode) {
@@ -128,14 +128,14 @@ export async function loadHierarchicalGeminiMemory(
   return loadServerHierarchicalMemory(
     currentWorkingDirectory,
     debugMode,
+    fileService,
     extensionContextFilePaths,
   );
 }
 
 export async function loadCliConfig(
   settings: Settings,
-  extensions: ExtensionConfig[],
-  geminiIgnorePatterns: string[],
+  extensions: Extension[],
   sessionId: string,
 ): Promise<Config> {
   loadEnvironment();
@@ -154,14 +154,14 @@ export async function loadCliConfig(
     setServerGeminiMdFilename(getCurrentGeminiMdFilename());
   }
 
-  const extensionContextFilePaths = extensions
-    .map((e) => e.contextFileName)
-    .filter((p): p is string => !!p);
+  const extensionContextFilePaths = extensions.flatMap((e) => e.contextFiles);
 
+  const fileService = new FileDiscoveryService(process.cwd());
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
   const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
     process.cwd(),
     debugMode,
+    fileService,
     extensionContextFilePaths,
   );
 
@@ -189,7 +189,6 @@ export async function loadCliConfig(
     approvalMode: argv.yolo || false ? ApprovalMode.YOLO : ApprovalMode.DEFAULT,
     showMemoryUsage:
       argv.show_memory_usage || settings.showMemoryUsage || false,
-    geminiIgnorePatterns,
     accessibility: settings.accessibility,
     telemetry:
       argv.telemetry !== undefined
@@ -197,8 +196,6 @@ export async function loadCliConfig(
         : (settings.telemetry ?? false),
     // Git-aware file filtering settings
     fileFilteringRespectGitIgnore: settings.fileFiltering?.respectGitIgnore,
-    fileFilteringAllowBuildArtifacts:
-      settings.fileFiltering?.allowBuildArtifacts,
     checkpoint: argv.checkpoint,
     proxy:
       process.env.HTTPS_PROXY ||
@@ -206,22 +203,27 @@ export async function loadCliConfig(
       process.env.HTTP_PROXY ||
       process.env.http_proxy,
     cwd: process.cwd(),
-    telemetryOtlpEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    telemetryOtlpEndpoint:
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? settings.telemetryOtlpEndpoint,
+    fileDiscoveryService: fileService,
+    bugCommand: settings.bugCommand,
   });
 }
 
-function mergeMcpServers(settings: Settings, extensions: ExtensionConfig[]) {
-  const mcpServers = settings.mcpServers || {};
+function mergeMcpServers(settings: Settings, extensions: Extension[]) {
+  const mcpServers = { ...(settings.mcpServers || {}) };
   for (const extension of extensions) {
-    Object.entries(extension.mcpServers || {}).forEach(([key, server]) => {
-      if (mcpServers[key]) {
-        logger.warn(
-          `Skipping extension MCP config for server with key "${key}" as it already exists.`,
-        );
-        return;
-      }
-      mcpServers[key] = server;
-    });
+    Object.entries(extension.config.mcpServers || {}).forEach(
+      ([key, server]) => {
+        if (mcpServers[key]) {
+          logger.warn(
+            `Skipping extension MCP config for server with key "${key}" as it already exists.`,
+          );
+          return;
+        }
+        mcpServers[key] = server;
+      },
+    );
   }
   return mcpServers;
 }
@@ -258,7 +260,7 @@ async function createContentGeneratorConfig(
         '3. GOOGLE_API_KEY (for Gemini API or Vertex AI Express Mode access).\n' +
         '4. GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION (for Vertex AI access).\n\n' +
         'For Gemini API keys, visit: https://ai.google.dev/gemini-api/docs/api-key\n' +
-        'For Vertex AI authentication, visit: https://cloud.google.com/vertex-ai/docs/start/authentication\n' +
+        'For Vertex AI authentication, visit: https://cloud.google.com/vertex-ai/docs/authentication\n' +
         'The GOOGLE_GENAI_USE_VERTEXAI environment variable can also be set to true/false to influence service selection when ambiguity exists.',
     );
     process.exit(1);

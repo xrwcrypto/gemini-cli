@@ -106,18 +106,15 @@ describe('Server Config (config.ts)', () => {
   it('should set default file filtering settings when not provided', () => {
     const config = new Config(baseParams);
     expect(config.getFileFilteringRespectGitIgnore()).toBe(true);
-    expect(config.getFileFilteringAllowBuildArtifacts()).toBe(false);
   });
 
   it('should set custom file filtering settings when provided', () => {
     const paramsWithFileFiltering: ConfigParameters = {
       ...baseParams,
       fileFilteringRespectGitIgnore: false,
-      fileFilteringAllowBuildArtifacts: true,
     };
     const config = new Config(paramsWithFileFiltering);
     expect(config.getFileFilteringRespectGitIgnore()).toBe(false);
-    expect(config.getFileFilteringAllowBuildArtifacts()).toBe(true);
   });
 
   it('Config constructor should set telemetry to true when provided as true', () => {
@@ -145,9 +142,9 @@ describe('Server Config (config.ts)', () => {
     expect(config.getTelemetryEnabled()).toBe(TELEMETRY);
   });
 
-  it('should have a getFileService method that returns FileDiscoveryService', async () => {
+  it('should have a getFileService method that returns FileDiscoveryService', () => {
     const config = new Config(baseParams);
-    const fileService = await config.getFileService();
+    const fileService = config.getFileService();
     expect(fileService).toBeDefined();
   });
 });

@@ -9,6 +9,7 @@ import { type PartListUnion } from '@google/genai';
 import open from 'open';
 import process from 'node:process';
 import { UseHistoryManagerReturn } from './useHistoryManager.js';
+import { useStateAndRef } from './useStateAndRef.js';
 import {
   Config,
   GitService,
@@ -80,6 +81,13 @@ export const useSlashCommandProcessor = (
     return new GitService(config.getProjectRoot());
   }, [config]);
 
+  const pendingHistoryItems: HistoryItemWithoutId[] = [];
+  const [pendingCompressionItemRef, setPendingCompressionItem] =
+    useStateAndRef<HistoryItemWithoutId | null>(null);
+  if (pendingCompressionItemRef.current != null) {
+    pendingHistoryItems.push(pendingCompressionItemRef.current);
+  }
+
   const addMessage = useCallback(
     (message: Message) => {
       // Convert Message to HistoryItemWithoutId
@@ -104,6 +112,11 @@ export const useSlashCommandProcessor = (
           type: 'quit',
           stats: message.stats,
           duration: message.duration,
+        };
+      } else if (message.type === MessageType.COMPRESSION) {
+        historyItemContent = {
+          type: 'compression',
+          compression: message.compression,
         };
       } else {
         historyItemContent = {
@@ -184,7 +197,7 @@ export const useSlashCommandProcessor = (
       },
       {
         name: 'editor',
-        description: 'open the editor',
+        description: 'set external editor preference',
         action: (_mainCommand, _subCommand, _args) => {
           openEditorDialog();
         },
@@ -499,13 +512,14 @@ Add any other context about the problem here.
 `;
 
           let bugReportUrl =
-            'https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.md';
-          if (bugDescription) {
-            const encodedArgs = encodeURIComponent(bugDescription);
-            bugReportUrl += `&title=${encodedArgs}`;
+            'https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.md&title={title}&body={body}';
+          const bugCommand = config?.getBugCommand();
+          if (bugCommand?.urlTemplate) {
+            bugReportUrl = bugCommand.urlTemplate;
           }
-          const encodedBody = encodeURIComponent(diagnosticInfo);
-          bugReportUrl += `&body=${encodedBody}`;
+          bugReportUrl = bugReportUrl
+            .replace('{title}', encodeURIComponent(bugDescription))
+            .replace('{body}', encodeURIComponent(diagnosticInfo));
 
           addMessage({
             type: MessageType.INFO,
@@ -641,6 +655,57 @@ Add any other context about the problem here.
           }, 100);
         },
       },
+      {
+        name: 'compress',
+        altName: 'summarize',
+        description: 'Compresses the context by replacing it with a summary.',
+        action: async (_mainCommand, _subCommand, _args) => {
+          if (pendingCompressionItemRef.current !== null) {
+            addMessage({
+              type: MessageType.ERROR,
+              content:
+                'Already compressing, wait for previous request to complete',
+              timestamp: new Date(),
+            });
+            return;
+          }
+          setPendingCompressionItem({
+            type: MessageType.COMPRESSION,
+            compression: {
+              isPending: true,
+            },
+          });
+          try {
+            const compressed = await config!
+              .getGeminiClient()!
+              .tryCompressChat(true);
+            if (compressed) {
+              addMessage({
+                type: MessageType.COMPRESSION,
+                compression: {
+                  isPending: false,
+                  originalTokenCount: compressed.originalTokenCount,
+                  newTokenCount: compressed.newTokenCount,
+                },
+                timestamp: new Date(),
+              });
+            } else {
+              addMessage({
+                type: MessageType.ERROR,
+                content: 'Failed to compress chat history.',
+                timestamp: new Date(),
+              });
+            }
+          } catch (e) {
+            addMessage({
+              type: MessageType.ERROR,
+              content: `Failed to compress chat history: ${e instanceof Error ? e.message : String(e)}`,
+              timestamp: new Date(),
+            });
+          }
+          setPendingCompressionItem(null);
+        },
+      },
     ];
 
     if (config?.getCheckpointEnabled()) {
@@ -767,6 +832,8 @@ Add any other context about the problem here.
     loadHistory,
     addItem,
     setQuittingMessages,
+    pendingCompressionItemRef,
+    setPendingCompressionItem,
   ]);
 
   const handleSlashCommand = useCallback(
@@ -830,5 +897,5 @@ Add any other context about the problem here.
     [addItem, slashCommands, addMessage],
   );
 
-  return { handleSlashCommand, slashCommands };
+  return { handleSlashCommand, slashCommands, pendingHistoryItems };
 };

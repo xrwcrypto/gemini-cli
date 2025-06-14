@@ -4,56 +4,64 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as fs from 'fs/promises';
+import * as fs from 'fs';
 import * as path from 'path';
 import ignore, { type Ignore } from 'ignore';
 import { isGitRepository } from './gitUtils.js';
 
 export interface GitIgnoreFilter {
   isIgnored(filePath: string): boolean;
+  getPatterns(): string[];
 }
 
 export class GitIgnoreParser implements GitIgnoreFilter {
   private projectRoot: string;
-  private isGitRepo: boolean = false;
   private ig: Ignore = ignore();
+  private patterns: string[] = [];
 
   constructor(projectRoot: string) {
     this.projectRoot = path.resolve(projectRoot);
   }
 
-  async initialize(): Promise<void> {
-    this.isGitRepo = isGitRepository(this.projectRoot);
-    if (this.isGitRepo) {
-      const gitIgnoreFiles = [
-        path.join(this.projectRoot, '.gitignore'),
-        path.join(this.projectRoot, '.git', 'info', 'exclude'),
-      ];
+  loadGitRepoPatterns(): void {
+    if (!isGitRepository(this.projectRoot)) return;
 
-      // Always ignore .git directory regardless of .gitignore content
-      this.addPatterns(['.git']);
+    // Always ignore .git directory regardless of .gitignore content
+    this.addPatterns(['.git']);
 
-      for (const gitIgnoreFile of gitIgnoreFiles) {
-        try {
-          const content = await fs.readFile(gitIgnoreFile, 'utf-8');
-          const patterns = content.split('\n').map((p) => p.trim());
-          this.addPatterns(patterns);
-        } catch (_error) {
-          // File doesn't exist or can't be read, continue silently
-        }
-      }
+    const patternFiles = ['.gitignore', path.join('.git', 'info', 'exclude')];
+    for (const pf of patternFiles) {
+      this.loadPatterns(pf);
     }
+  }
+
+  loadPatterns(patternsFileName: string): void {
+    const patternsFilePath = path.join(this.projectRoot, patternsFileName);
+    let content: string;
+    try {
+      content = fs.readFileSync(patternsFilePath, 'utf-8');
+    } catch (_error) {
+      // ignore file not found
+      return;
+    }
+    const patterns = (content ?? '')
+      .split('\n')
+      .map((p) => p.trim())
+      .filter((p) => p !== '' && !p.startsWith('#'));
+    if (patterns.length > 0) {
+      console.log(
+        `Loaded ${patterns.length} patterns from ${patternsFilePath}`,
+      );
+    }
+    this.addPatterns(patterns);
   }
 
   private addPatterns(patterns: string[]) {
     this.ig.add(patterns);
+    this.patterns.push(...patterns);
   }
 
   isIgnored(filePath: string): boolean {
-    if (!this.isGitRepo) {
-      return false;
-    }
-
     const relativePath = path.isAbsolute(filePath)
       ? path.relative(this.projectRoot, filePath)
       : filePath;
@@ -67,11 +75,10 @@ export class GitIgnoreParser implements GitIgnoreFilter {
       normalizedPath = normalizedPath.substring(2);
     }
 
-    const ignored = this.ig.ignores(normalizedPath);
-    return ignored;
+    return this.ig.ignores(normalizedPath);
   }
 
-  getGitRepoRoot(): string {
-    return this.projectRoot;
+  getPatterns(): string[] {
+    return this.patterns;
   }
 }

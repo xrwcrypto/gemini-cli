@@ -38,25 +38,33 @@ When you create a `.gemini/settings.json` file for project-specific settings, or
 
 ### Available Settings in `settings.json`:
 
-- **`contextFileName`** (string, optional):
+- **`contextFileName`** (string or array of strings, optional):
 
-  - **Description:** Specifies the filename for context files (e.g., `GEMINI.md`, `AGENTS.md`).
+  - **Description:** Specifies the filename for context files (e.g., `GEMINI.md`, `AGENTS.md`). May be a single filename or a list of accepted filenames.
   - **Default:** `GEMINI.md`
   - **Example:** `"contextFileName": "AGENTS.md"`
+
+- **`bugCommand`** (object, optional):
+
+  - **Description:** Overrides the default URL for the `/bug` command.
+  - **Properties:**
+    - **`urlTemplate`** (string, required): A URL that can contain `{title}` and `{body}` placeholders.
+  - **Example:**
+    ```json
+    "bugCommand": {
+      "urlTemplate": "https://bug.example.com/new?title={title}&body={body}"
+    }
+    ```
 
 - **`fileFiltering`** (object, optional):
 
   - **Description:** Controls git-aware file filtering behavior for @ commands and file discovery tools.
   - **Properties:**
     - **`respectGitIgnore`** (boolean, default: `true`): Whether to respect .gitignore patterns when discovering files. When enabled, git-ignored files (like `node_modules/`, `dist/`, `.env`) are automatically excluded from @ commands and file listing operations.
-    - **`customIgnorePatterns`** (array of strings, default: `[]`): Additional patterns to ignore beyond git-ignored files. Useful for excluding specific directories or file types.
-    - **`allowBuildArtifacts`** (boolean, default: `false`): Whether to include build artifacts and generated files in file discovery operations.
   - **Example:**
     ```json
     "fileFiltering": {
       "respectGitIgnore": true,
-      "customIgnorePatterns": ["temp/", "*.log"],
-      "allowBuildArtifacts": false
     }
     ```
 

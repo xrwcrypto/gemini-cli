@@ -7,10 +7,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import fsPromises from 'fs/promises';
+import * as fs from 'fs';
 import { Dirent as FSDirent } from 'fs';
 import * as nodePath from 'path';
 import { getFolderStructure } from './getFolderStructure.js';
 import * as gitUtils from './gitUtils.js';
+import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 
 vi.mock('path', async (importOriginal) => {
   const original = (await importOriginal()) as typeof nodePath;
@@ -22,6 +24,7 @@ vi.mock('path', async (importOriginal) => {
 });
 
 vi.mock('fs/promises');
+vi.mock('fs');
 vi.mock('./gitUtils.js');
 
 // Import 'path' again here, it will be the mocked version
@@ -37,8 +40,8 @@ const createDirent = (name: string, type: 'file' | 'dir'): FSDirent => ({
   isSymbolicLink: () => false,
   isFIFO: () => false,
   isSocket: () => false,
-  parentPath: '',
   path: '',
+  parentPath: '',
 });
 
 describe('getFolderStructure', () => {
@@ -307,7 +310,7 @@ describe('getFolderStructure gitignore', () => {
       return [];
     });
 
-    (fsPromises.readFile as Mock).mockImplementation(async (p) => {
+    (fs.readFileSync as Mock).mockImplementation((p) => {
       const path = p.toString();
       if (path === '/test/project/.gitignore') {
         return 'ignored.txt\nnode_modules/\n.gemini/\n!/.gemini/config.yaml';
@@ -319,8 +322,9 @@ describe('getFolderStructure gitignore', () => {
   });
 
   it('should ignore files and folders specified in .gitignore', async () => {
+    const fileService = new FileDiscoveryService('/test/project');
     const structure = await getFolderStructure('/test/project', {
-      projectRoot: '/test/project',
+      fileService,
     });
     expect(structure).not.toContain('ignored.txt');
     expect(structure).toContain('node_modules/...');
@@ -328,8 +332,9 @@ describe('getFolderStructure gitignore', () => {
   });
 
   it('should not ignore files if respectGitIgnore is false', async () => {
+    const fileService = new FileDiscoveryService('/test/project');
     const structure = await getFolderStructure('/test/project', {
-      projectRoot: '/test/project',
+      fileService,
       respectGitIgnore: false,
     });
     expect(structure).toContain('ignored.txt');

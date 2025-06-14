@@ -15,7 +15,12 @@ import {
   GenerateContentResponse,
 } from '@google/genai';
 import { getFolderStructure } from '../utils/getFolderStructure.js';
-import { Turn, ServerGeminiStreamEvent, GeminiEventType } from './turn.js';
+import {
+  Turn,
+  ServerGeminiStreamEvent,
+  GeminiEventType,
+  ChatCompressionInfo,
+} from './turn.js';
 import { Config } from '../config/config.js';
 import { getCoreSystemPrompt } from './prompts.js';
 import { ReadManyFilesTool } from '../tools/read-many-files.js';
@@ -31,6 +36,7 @@ import {
   createContentGenerator,
 } from './contentGenerator.js';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
+import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 
 export class GeminiClient {
   private chat: Promise<GeminiChat>;
@@ -84,7 +90,9 @@ export class GeminiClient {
       day: 'numeric',
     });
     const platform = process.platform;
-    const folderStructure = await getFolderStructure(cwd);
+    const folderStructure = await getFolderStructure(cwd, {
+      fileService: this.config.getFileService(),
+    });
     const context = `
   Okay, just setting up the context for our chat.
   Today is ${today}.
@@ -191,7 +199,7 @@ export class GeminiClient {
 
     const compressed = await this.tryCompressChat();
     if (compressed) {
-      yield { type: GeminiEventType.ChatCompressed };
+      yield { type: GeminiEventType.ChatCompressed, value: compressed };
     }
     const chat = await this.chat;
     const turn = new Turn(chat);
@@ -215,7 +223,7 @@ export class GeminiClient {
     contents: Content[],
     schema: SchemaUnion,
     abortSignal: AbortSignal,
-    model: string = 'gemini-2.0-flash',
+    model: string = DEFAULT_GEMINI_FLASH_MODEL,
     config: GenerateContentConfig = {},
   ): Promise<Record<string, unknown>> {
     const cg = await this.contentGenerator;
@@ -387,44 +395,55 @@ export class GeminiClient {
     });
   }
 
-  private async tryCompressChat(): Promise<boolean> {
+  async tryCompressChat(
+    force: boolean = false,
+  ): Promise<ChatCompressionInfo | null> {
     const chat = await this.chat;
     const history = chat.getHistory(true); // Get curated history
 
+    // Regardless of `force`, don't do anything if the history is empty.
+    if (history.length === 0) {
+      return null;
+    }
+
     const cg = await this.contentGenerator;
-    const { totalTokens } = await cg.countTokens({
+    const { totalTokens: originalTokenCount } = await cg.countTokens({
       model: this.model,
       contents: history,
     });
 
-    if (totalTokens === undefined) {
-      // If token count is undefined, we can't determine if we need to compress.
-      console.warn(
-        `Could not determine token count for model ${this.model}. Skipping compression check.`,
-      );
-      return false;
-    }
-    const tokenCount = totalTokens; // Now guaranteed to be a number
+    // If not forced, check if we should compress based on context size.
+    if (!force) {
+      if (originalTokenCount === undefined) {
+        // If token count is undefined, we can't determine if we need to compress.
+        console.warn(
+          `Could not determine token count for model ${this.model}. Skipping compression check.`,
+        );
+        return null;
+      }
+      const tokenCount = originalTokenCount; // Now guaranteed to be a number
 
-    const limit = tokenLimit(this.model);
-    if (!limit) {
-      // If no limit is defined for the model, we can't compress.
-      console.warn(
-        `No token limit defined for model ${this.model}. Skipping compression check.`,
-      );
-      return false;
+      const limit = tokenLimit(this.model);
+      if (!limit) {
+        // If no limit is defined for the model, we can't compress.
+        console.warn(
+          `No token limit defined for model ${this.model}. Skipping compression check.`,
+        );
+        return null;
+      }
+
+      if (tokenCount < 0.95 * limit) {
+        return null;
+      }
     }
 
-    if (tokenCount < 0.95 * limit) {
-      return false;
-    }
     const summarizationRequestMessage = {
       text: 'Summarize our conversation up to this point. The summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.',
     };
     const response = await chat.sendMessage({
       message: summarizationRequestMessage,
     });
-    this.chat = this.startChat([
+    const newHistory = [
       {
         role: 'user',
         parts: [summarizationRequestMessage],
@@ -433,8 +452,15 @@ export class GeminiClient {
         role: 'model',
         parts: [{ text: response.text }],
       },
-    ]);
+    ];
+    this.chat = this.startChat(newHistory);
+    const newTokenCount = (
+      await cg.countTokens({ model: this.model, contents: newHistory })
+    ).totalTokens;
 
-    return true;
+    return {
+      originalTokenCount,
+      newTokenCount,
+    };
   }
 }
