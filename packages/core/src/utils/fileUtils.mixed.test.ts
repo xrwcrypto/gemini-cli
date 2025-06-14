@@ -7,8 +7,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as path from 'node:path';
 
-vi.mock('node:path', () => {
-  return { ...path.win32, default: path.win32 };
+vi.mock('node:path', async (importOriginal) => {
+  const original = await importOriginal<typeof path>();
+  return { ...original.win32, default: original.win32 };
 });
 
 import { isWithinRoot } from './fileUtils.js';
