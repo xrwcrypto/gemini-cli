@@ -53,6 +53,6 @@ function buildImage(imageName, dockerfile) {
   console.log(`built ${imageName}`);
 }
 
-buildImage(argv.i, 'Dockerfile.webrun');
+buildImage(argv.i, 'webrun.Dockerfile');
 
 execSync(`docker image prune -f`, { stdio: 'ignore' });
