@@ -5,6 +5,7 @@
 # gemini-cli settings
 .gemini/
 !gemini/config.yaml
+!gemini/settings.json.preinstall
 
 # Dependency directory
 node_modules
