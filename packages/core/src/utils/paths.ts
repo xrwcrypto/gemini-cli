@@ -25,8 +25,9 @@ export function tildeifyPath(path: string): string {
  * Example: /path/to/a/very/long/file.txt -> /path/.../long/file.txt
  */
 export function shortenPath(filePath: string, maxLen: number = 35): string {
-  if (filePath.length <= maxLen) {
-    return filePath;
+  const normalizedFilePath = filePath.replace(/\\/g, '/');
+  if (normalizedFilePath.length <= maxLen) {
+    return normalizedFilePath;
   }
 
   const parsedPath = path.parse(filePath);
@@ -107,8 +108,8 @@ export function makeRelative(
   targetPath: string,
   rootDirectory: string,
 ): string {
-  const resolvedTargetPath = path.resolve(targetPath);
-  const resolvedRootDirectory = path.resolve(rootDirectory);
+  const resolvedTargetPath = path.resolve(targetPath.replace(/\\/g, '/'));
+  const resolvedRootDirectory = path.resolve(rootDirectory.replace(/\\/g, '/'));
 
   const relativePath = path.relative(resolvedRootDirectory, resolvedTargetPath);
 
