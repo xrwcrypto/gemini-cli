@@ -9,6 +9,7 @@ help:
 	@echo "  make install          - Install npm dependencies"
 	@echo "  make build            - Build the entire project"
 	@echo "  make build-sandbox    - Build the sandbox container"
+	@echo "  make build-webrun     - Build the webrun container"
 	@echo "  make build-all        - Build the project and the sandbox"
 	@echo "  make test             - Run the test suite"
 	@echo "  make lint             - Lint the code"
@@ -29,6 +30,9 @@ build:
 
 build-sandbox:
 	npm run build:sandbox
+
+build-webrun:
+	npm run build:webrun
 
 build-all:
 	npm run build:all
