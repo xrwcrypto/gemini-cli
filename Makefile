@@ -31,7 +31,7 @@ build:
 build-sandbox:
 	npm run build:sandbox
 
-build-webrun:
+build-webrun: build-sandbox
 	npm run build:webrun
 
 build-all:
