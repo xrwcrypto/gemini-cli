@@ -14,7 +14,7 @@ USER node
 # Set the working directory
 WORKDIR /home/node
 
-COPY .gemini/settings.json .gemini/
+COPY .gemini/settings.json.preinstall .gemini/settings.json
 
 # Expose the port ttyd will run on. Cloud Run will provide the $PORT environment variable.
 EXPOSE 8080

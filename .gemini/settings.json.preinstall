@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "cloud-run": {
+      "command": "cloud-run-mcp",
+      "env": {
+        "GCP_STDIO": "true"
+      }
+    }
+  }
+}
