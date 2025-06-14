@@ -6,12 +6,18 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
-import { SwarmManager, ResourceLimits } from '@gemini-cli/swarm';
-import { AgentRole } from '@gemini-cli/swarm';
 import { MessageType, HistoryItemWithoutId } from '../../types.js';
 import { SimpleConductorDashboard } from './SimpleConductorDashboard.js';
 import { useDashboardState } from './hooks/useDashboardState.js';
 import { SwarmUILogger } from './swarm-ui-logger.js';
+
+// Lazy load SwarmManager to avoid potential circular dependencies
+const loadSwarmModule = async () => {
+  console.log('SwarmCommand: Loading swarm module...');
+  const swarmModule = await import('@gemini-cli/swarm');
+  console.log('SwarmCommand: Swarm module loaded');
+  return swarmModule;
+};
 
 interface SwarmCommandProps {
   onExit: () => void;
@@ -22,19 +28,22 @@ interface SwarmCommandProps {
 
 export interface SwarmState {
   isActive: boolean;
-  swarmManager?: SwarmManager;
-  agents: Map<string, { id: string; role: AgentRole; status: string }>;
+  swarmManager?: any; // SwarmManager type loaded dynamically
+  agents: Map<string, { id: string; role: string; status: string }>;
   currentTask?: string;
   taskQueue: any[];
 }
 
 export const SwarmCommand: React.FC<SwarmCommandProps> = ({ onExit, onMessage, addItem, initialPrompt }) => {
+  console.log('SwarmCommand: Component created with initialPrompt:', initialPrompt);
+  console.error('=== SWARM DEBUG: Component rendering at', new Date().toISOString());
+  
   const [swarmState, setSwarmState] = useState<SwarmState>({
     isActive: false,
     agents: new Map(),
     taskQueue: []
   });
-  const [isInitializing, setIsInitializing] = useState(true); // Start as initializing
+  const [isInitializing, setIsInitializing] = useState(false); // Start as false so initialization can run
   const [error, setError] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [agentOutputs, setAgentOutputs] = useState<Map<string, string[]>>(new Map());
@@ -87,8 +96,11 @@ export const SwarmCommand: React.FC<SwarmCommandProps> = ({ onExit, onMessage, a
       // Log initialization
       logger.logSwarmEvent('main', 'Initializing Swarm Mode', { resourceLimits: true });
 
+      // Load swarm module
+      const { SwarmManager, AgentRole } = await loadSwarmModule();
+      
       // Create SwarmManager with default resource limits
-      const resourceLimits: Partial<ResourceLimits> = {
+      const resourceLimits = {
         maxAgents: 5,
         maxMemoryPerAgent: 512,
         maxCpuPerAgent: 50,
@@ -188,12 +200,12 @@ export const SwarmCommand: React.FC<SwarmCommandProps> = ({ onExit, onMessage, a
           details: `Type: ${task.type}, Priority: ${task.priority}`
         });
 
-        // Update the task in the dashboard with the actual prompt
+        // Update the task in the dashboard with the actual task description
         updateTask({
           id: task.id,
           type: task.type,
-          description: currentPrompt || task.description || 'New task',
-          status: 'pending',
+          description: task.description || 'New task',
+          status: task.status || 'pending',
           priority: task.priority,
           createdAt: new Date(),
           estimatedDuration: 30
@@ -303,15 +315,19 @@ export const SwarmCommand: React.FC<SwarmCommandProps> = ({ onExit, onMessage, a
           details: result
         });
         
+        // Find the task to get its actual description
+        const task = dashboardState.tasks.find(t => t.id === taskId);
+        const taskDescription = task?.description || `Task ${taskId} completed`;
+        
         // Update task status to completed
         updateTask({
           id: taskId,
-          type: 'implementation',
-          description: currentPrompt || 'Task completed',
+          type: task?.type || 'implementation',
+          description: taskDescription,
           status: 'completed',
           assignedAgent: agentId,
-          priority: 'medium',
-          createdAt: new Date(),
+          priority: task?.priority || 'medium',
+          createdAt: task?.createdAt || new Date(),
           estimatedDuration: 30
         });
         
@@ -600,7 +616,8 @@ export const SwarmCommand: React.FC<SwarmCommandProps> = ({ onExit, onMessage, a
 
   // Initialize swarm when component mounts
   useEffect(() => {
-    console.log('SwarmCommand: Mounting, initializing swarm...');
+    console.log('SwarmCommand: useEffect mount, initializing swarm...');
+    console.error('SwarmCommand: DEBUG - useEffect is running'); // Use stderr to ensure it's visible
     
     // Check if we have a valid TTY for Ink
     const canUseRawMode = process.stdin.isTTY && process.stdin.setRawMode;
@@ -610,13 +627,15 @@ export const SwarmCommand: React.FC<SwarmCommandProps> = ({ onExit, onMessage, a
     
     // Small delay to ensure state is properly initialized
     const timer = setTimeout(() => {
+      console.log('SwarmCommand: Timer fired, calling initializeSwarm');
+      console.error('SwarmCommand: DEBUG - Timer callback running'); // Use stderr
       initializeSwarm();
     }, 100);
 
     // Cleanup on unmount
     return () => {
       clearTimeout(timer);
-      console.log('SwarmCommand: Unmounting, swarm state:', swarmState.isActive);
+      console.log('SwarmCommand: useEffect cleanup, swarm state:', swarmState.isActive);
       // Don't automatically shutdown on unmount - this might be causing unexpected exits
       // The swarm should only shutdown when explicitly requested by the user
     };
@@ -747,11 +766,12 @@ export const SwarmCommand: React.FC<SwarmCommandProps> = ({ onExit, onMessage, a
     error
   });
   
-  // Return loading state while initializing (this shouldn't happen but prevents the error state)
+  // Don't exit immediately - show loading state
   return (
     <Box flexDirection="column" paddingX={1}>
       <Text color="yellow">⏳ Initializing Swarm Mode...</Text>
       <Text dimColor>Debug: isInitializing={String(isInitializing)}, isActive={String(swarmState.isActive)}</Text>
+      <Text dimColor>Please wait while the swarm initializes...</Text>
     </Box>
   );
 };
