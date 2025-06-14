@@ -1,0 +1,28 @@
+# Stage 1: Use the existing sandbox image as the base
+FROM gemini-cli-sandbox:latest AS builder
+
+# Stage 2: Create the final, lean image for web deployment
+FROM node:22
+
+# Install ttyd from GitHub releases
+RUN apt-get update && apt-get install -y curl procps && \
+    curl -L https://github.com/tsl0922/ttyd/releases/download/1.7.4/ttyd.x86_64 -o /usr/local/bin/ttyd && \
+    chmod +x /usr/local/bin/ttyd && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the gemini executable and all its related files from the builder stage
+COPY --from=builder /usr/local/share/npm-global /usr/local/share/npm-global
+
+# Set the working directory
+WORKDIR /
+
+# Add gemini to the path
+ENV PATH=$PATH:/usr/local/share/npm-global/bin
+
+# Expose the port ttyd will run on. Cloud Run will provide the $PORT environment variable.
+EXPOSE 8080
+
+# Start ttyd and launch the gemini CLI.
+# -p $PORT: ttyd will listen on the port specified by the environment variable.
+# gemini: This is the command that will be executed in the terminal.
+CMD ["ttyd", "-p", "8080", "-W", "gemini"]
