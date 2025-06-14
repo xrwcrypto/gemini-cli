@@ -31,6 +31,7 @@
     "build:packages": "npm run build:core && npm run build:cli",
     "build:docker": "node scripts/build_sandbox.js -s",
     "build:webrun": "node scripts/build_webrun.js",
+    "deploy:webrun": "node scripts/deploy_webrun.js",
     "tag:docker": "docker tag gemini-cli-sandbox ${SANDBOX_IMAGE_REGISTRY:?SANDBOX_IMAGE_REGISTRY not set}/${SANDBOX_IMAGE_NAME:?SANDBOX_IMAGE_NAME not set}:$npm_package_version",
     "prepare:cli-packagejson": "node scripts/prepare-cli-packagejson.js",
     "publish:sandbox": "node scripts/publish-sandbox.js",

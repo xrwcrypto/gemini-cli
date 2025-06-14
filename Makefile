@@ -66,3 +66,6 @@ run-npx:
 
 create-alias:
 	scripts/create_alias.sh
+
+deploy-webrun: build-webrun
+	npm run deploy:webrun
