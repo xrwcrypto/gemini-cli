@@ -1,0 +1,27 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import path from 'node:path';
+
+vi.mock('node:path', async () => {
+  const actual = await vi.importActual('node:path');
+  return { ...actual, default: actual.win32 };
+});
+
+import { isWithinRoot } from './fileUtils.js';
+
+describe('Windows paths', () => {
+  describe('isWithinRoot', () => {
+    it('should return true for paths within the root', () => {
+      expect(isWithinRoot('C:\\a\\b\\c', 'C:\\a\\b')).toBe(true);
+    });
+
+    it('should return false for paths outside the root', () => {
+      expect(isWithinRoot('C:\\a\\c', 'C:\\a\\b')).toBe(false);
+    });
+  });
+});

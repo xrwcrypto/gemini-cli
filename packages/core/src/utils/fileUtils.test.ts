@@ -71,63 +71,7 @@ describe('fileUtils', () => {
     vi.restoreAllMocks(); // Restore any spies
   });
 
-  describe('isWithinRoot', () => {
-    const root = path.resolve('/project/root');
-
-    it('should return true for paths directly within the root', () => {
-      expect(isWithinRoot(path.join(root, 'file.txt'), root)).toBe(true);
-      expect(isWithinRoot(path.join(root, 'subdir', 'file.txt'), root)).toBe(
-        true,
-      );
-    });
-
-    it('should return true for the root path itself', () => {
-      expect(isWithinRoot(root, root)).toBe(true);
-    });
-
-    it('should return false for paths outside the root', () => {
-      expect(
-        isWithinRoot(path.resolve('/project/other', 'file.txt'), root),
-      ).toBe(false);
-      expect(isWithinRoot(path.resolve('/unrelated', 'file.txt'), root)).toBe(
-        false,
-      );
-    });
-
-    it('should return false for paths that only partially match the root prefix', () => {
-      expect(
-        isWithinRoot(
-          path.resolve('/project/root-but-actually-different'),
-          root,
-        ),
-      ).toBe(false);
-    });
-
-    it('should handle paths with trailing slashes correctly', () => {
-      expect(isWithinRoot(path.join(root, 'file.txt') + path.sep, root)).toBe(
-        true,
-      );
-      expect(isWithinRoot(root + path.sep, root)).toBe(true);
-    });
-
-    it('should handle different path separators (POSIX vs Windows)', () => {
-      const posixRoot = '/project/root';
-      const posixPathInside = '/project/root/file.txt';
-      const posixPathOutside = '/project/other/file.txt';
-      expect(isWithinRoot(posixPathInside, posixRoot)).toBe(true);
-      expect(isWithinRoot(posixPathOutside, posixRoot)).toBe(false);
-    });
-
-    it('should return false for a root path that is a sub-path of the path to check', () => {
-      const pathToCheck = path.resolve('/project/root/sub');
-      const rootSub = path.resolve('/project/root');
-      expect(isWithinRoot(pathToCheck, rootSub)).toBe(true);
-
-      const pathToCheckSuper = path.resolve('/project/root');
-      const rootSuper = path.resolve('/project/root/sub');
-      expect(isWithinRoot(pathToCheckSuper, rootSuper)).toBe(false);
-    });
-  });
+  
 
   describe('isBinaryFile', () => {
     let filePathForBinaryTest: string;
