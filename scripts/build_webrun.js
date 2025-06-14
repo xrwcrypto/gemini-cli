@@ -46,10 +46,18 @@ function buildImage(imageName, dockerfile) {
   console.log(`building ${imageName} ... (can be slow first time)`);
   const buildCommand = 'docker buildx build';
 
-  execSync(
-    `${buildCommand} ${process.env.BUILD_WEBRUN_FLAGS || ''} -f "${dockerfile}" -t "${imageName}" .`,
-    { stdio: buildStdout, shell: '/bin/bash' },
-  );
+  try {
+    execSync(
+      `${buildCommand} ${
+        process.env.BUILD_WEBRUN_FLAGS || ''
+      } -f "${dockerfile}" -t "${imageName}" .`,
+      { stdio: 'inherit', shell: '/bin/bash' }
+    );
+  } catch (e) {
+    console.error(e.stdout.toString());
+    console.error(e.stderr.toString());
+    throw e;
+  }
   console.log(`built ${imageName}`);
 }
 
