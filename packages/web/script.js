@@ -216,17 +216,5 @@ function oauth2SignIn() {
   form.submit();
 }
 
-function requestQuota() {
-  // open a new window to request quota for Cloud Run GPUs
-  const baseURL = 'https://console.cloud.google.com/apis/api/run.googleapis.com/quotas?project=';
-  const project = document.getElementById('project').value;
-  if (!project) {
-    console.error('No project ID');
-    return;
-  }
-  const quotaFIlters = `&pageState=("allQuotasTable":("f":"%255B%257B_22k_22_3A_22Dimensions%2520%2528e.g.%2520location%2529_22_2C_22t_22_3A10_2C_22v_22_3A_22_5C_22region_3Aus-central1_5C_22_22_2C_22s_22_3Atrue_2C_22i_22_3A_22displayDimensions_22%257D_2C%257B_22k_22_3A_22Name_22_2C_22t_22_3A10_2C_22v_22_3A_22_5C_22Total%2520Nvidia%2520L4%2520GPU%2520allocation%2520without%2520zonal%2520redundancy_2C%2520per%2520project%2520per%2520region_5C_22_22_2C_22s_22_3Atrue_2C_22i_22_3A_22displayName_22%257D%255D"))`
-  window.open(baseURL + project + quotaFIlters);
-}
-
 document.getElementById('button-signin').addEventListener('click', oauth2SignIn);
 document.getElementById('button-deploy').addEventListener('click', deployAndWait);
