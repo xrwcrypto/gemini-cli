@@ -28,6 +28,20 @@ const argv = yargs(hideBin(process.argv))
     description:
       'Google Cloud project to deploy to. Can also be set via GOOGLE_CLOUD_PROJECT environment variable.',
   })
+  .option('name', {
+    type: 'string',
+    default: 'gemini-cli-webrun',
+    description: 'Name of the Cloud Run service.',
+  })
+  .option('region', {
+    type: 'string',
+    default: 'europe-west1',
+    description: 'The GCP region to deploy to.',
+  })
+  .option('image', {
+    type: 'string',
+    description: 'Custom Gemini CLI webrun container image.',
+  })
   .help().argv;
 
 const project = argv.project || process.env.GOOGLE_CLOUD_PROJECT;
@@ -39,13 +53,14 @@ if (!project) {
   process.exit(1);
 }
 
-const name = 'gemini-cli-webrun';
-const region = 'europe-west1';
+const name = argv.name;
+const region = argv.region;
 const makePublicFlag = '--allow-unauthenticated'; // "--no-invoker-iam-check";
 
-// TODO: replace with publicly hosted webrun image
-const imageUri = `gcr.io/${project}/gemini-cli-webrun:latest`;
+// TODO: replace the default with publicly hosted webrun image
+const imageUri = argv.image || `gcr.io/${project}/gemini-cli-webrun:latest`;
 
+// TODO: this doesn't work well with Vertex API.
 const deployCommand = `gcloud alpha run deploy ${name} --image ${imageUri} --max 1 --cpu 8 --memory 32Gi ${makePublicFlag} --set-env-vars GOOGLE_CLOUD_PROJECT=${project},GOOGLE_CLOUD_LOCATION=${region} --region ${region} --project ${project}`;
 
 console.log(`Executing: ${deployCommand}`);
