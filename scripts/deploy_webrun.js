@@ -19,15 +19,34 @@
 // limitations under the License.
 
 import { execSync } from 'child_process';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+
+const argv = yargs(hideBin(process.argv))
+  .option('project', {
+    type: 'string',
+    description:
+      'Google Cloud project to deploy to. Can also be set via GOOGLE_CLOUD_PROJECT environment variable.',
+  })
+  .help().argv;
+
+const project = argv.project || process.env.GOOGLE_CLOUD_PROJECT;
+
+if (!project) {
+  console.error(
+    'Error: --project flag or GOOGLE_CLOUD_PROJECT environment variable must be set.',
+  );
+  process.exit(1);
+}
 
 const name = 'gemini-cli-webrun';
 const region = 'europe-west1';
-const makePublicFlag = "--allow-unauthenticated" // "--no-invoker-iam-check";
+const makePublicFlag = '--allow-unauthenticated'; // "--no-invoker-iam-check";
 
 // TODO: replace with publicly hosted webrun image
-const imageUri = `gcr.io/steren-serverless/gemini-cli-webrun:latest`;
+const imageUri = `gcr.io/${project}/gemini-cli-webrun:latest`;
 
-const deployCommand = `gcloud alpha run deploy ${name} --image ${imageUri} --max 1 --cpu 8 --memory 32Gi --region ${region} ${makePublicFlag}`;
+const deployCommand = `gcloud alpha run deploy ${name} --image ${imageUri} --max 1 --cpu 8 --memory 32Gi ${makePublicFlag} --set-env-vars GOOGLE_CLOUD_PROJECT=${project},GOOGLE_CLOUD_LOCATION=${region} --region ${region} --project ${project}`;
 
 console.log(`Executing: ${deployCommand}`);
 execSync(deployCommand, { stdio: 'inherit' });
