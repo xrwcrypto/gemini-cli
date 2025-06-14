@@ -1,10 +1,14 @@
 FROM gemini-cli-sandbox:latest
 
+USER root
+
 # Install ttyd from GitHub releases
 RUN apt-get update && apt-get install -y curl procps && \
     curl -L https://github.com/tsl0922/ttyd/releases/download/1.7.4/ttyd.x86_64 -o /usr/local/bin/ttyd && \
     chmod +x /usr/local/bin/ttyd && \
     rm -rf /var/lib/apt/lists/*
+
+USER node
 
 # Set the working directory
 WORKDIR /home/node
