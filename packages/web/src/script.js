@@ -128,6 +128,7 @@ function getTokenAndProject() {
     console.error('No project ID');
     return;
   }
+  localStorage.setItem('project', project);
 
   return {token, project};
 }
@@ -272,4 +273,9 @@ if (document.referrer) {
   if (referrer.hostname === 'github.com') {
     document.getElementById('repo').value = referrer.href;
   }
+}
+
+const storedProject = localStorage.getItem('project');
+if (storedProject) {
+  document.getElementById('project').value = storedProject;
 }
