@@ -17,12 +17,12 @@ USER node
 # Set the working directory
 WORKDIR /home/node
 
-COPY .gemini/settings.json.preinstall .gemini/settings.json
+# preinstall extensions
+COPY .docker/webrun/extensions/ .gemini/extensions/
 
 # Expose the port ttyd will run on. Cloud Run will provide the $PORT environment variable.
 EXPOSE 8080
 
-ENV GCP_STDIO=true
 ENV GOOGLE_CLOUD_LOCATION=global
 ENV GOOGLE_GENAI_USE_VERTEXAI=true
 
