@@ -129,6 +129,7 @@ describe('useSlashCommandProcessor', () => {
       getModel: vi.fn(() => 'test-model'),
       getProjectRoot: vi.fn(() => '/test/dir'),
       getCheckpointEnabled: vi.fn(() => true),
+      getBugCommand: vi.fn(() => undefined),
     } as unknown as Config;
     mockCorgiMode = vi.fn();
     mockUseSessionStats.mockReturnValue({
@@ -418,6 +419,47 @@ Add any other context about the problem here.
       expect(open).toHaveBeenCalledWith(expectedUrl);
       expect(commandResult).toBe(true);
     });
+
+    it('should use the custom bug command URL from config if available', async () => {
+      const bugCommand = {
+        urlTemplate:
+          'https://custom-bug-tracker.com/new?title={title}&body={body}',
+      };
+      mockConfig = {
+        ...mockConfig,
+        getBugCommand: vi.fn(() => bugCommand),
+      } as unknown as Config;
+
+      const { handleSlashCommand } = getProcessor();
+      const bugDescription = 'This is a custom bug';
+      const diagnosticInfo = `
+## Describe the bug
+A clear and concise description of what the bug is.
+
+## Additional context
+Add any other context about the problem here.
+
+## Diagnostic Information
+*   **CLI Version:** unknown
+*   **Git Commit:** ${GIT_COMMIT_INFO}
+*   **Operating System:** test-platform test-node-version
+*   **Sandbox Environment:** no sandbox
+*   **Model Version:** test-model
+*   **Memory Usage:** 11.8 MB
+`;
+      const expectedUrl = bugCommand.urlTemplate
+        .replace('{title}', encodeURIComponent(bugDescription))
+        .replace('{body}', encodeURIComponent(diagnosticInfo));
+
+      let commandResult: SlashCommandActionReturn | boolean = false;
+      await act(async () => {
+        commandResult = await handleSlashCommand(`/bug ${bugDescription}`);
+      });
+
+      expect(mockAddItem).toHaveBeenCalledTimes(2);
+      expect(open).toHaveBeenCalledWith(expectedUrl);
+      expect(commandResult).toBe(true);
+    });
   });
 
   describe('/quit and /exit commands', () => {
@@ -553,14 +595,9 @@ Add any other context about the problem here.
       });
 
       // Should only show tool1 and tool2, not the MCP tools
-      expect(mockAddItem).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          type: MessageType.INFO,
-          text: 'Available Gemini CLI tools:\n\nTool1\nTool2',
-        }),
-        expect.any(Number),
-      );
+      const message = mockAddItem.mock.calls[1][0].text;
+      expect(message).toContain('\u001b[36mTool1\u001b[0m');
+      expect(message).toContain('\u001b[36mTool2\u001b[0m');
       expect(commandResult).toBe(true);
     });
 
@@ -584,14 +621,43 @@ Add any other context about the problem here.
         commandResult = await handleSlashCommand('/tools');
       });
 
-      expect(mockAddItem).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          type: MessageType.INFO,
-          text: 'Available Gemini CLI tools:\n\n',
+      const message = mockAddItem.mock.calls[1][0].text;
+      expect(message).toContain('No tools available');
+      expect(commandResult).toBe(true);
+    });
+
+    it('should display tool descriptions when /tools desc is used', async () => {
+      const mockTools = [
+        {
+          name: 'tool1',
+          displayName: 'Tool1',
+          description: 'Description for Tool1',
+        },
+        {
+          name: 'tool2',
+          displayName: 'Tool2',
+          description: 'Description for Tool2',
+        },
+      ];
+
+      mockConfig = {
+        ...mockConfig,
+        getToolRegistry: vi.fn().mockResolvedValue({
+          getAllTools: vi.fn().mockReturnValue(mockTools),
         }),
-        expect.any(Number),
-      );
+      } as unknown as Config;
+
+      const { handleSlashCommand } = getProcessor();
+      let commandResult: SlashCommandActionReturn | boolean = false;
+      await act(async () => {
+        commandResult = await handleSlashCommand('/tools desc');
+      });
+
+      const message = mockAddItem.mock.calls[1][0].text;
+      expect(message).toContain('\u001b[36mTool1\u001b[0m');
+      expect(message).toContain('Description for Tool1');
+      expect(message).toContain('\u001b[36mTool2\u001b[0m');
+      expect(message).toContain('Description for Tool2');
       expect(commandResult).toBe(true);
     });
   });

@@ -18,6 +18,7 @@ import {
   DEFAULT_GEMINI_MODEL,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   FileDiscoveryService,
+  TelemetryTarget,
 } from '@gemini-cli/core';
 import { Settings } from './settings.js';
 import { getEffectiveModel } from '../utils/modelCheck.js';
@@ -47,6 +48,9 @@ interface CliArgs {
   yolo: boolean | undefined;
   telemetry: boolean | undefined;
   checkpoint: boolean | undefined;
+  telemetryTarget: string | undefined;
+  telemetryOtlpEndpoint: string | undefined;
+  telemetryLogPrompts: boolean | undefined;
 }
 
 async function parseArguments(): Promise<CliArgs> {
@@ -93,7 +97,24 @@ async function parseArguments(): Promise<CliArgs> {
     })
     .option('telemetry', {
       type: 'boolean',
-      description: 'Enable telemetry?',
+      description:
+        'Enable telemetry? This flag specifically controls if telemetry is sent. Other --telemetry-* flags set specific values but do not enable telemetry on their own.',
+    })
+    .option('telemetry-target', {
+      type: 'string',
+      choices: ['local', 'gcp'],
+      description:
+        'Set the telemetry target (local or gcp). Overrides settings files.',
+    })
+    .option('telemetry-otlp-endpoint', {
+      type: 'string',
+      description:
+        'Set the OTLP endpoint for telemetry. Overrides environment variables and settings files.',
+    })
+    .option('telemetry-log-prompts', {
+      type: 'boolean',
+      description:
+        'Enable or disable logging of user prompts for telemetry. Overrides settings files.',
     })
     .option('checkpoint', {
       alias: 'c',
@@ -136,7 +157,6 @@ export async function loadHierarchicalGeminiMemory(
 export async function loadCliConfig(
   settings: Settings,
   extensions: Extension[],
-  geminiIgnorePatterns: string[],
   sessionId: string,
 ): Promise<Config> {
   loadEnvironment();
@@ -158,9 +178,6 @@ export async function loadCliConfig(
   const extensionContextFilePaths = extensions.flatMap((e) => e.contextFiles);
 
   const fileService = new FileDiscoveryService(process.cwd());
-  await fileService.initialize({
-    respectGitIgnore: settings.fileFiltering?.respectGitIgnore,
-  });
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
   const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
     process.cwd(),
@@ -193,12 +210,17 @@ export async function loadCliConfig(
     approvalMode: argv.yolo || false ? ApprovalMode.YOLO : ApprovalMode.DEFAULT,
     showMemoryUsage:
       argv.show_memory_usage || settings.showMemoryUsage || false,
-    geminiIgnorePatterns,
     accessibility: settings.accessibility,
-    telemetry:
-      argv.telemetry !== undefined
-        ? argv.telemetry
-        : (settings.telemetry ?? false),
+    telemetry: {
+      enabled: argv.telemetry ?? settings.telemetry?.enabled,
+      target: (argv.telemetryTarget ??
+        settings.telemetry?.target) as TelemetryTarget,
+      otlpEndpoint:
+        argv.telemetryOtlpEndpoint ??
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
+        settings.telemetry?.otlpEndpoint,
+      logPrompts: argv.telemetryLogPrompts ?? settings.telemetry?.logPrompts,
+    },
     // Git-aware file filtering settings
     fileFilteringRespectGitIgnore: settings.fileFiltering?.respectGitIgnore,
     checkpoint: argv.checkpoint,
@@ -208,9 +230,8 @@ export async function loadCliConfig(
       process.env.HTTP_PROXY ||
       process.env.http_proxy,
     cwd: process.cwd(),
-    telemetryOtlpEndpoint:
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? settings.telemetryOtlpEndpoint,
     fileDiscoveryService: fileService,
+    bugCommand: settings.bugCommand,
   });
 }
 
@@ -264,7 +285,7 @@ async function createContentGeneratorConfig(
         '3. GOOGLE_API_KEY (for Gemini API or Vertex AI Express Mode access).\n' +
         '4. GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION (for Vertex AI access).\n\n' +
         'For Gemini API keys, visit: https://ai.google.dev/gemini-api/docs/api-key\n' +
-        'For Vertex AI authentication, visit: https://cloud.google.com/vertex-ai/docs/start/authentication\n' +
+        'For Vertex AI authentication, visit: https://cloud.google.com/vertex-ai/docs/authentication\n' +
         'The GOOGLE_GENAI_USE_VERTEXAI environment variable can also be set to true/false to influence service selection when ambiguity exists.',
     );
     process.exit(1);

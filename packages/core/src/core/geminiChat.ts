@@ -27,8 +27,8 @@ import {
   combinedUsageMetadata,
 } from '../telemetry/loggers.js';
 import {
-  getResponseText,
-  getResponseTextFromParts,
+  getStructuredResponse,
+  getStructuredResponseFromParts,
 } from '../utils/generateContentResponseUtilities.js';
 
 /**
@@ -153,7 +153,7 @@ export class GeminiChat {
     model: string,
   ): Promise<void> {
     const shouldLogUserPrompts = (config: Config): boolean =>
-      config.getTelemetryLogUserPromptsEnabled() ?? false;
+      config.getTelemetryLogPromptsEnabled() ?? false;
 
     const requestText = this._getRequestTextFromContents(contents);
     logApiRequest(this.config, {
@@ -239,7 +239,7 @@ export class GeminiChat {
       await this._logApiResponse(
         durationMs,
         response.usageMetadata,
-        getResponseText(response),
+        getStructuredResponse(response),
       );
 
       this.sendPromise = (async () => {
@@ -437,7 +437,7 @@ export class GeminiChat {
           allParts.push(...content.parts);
         }
       }
-      const fullText = getResponseTextFromParts(allParts);
+      const fullText = getStructuredResponseFromParts(allParts);
       await this._logApiResponse(
         durationMs,
         combinedUsageMetadata(chunks),

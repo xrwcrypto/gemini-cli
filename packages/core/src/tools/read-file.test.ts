@@ -11,6 +11,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs'; // For actual fs operations in setup
 import { Config } from '../config/config.js';
+import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 
 // Mock fileUtils.processSingleFileContent
 vi.mock('../utils/fileUtils', async () => {
@@ -34,9 +35,14 @@ describe('ReadFileTool', () => {
     tempRootDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'read-file-tool-root-'),
     );
+    fs.writeFileSync(
+      path.join(tempRootDir, '.geminiignore'),
+      ['foo.*'].join('\n'),
+    );
+    const fileService = new FileDiscoveryService(tempRootDir);
     const mockConfigInstance = {
-      getGeminiIgnorePatterns: () => ['**/foo.bar', 'foo.baz', 'foo.*'],
-    } as Config;
+      getFileService: () => fileService,
+    } as unknown as Config;
     tool = new ReadFileTool(tempRootDir, mockConfigInstance);
     mockProcessSingleFileContent.mockReset();
   });
@@ -51,14 +57,14 @@ describe('ReadFileTool', () => {
   describe('validateToolParams', () => {
     it('should return null for valid params (absolute path within root)', () => {
       const params: ReadFileToolParams = {
-        path: path.join(tempRootDir, 'test.txt'),
+        absolute_path: path.join(tempRootDir, 'test.txt'),
       };
       expect(tool.validateToolParams(params)).toBeNull();
     });
 
     it('should return null for valid params with offset and limit', () => {
       const params: ReadFileToolParams = {
-        path: path.join(tempRootDir, 'test.txt'),
+        absolute_path: path.join(tempRootDir, 'test.txt'),
         offset: 0,
         limit: 10,
       };
@@ -66,7 +72,7 @@ describe('ReadFileTool', () => {
     });
 
     it('should return error for relative path', () => {
-      const params: ReadFileToolParams = { path: 'test.txt' };
+      const params: ReadFileToolParams = { absolute_path: 'test.txt' };
       expect(tool.validateToolParams(params)).toMatch(
         /File path must be absolute/,
       );
@@ -74,7 +80,7 @@ describe('ReadFileTool', () => {
 
     it('should return error for path outside root', () => {
       const outsidePath = path.resolve(os.tmpdir(), 'outside-root.txt');
-      const params: ReadFileToolParams = { path: outsidePath };
+      const params: ReadFileToolParams = { absolute_path: outsidePath };
       expect(tool.validateToolParams(params)).toMatch(
         /File path must be within the root directory/,
       );
@@ -82,7 +88,7 @@ describe('ReadFileTool', () => {
 
     it('should return error for negative offset', () => {
       const params: ReadFileToolParams = {
-        path: path.join(tempRootDir, 'test.txt'),
+        absolute_path: path.join(tempRootDir, 'test.txt'),
         offset: -1,
         limit: 10,
       };
@@ -93,7 +99,7 @@ describe('ReadFileTool', () => {
 
     it('should return error for non-positive limit', () => {
       const paramsZero: ReadFileToolParams = {
-        path: path.join(tempRootDir, 'test.txt'),
+        absolute_path: path.join(tempRootDir, 'test.txt'),
         offset: 0,
         limit: 0,
       };
@@ -101,7 +107,7 @@ describe('ReadFileTool', () => {
         'Limit must be a positive number',
       );
       const paramsNegative: ReadFileToolParams = {
-        path: path.join(tempRootDir, 'test.txt'),
+        absolute_path: path.join(tempRootDir, 'test.txt'),
         offset: 0,
         limit: -5,
       };
@@ -121,21 +127,21 @@ describe('ReadFileTool', () => {
   describe('getDescription', () => {
     it('should return a shortened, relative path', () => {
       const filePath = path.join(tempRootDir, 'sub', 'dir', 'file.txt');
-      const params: ReadFileToolParams = { path: filePath };
+      const params: ReadFileToolParams = { absolute_path: filePath };
       // Assuming tempRootDir is something like /tmp/read-file-tool-root-XXXXXX
       // The relative path would be sub/dir/file.txt
       expect(tool.getDescription(params)).toBe('sub/dir/file.txt');
     });
 
     it('should return . if path is the root directory', () => {
-      const params: ReadFileToolParams = { path: tempRootDir };
+      const params: ReadFileToolParams = { absolute_path: tempRootDir };
       expect(tool.getDescription(params)).toBe('.');
     });
   });
 
   describe('execute', () => {
     it('should return validation error if params are invalid', async () => {
-      const params: ReadFileToolParams = { path: 'relative/path.txt' };
+      const params: ReadFileToolParams = { absolute_path: 'relative/path.txt' };
       const result = await tool.execute(params, abortSignal);
       expect(result.llmContent).toMatch(/Error: Invalid parameters provided/);
       expect(result.returnDisplay).toMatch(/File path must be absolute/);
@@ -143,7 +149,7 @@ describe('ReadFileTool', () => {
 
     it('should return error from processSingleFileContent if it fails', async () => {
       const filePath = path.join(tempRootDir, 'error.txt');
-      const params: ReadFileToolParams = { path: filePath };
+      const params: ReadFileToolParams = { absolute_path: filePath };
       const errorMessage = 'Simulated read error';
       mockProcessSingleFileContent.mockResolvedValue({
         llmContent: `Error reading file ${filePath}: ${errorMessage}`,
@@ -165,7 +171,7 @@ describe('ReadFileTool', () => {
     it('should return success result for a text file', async () => {
       const filePath = path.join(tempRootDir, 'textfile.txt');
       const fileContent = 'This is a test file.';
-      const params: ReadFileToolParams = { path: filePath };
+      const params: ReadFileToolParams = { absolute_path: filePath };
       mockProcessSingleFileContent.mockResolvedValue({
         llmContent: fileContent,
         returnDisplay: `Read text file: ${path.basename(filePath)}`,
@@ -189,7 +195,7 @@ describe('ReadFileTool', () => {
       const imageData = {
         inlineData: { mimeType: 'image/png', data: 'base64...' },
       };
-      const params: ReadFileToolParams = { path: filePath };
+      const params: ReadFileToolParams = { absolute_path: filePath };
       mockProcessSingleFileContent.mockResolvedValue({
         llmContent: imageData,
         returnDisplay: `Read image file: ${path.basename(filePath)}`,
@@ -211,7 +217,7 @@ describe('ReadFileTool', () => {
     it('should pass offset and limit to processSingleFileContent', async () => {
       const filePath = path.join(tempRootDir, 'paginated.txt');
       const params: ReadFileToolParams = {
-        path: filePath,
+        absolute_path: filePath,
         offset: 10,
         limit: 5,
       };
@@ -231,11 +237,10 @@ describe('ReadFileTool', () => {
 
     it('should return error if path is ignored by a .geminiignore pattern', async () => {
       const params: ReadFileToolParams = {
-        path: path.join(tempRootDir, 'foo.bar'),
+        absolute_path: path.join(tempRootDir, 'foo.bar'),
       };
       const result = await tool.execute(params, abortSignal);
       expect(result.returnDisplay).toContain('foo.bar');
-      expect(result.returnDisplay).toContain('foo.*');
       expect(result.returnDisplay).not.toContain('foo.baz');
     });
   });
