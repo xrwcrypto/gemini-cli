@@ -34,6 +34,7 @@
     "publish:webrun": "node scripts/publish_webrun.js",
     "deploy:webrun": "node scripts/deploy_webrun.js",
     "serve:web": "npx serve packages/web",
+    "deploy:web": "cd packages/web && gcloud run deploy gemini-dev --source . --port 80 --no-invoker-iam-check",
     "tag:docker": "docker tag gemini-cli-sandbox ${SANDBOX_IMAGE_REGISTRY:?SANDBOX_IMAGE_REGISTRY not set}/${SANDBOX_IMAGE_NAME:?SANDBOX_IMAGE_NAME not set}:$npm_package_version",
     "prepare:cli-packagejson": "node scripts/prepare-cli-packagejson.js",
     "publish:sandbox": "node scripts/publish-sandbox.js",
