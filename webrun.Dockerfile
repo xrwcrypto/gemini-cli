@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y curl procps && \
     chmod +x /usr/local/bin/ttyd && \
     rm -rf /var/lib/apt/lists/*
 
+COPY webrun-entrypoint.sh /usr/local/bin/webrun-entrypoint.sh
+RUN chmod +x /usr/local/bin/webrun-entrypoint.sh
+
 USER node
 
 # Set the working directory
@@ -24,4 +27,4 @@ ENV GCP_STDIO=true
 # Start ttyd and launch the gemini CLI.
 # -p $PORT: ttyd will listen on the port specified by the environment variable.
 # gemini: This is the command that will be executed in the terminal.
-CMD ["ttyd", "-p", "8080", "-W", "gemini"]
+CMD ["ttyd", "-p", "8080", "-W", "-a", "/usr/local/bin/webrun-entrypoint.sh"]

@@ -60,8 +60,7 @@ const makePublicFlag = '--allow-unauthenticated'; // "--no-invoker-iam-check";
 // TODO: replace the default with publicly hosted webrun image
 const imageUri = argv.image || `us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:latest`;
 
-// TODO: this doesn't work well with Vertex API.
-const deployCommand = `gcloud alpha run deploy ${name} --image ${imageUri} --max 1 --cpu 8 --memory 32Gi ${makePublicFlag} --set-env-vars GOOGLE_CLOUD_PROJECT=${project},GOOGLE_CLOUD_LOCATION=${region} --region ${region} --project ${project}`;
+const deployCommand = `gcloud alpha run deploy ${name} --image ${imageUri} --max 1 --cpu 8 --memory 32Gi ${makePublicFlag} --set-env-vars GOOGLE_CLOUD_PROJECT=${project},GOOGLE_CLOUD_LOCATION=global,GOOGLE_GENAI_USE_VERTEXAI=true --region ${region} --project ${project}`;
 
 console.log(`Executing: ${deployCommand}`);
 execSync(deployCommand, { stdio: 'inherit' });
