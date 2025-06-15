@@ -75,7 +75,7 @@ function generateServiceName() {
 function getCloudRunServicePayload(project) {
   return {
     labels: {
-      'managed-by': 'gemini.dev',
+      'managed-by': 'gemini-dev',
     },
     launchStage: 'ALPHA', // we need ALPHA to use scaling.maxInstanceCount
     scaling: {
