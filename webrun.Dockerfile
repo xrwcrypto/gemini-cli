@@ -29,4 +29,4 @@ ENV GOOGLE_GENAI_USE_VERTEXAI=true
 # Start ttyd and launch the gemini CLI.
 # -p $PORT: ttyd will listen on the port specified by the environment variable.
 # gemini: This is the command that will be executed in the terminal.
-CMD ["ttyd", "-p", "8080", "-W", "tmux", "new-session", "-A", "-s", "gemini", "/bin/bash", "-c", "/usr/local/bin/webrun-entrypoint.sh; exec /bin/bash"]
+ENTRYPOINT ["ttyd", "-p", "8080", "-W", "tmux", "new-session", "-A", "-s", "gemini", "/bin/bash", "-c", "/usr/local/bin/webrun-entrypoint.sh; exec /bin/bash"]
