@@ -72,7 +72,7 @@ function generateServiceName() {
 }
 
 
-function getCloudRunServicePayload(project) {
+function getCloudRunServicePayload(project, bucket) {
   return {
     labels: {
       'managed-by': 'gemini-dev',
@@ -84,6 +84,14 @@ function getCloudRunServicePayload(project) {
     },
     invokerIamDisabled: true, // make public
     template: {
+      volumes: [
+        {
+          name: 'gemini-home',
+          gcs: {
+            bucket: bucket,
+          }
+        }
+      ],
       containers: [
         {
           image: IMAGE,
@@ -105,6 +113,12 @@ function getCloudRunServicePayload(project) {
             {
               name: 'GOOGLE_GENAI_USE_VERTEXAI',
               value: 'true'
+            }
+          ],
+          volumeMounts: [
+            {
+              name: 'gemini-home',
+              mountPath: '/home/node/.gemini'
             }
           ]
         }
@@ -134,7 +148,7 @@ function getTokenAndProject() {
 }
 
 
-async function deploy(token, project, service, validateOnly = false) {
+async function deploy(token, project, service, bucket, validateOnly = false) {
   console.log(`Deploying to Cloud Run: ${project} ${region} ${service}, validate only? ${validateOnly}`);
 
   let url = `https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services?serviceId=${service}`
@@ -147,7 +161,7 @@ async function deploy(token, project, service, validateOnly = false) {
       'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(getCloudRunServicePayload(project))
+    body: JSON.stringify(getCloudRunServicePayload(project, bucket))
   });
   var result = await response.json();
   console.log(result);
@@ -246,11 +260,16 @@ async function deployAndWait() {
     return;
   }
 
+  const bucket = await getOrCreateGcsBucket(token, project);
+  if (!bucket) {
+    return;
+  }
+
   const service = generateServiceName();
 
   document.getElementById('waiting-message').hidden = false;
   // Deploy
-  const deployResult = await deploy(token, project, service);
+  const deployResult = await deploy(token, project, service, bucket);
   if(deployResult.error) {
     alert(`Error: ${deployResult.error.message}`);
     return;
@@ -274,6 +293,48 @@ async function deployAndWait() {
   document.getElementById('deployed-message').hidden = false;
   
   await refreshServicesList();
+}
+
+async function getOrCreateGcsBucket(token, project) {
+  const bucket = `${project}-${region}-gemini-run`;
+  const exists = await gcsBucketExists(token, bucket);
+  if (exists) {
+    console.log(`Bucket ${bucket} already exists`);
+    return bucket;
+  }
+  console.log(`Bucket ${bucket} does not exist, creating...`);
+  const created = await createGcsBucket(token, project, bucket, region);
+  if (created) {
+    console.log(`Bucket ${bucket} created`);
+    return bucket;
+  }
+  alert(`Error creating bucket ${bucket}`);
+  return null;
+}
+
+async function gcsBucketExists(token, bucket) {
+  const response = await fetch(`https://storage.googleapis.com/storage/v1/b/${bucket}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+    }
+  });
+  return response.ok;
+}
+
+async function createGcsBucket(token, project, bucket, location) {
+  const response = await fetch(`https://storage.googleapis.com/storage/v1/b?project=${project}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: bucket,
+      location: location,
+    })
+  });
+  return response.ok;
 }
 
 document.getElementById('button-deploy').addEventListener('click', async (e) => {
