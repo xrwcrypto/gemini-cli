@@ -1,4 +1,4 @@
-FROM docker.io/library/node:20-slim
+FROM docker.io/library/node:22-slim
 
 ARG SANDBOX_NAME="gemini-cli-sandbox"
 ENV SANDBOX="$SANDBOX_NAME"
@@ -48,4 +48,4 @@ COPY esbuild.config.js .
 RUN npm install -g $(sed -n "/external: \[/,/\]/p" esbuild.config.js | sed '1d;$d' | tr -d "' ," | xargs)
 
 # default entrypoint when none specified
-CMD ["gemini"]
+ENTRYPOINT ["gemini"]
