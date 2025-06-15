@@ -24,7 +24,6 @@ const IMAGE = 'us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:l
 const REDIRECT_URI = window.location.href.split('#')[0];
 
 const region = 'europe-west1';
-const service = 'gemini-cli-webrun';
 
 // Parse query string to see if page request is coming from OAuth 2.0 server.
 var fragmentString = location.hash.substring(1);
@@ -64,8 +63,20 @@ function generateCryptoRandomState() {
     .replace(/=+$/, '');
 }
 
+function generateServiceName() {
+  const consonants = 'bcdfghjklmnpqrstvwxyz';
+  const vowels = 'aeiou';
+  const randomConsonant = () => consonants[Math.floor(Math.random() * consonants.length)];
+  const randomVowel = () => vowels[Math.floor(Math.random() * vowels.length)];
+  return `gemini-cli-${randomConsonant()}${randomVowel()}${randomConsonant()}`;
+}
+
+
 function getCloudRunServicePayload(project) {
   return {
+    labels: {
+      'managed-by': 'gemini.dev',
+    },
     launchStage: 'ALPHA', // we need ALPHA to use scaling.maxInstanceCount
     scaling: {
       minInstanceCount: 0, // allows scaling to zero
@@ -119,7 +130,7 @@ function getTokenAndProject() {
 }
 
 
-async function deploy(token, project, validateOnly = false) {
+async function deploy(token, project, service, validateOnly = false) {
   console.log(`Deploying to Cloud Run: ${project} ${region} ${service}, validate only? ${validateOnly}`);
 
   let url = `https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services?serviceId=${service}`
@@ -183,9 +194,11 @@ async function deployAndWait() {
     return;
   }
 
+  const service = generateServiceName();
+
   document.getElementById('waiting-message').hidden = false;
   // Deploy
-  const deployResult = await deploy(token, project);
+  const deployResult = await deploy(token, project, service);
   if(deployResult.error) {
     alert(`Error: ${deployResult.error.message}`);
     return;
