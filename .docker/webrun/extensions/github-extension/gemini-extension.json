@@ -1,0 +1,9 @@
+{
+  "name": "Github Extension",
+  "version": "0.1.0",
+  "mcpServers": {
+    "github-remote": {
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+  }
+}
