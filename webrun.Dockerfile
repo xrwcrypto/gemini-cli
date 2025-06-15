@@ -23,6 +23,8 @@ COPY .gemini/settings.json.preinstall .gemini/settings.json
 EXPOSE 8080
 
 ENV GCP_STDIO=true
+ENV GOOGLE_CLOUD_LOCATION=global
+ENV GOOGLE_GENAI_USE_VERTEXAI=true
 
 # Start ttyd and launch the gemini CLI.
 # -p $PORT: ttyd will listen on the port specified by the environment variable.
