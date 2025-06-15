@@ -73,6 +73,27 @@ function generateServiceName() {
 
 
 function getCloudRunServicePayload(project, bucket) {
+  const pat = document.getElementById('pat').value;
+  const env = [
+    {
+      name: 'GOOGLE_CLOUD_PROJECT',
+      value: project
+    },
+    {
+      name: 'GOOGLE_CLOUD_LOCATION',
+      value: 'global'
+    },
+    {
+      name: 'GOOGLE_GENAI_USE_VERTEXAI',
+      value: 'true'
+    }
+  ];
+  if (pat) {
+    env.push({
+      name: 'GITHUB_PAT',
+      value: pat
+    });
+  }
   return {
     labels: {
       'managed-by': 'gemini-dev',
@@ -101,20 +122,7 @@ function getCloudRunServicePayload(project, bucket) {
               "memory": "32Gi"
             },
           },
-          env: [
-            {
-              name: 'GOOGLE_CLOUD_PROJECT',
-              value: project
-            },
-            {
-              name: 'GOOGLE_CLOUD_LOCATION',
-              value: 'global'
-            },
-            {
-              name: 'GOOGLE_GENAI_USE_VERTEXAI',
-              value: 'true'
-            }
-          ],
+          env: env,
           volumeMounts: [
             {
               name: 'gemini-home',
