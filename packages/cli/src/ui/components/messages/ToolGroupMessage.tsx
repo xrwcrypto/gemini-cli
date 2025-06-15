@@ -19,7 +19,7 @@ interface ToolGroupMessageProps {
   config?: Config;
   isFocused?: boolean;
   isFirstContent?: boolean;
-  isLastContent?: boolean;
+  isFollowedByToolGroup?: boolean;
 }
 
 // Main component renders the border and maps the tools using ToolMessage
@@ -29,7 +29,6 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   config,
   isFocused = true,
   isFirstContent = false,
-  isLastContent = false,
 }) => {
   const hasPending = !toolCalls.every(
     (t) => t.status === ToolCallStatus.Success,
@@ -47,11 +46,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
 
   if (config?.getToolCallDisplay() === 'line' && !toolAwaitingApproval) {
     return (
-      <Box
-        flexDirection="column"
-        marginLeft={1}
-        marginBottom={isLastContent ? 0 : 1}
-      >
+      <Box flexDirection="column" marginLeft={1}>
         {toolCalls.map((tool) => {
           return (
             <Box key={tool.callId} flexDirection="column" minHeight={1}>
@@ -93,7 +88,6 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
       marginLeft={1}
       borderDimColor={hasPending}
       borderColor={borderColor}
-      marginBottom={isLastContent ? 0 : 1}
     >
       {toolCalls.map((tool) => {
         const isConfirming =

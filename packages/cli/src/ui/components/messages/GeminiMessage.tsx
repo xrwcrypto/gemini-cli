@@ -13,6 +13,7 @@ interface GeminiMessageProps {
   text: string;
   isPending: boolean;
   availableTerminalHeight: number;
+  isFollowedByToolGroup?: boolean;
 }
 
 export const GeminiMessage: React.FC<GeminiMessageProps> = ({
@@ -20,6 +21,10 @@ export const GeminiMessage: React.FC<GeminiMessageProps> = ({
   isPending,
   availableTerminalHeight,
 }) => {
+  if (!text && !isPending) {
+    return null;
+  }
+
   const prefix = '✦ ';
   const prefixWidth = prefix.length;
 

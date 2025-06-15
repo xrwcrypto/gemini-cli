@@ -470,9 +470,9 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
                 key={h.id}
                 item={h}
                 previousItem={history[i - 1]}
+                nextItem={history[i + 1]}
                 isPending={false}
                 config={config}
-                isLastContent={i === history.length - 1}
               />
             )),
           ]}
@@ -485,6 +485,7 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
               i === 0
                 ? history[history.length - 1]
                 : pendingHistoryItems[i - 1];
+            const nextItem = pendingHistoryItems[i + 1];
             return (
               <HistoryItemDisplay
                 key={i}
@@ -493,10 +494,10 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
                 // HistoryItemDisplay. Refactor later. Use a fake id for now.
                 item={{ ...item, id: 0 }}
                 previousItem={previousItem}
+                nextItem={nextItem}
                 isPending={true}
                 config={config}
                 isFocused={!isEditorDialogOpen}
-                isLastContent={i === pendingHistoryItems.length - 1}
               />
             );
           })}

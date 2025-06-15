@@ -12,6 +12,7 @@ interface GeminiMessageContentProps {
   text: string;
   isPending: boolean;
   availableTerminalHeight: number;
+  isFollowedByToolGroup?: boolean;
 }
 
 /*
@@ -24,12 +25,21 @@ export const GeminiMessageContent: React.FC<GeminiMessageContentProps> = ({
   text,
   isPending,
   availableTerminalHeight,
+  isFollowedByToolGroup = false,
 }) => {
+  if (!text && !isPending) {
+    return null;
+  }
+
   const originalPrefix = '✦ ';
   const prefixWidth = originalPrefix.length;
 
   return (
-    <Box flexDirection="column" paddingLeft={prefixWidth}>
+    <Box
+      flexDirection="column"
+      paddingLeft={prefixWidth}
+      marginBottom={isFollowedByToolGroup || isPending ? 0 : 1}
+    >
       <MarkdownDisplay
         text={text}
         isPending={isPending}

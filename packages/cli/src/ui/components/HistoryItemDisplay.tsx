@@ -23,29 +23,36 @@ import { Config } from '@gemini-cli/core';
 interface HistoryItemDisplayProps {
   item: HistoryItem;
   previousItem?: HistoryItem | HistoryItemWithoutId;
+  nextItem?: HistoryItem | HistoryItemWithoutId;
   availableTerminalHeight: number;
   isPending: boolean;
   config?: Config;
   isFocused?: boolean;
-  isLastContent?: boolean;
 }
 
 export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
   item,
   previousItem,
+  nextItem,
   availableTerminalHeight,
   isPending,
   config,
   isFocused = true,
-  isLastContent = false,
 }) => {
   const isFirstContent =
     !previousItem ||
     previousItem.type === 'user' ||
     previousItem.type === 'user_shell';
 
+  const isFollowedByToolGroup = nextItem?.type === 'tool_group';
+
+  const suppressMargin =
+    (item.type === 'tool_group' && isFirstContent) ||
+    (item.type === 'tool_group' && previousItem?.type === 'tool_group') ||
+    (item.type === 'tool_group' && previousItem?.type === 'gemini');
+
   return (
-    <Box flexDirection="column" key={item.id}>
+    <Box flexDirection="column" key={item.id} marginTop={suppressMargin ? 0 : 1}>
       {/* Render standard message types */}
       {item.type === 'user' && <UserMessage text={item.text} />}
       {item.type === 'user_shell' && <UserShellMessage text={item.text} />}
@@ -54,6 +61,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           text={item.text}
           isPending={isPending}
           availableTerminalHeight={availableTerminalHeight}
+          isFollowedByToolGroup={isFollowedByToolGroup}
         />
       )}
       {item.type === 'gemini_content' && (
@@ -61,6 +69,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           text={item.text}
           isPending={isPending}
           availableTerminalHeight={availableTerminalHeight}
+          isFollowedByToolGroup={isFollowedByToolGroup}
         />
       )}
       {item.type === 'info' && <InfoMessage text={item.text} />}
@@ -91,7 +100,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           config={config}
           isFocused={isFocused}
           isFirstContent={isFirstContent}
-          isLastContent={isLastContent}
+          isFollowedByToolGroup={isFollowedByToolGroup}
         />
       )}
       {item.type === 'compression' && (
