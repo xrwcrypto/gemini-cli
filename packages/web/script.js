@@ -18,7 +18,7 @@
 // limitations under the License.
 
 
-const CLIENT_ID = '607903476290-nkeuoe6ojl8oq1f6cgb9rtervt4chao2.apps.googleusercontent.com';
+const CLIENT_ID = '1023788818871-58e670siqp41sm92idla4k3octbhp4tj.apps.googleusercontent.com';
 const REDIRECT_URI = window.location.href.split('#')[0];
 
 const region = 'europe-west1';
