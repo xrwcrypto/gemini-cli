@@ -3,7 +3,7 @@ FROM gemini-cli-sandbox:latest
 USER root
 
 # Install ttyd from GitHub releases and the cloud-run-mcp package
-RUN apt-get update && apt-get install -y curl procps tmux docker.io && \
+RUN apt-get update && apt-get install -y curl procps tmux && \
     npm install -g https://github.com/GoogleCloudPlatform/cloud-run-mcp && \
     curl -L https://github.com/tsl0922/ttyd/releases/download/1.7.4/ttyd.x86_64 -o /usr/local/bin/ttyd && \
     chmod +x /usr/local/bin/ttyd && \
