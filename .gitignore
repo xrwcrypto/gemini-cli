@@ -27,6 +27,8 @@ dist
 
 # Docker folder to help skip auth refreshes
 .docker
+# But DO track the webrun configuration
+!.docker/webrun/
 
 bundle
 
