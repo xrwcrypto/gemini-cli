@@ -109,6 +109,7 @@ function getCloudRunServicePayload(project) {
           ]
         }
       ],
+      executionEnvironment: 'EXECUTION_ENVIRONMENT_GEN2',
     },
   };
 }
