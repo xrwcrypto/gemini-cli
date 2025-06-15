@@ -79,12 +79,7 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
       !resultDisplay.includes('\n');
 
     const isLastInChain = index === total - 1;
-    let errorLinePrefix;
-    if (isFirstContent) {
-      errorLinePrefix = isLastInChain ? '    ' : '│   ';
-    } else {
-      errorLinePrefix = isLastInChain ? '   ' : '│  ';
-    }
+    const errorLinePrefix = isLastInChain ? '    ' : '│   ';
 
     return (
       <Box paddingX={1} paddingY={0} flexDirection="column">
@@ -121,11 +116,7 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
         {status === ToolCallStatus.Error &&
           resultIsString &&
           !resultIsShortString && (
-            <Box
-              paddingLeft={isFirstContent ? 0 : 1}
-              width="100%"
-              flexDirection="row"
-            >
+            <Box width="100%" flexDirection="row">
               <Text color={Colors.AccentRed}>{errorLinePrefix}</Text>
               <Box>
                 <Text color={Colors.AccentRed}>{resultDisplay}</Text>
@@ -297,7 +288,7 @@ const LineToolStatusIndicator: React.FC<LineToolStatusIndicatorProps> = ({
   }
 
   return (
-    <Box minWidth={STATUS_INDICATOR_WIDTH + (isFirstContent ? 0 : 2)}>
+    <Box minWidth={STATUS_INDICATOR_WIDTH}>
       {status === ToolCallStatus.Pending && (
         <Text color={Colors.AccentGreen}>{prefix}o </Text>
       )}
