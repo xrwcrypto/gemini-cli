@@ -29,6 +29,7 @@ dist
 .docker
 # But DO track the webrun configuration
 !.docker/webrun/
+!.docker/webrun/**
 
 bundle
 
