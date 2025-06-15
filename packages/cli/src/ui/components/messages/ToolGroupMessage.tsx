@@ -46,8 +46,9 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
 
   if (config?.getToolCallDisplay() === 'line' && !toolAwaitingApproval) {
     return (
-      <Box flexDirection="column" marginLeft={1}>
+      <Box flexDirection="column" marginLeft={2}>
         {toolCalls.map((tool, index) => {
+          const isFirstToolInGroup = index === 0;
           const isLastInChain = index === toolCalls.length - 1;
 
           let prefix: string;
@@ -63,7 +64,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
             }
           }
 
-          const errorLinePrefix = isLastInChain ? '       ' : '│      ';
+          const errorLinePrefix = isLastInChain ? '      ' : '│     ';
 
           return (
             <Box key={tool.callId} flexDirection="column" minHeight={1}>

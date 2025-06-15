@@ -275,19 +275,19 @@ const LineToolStatusIndicator: React.FC<LineToolStatusIndicatorProps> = ({
         </Text>
       )}
       {status === ToolCallStatus.Success && (
-        <Text color={Colors.AccentGreen}>{prefix}✔ </Text>
+        <Text color={Colors.AccentGreen}>{prefix}✔</Text>
       )}
       {status === ToolCallStatus.Confirming && (
         <Text color={Colors.AccentYellow}>{prefix}? </Text>
       )}
       {status === ToolCallStatus.Canceled && (
         <Text color={Colors.AccentYellow} bold>
-          {prefix}-{' '}
+          {prefix}✘{' '}
         </Text>
       )}
       {status === ToolCallStatus.Error && (
         <Text color={Colors.AccentRed} bold>
-          {prefix}✘{'  '}
+          {prefix}✘{' '}
         </Text>
       )}
     </Box>
