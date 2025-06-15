@@ -377,6 +377,13 @@ Expectation for required parameters:
     let editData: CalculatedEdit;
     try {
       editData = await this.calculateEdit(params, signal);
+
+      if (!editData) {
+        return {
+          llmContent: `Error preparing edit: No edit data returned`,
+          returnDisplay: `Error preparing edit: No edit data returned`,
+        };
+      }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       return {
