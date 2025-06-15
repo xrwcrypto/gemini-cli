@@ -77,8 +77,10 @@ function getCloudRunServicePayload(project) {
         {
           image: IMAGE,
           resources: {
-            "cpu": 8,
-            "memory": "32Gi"
+            limits: {
+              "cpu": 8,
+              "memory": "32Gi"
+            },
           },
           env: [
             {
