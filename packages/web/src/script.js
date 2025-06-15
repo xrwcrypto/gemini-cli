@@ -110,6 +110,7 @@ function getCloudRunServicePayload(project) {
         }
       ],
       executionEnvironment: 'EXECUTION_ENVIRONMENT_GEN2',
+      healthCheckDisabled: true, // no need for startup health check, we know the container starts
       timeout: '60s',
     },
   };
