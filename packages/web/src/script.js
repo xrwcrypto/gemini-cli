@@ -207,6 +207,37 @@ async function listServices(token, project) {
   return result;
 }
 
+async function deleteService(token, project, service) {
+  console.log(`Deleting service: ${project} ${region} ${service}`);
+
+  const response = await fetch(`https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services/${service}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    }
+  });
+  const result = await response.json();
+  console.log(result);
+
+  return result;
+}
+
+async function deleteServiceAndRefresh(service) {
+  let {token, project} = getTokenAndProject();
+  if (!token || !project) {
+    return;
+  }
+  const deleteResult = await deleteService(token, project, service);
+  if (deleteResult.error) {
+    alert(`Error: ${deleteResult.error.message}`);
+    return;
+  }
+  const operation = deleteResult.name;
+  await waitOperation(token, project, operation);
+  await refreshServicesList();
+}
+
 
 
 async function deployAndWait() {
@@ -317,11 +348,22 @@ async function refreshServicesList() {
       const serviceName = service.name.split('/').pop();
       const serviceUrl = service.uri;
       const listItem = document.createElement('li');
+      
       const link = document.createElement('a');
       link.href = serviceUrl;
       link.textContent = serviceName;
       link.target = '_blank';
       listItem.appendChild(link);
+
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = 'Delete';
+      deleteButton.addEventListener('click', async () => {
+        if (confirm(`Are you sure you want to delete "${serviceName}"?`)) {
+          await deleteServiceAndRefresh(serviceName);
+        }
+      });
+      listItem.appendChild(deleteButton);
+
       servicesList.appendChild(listItem);
     }
   }
