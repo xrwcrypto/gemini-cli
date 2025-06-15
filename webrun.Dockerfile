@@ -23,7 +23,7 @@ USER node
 WORKDIR /home/node
 
 # preinstall extensions
-COPY .docker/webrun/extensions/ .gemini/extensions/
+COPY .docker/webrun/extensions/ /opt/extensions/
 
 # Expose the port Caddy will run on.
 EXPOSE 8080

@@ -3,6 +3,21 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
+# Copy pre-installed extensions at startup if they are not already present.
+# This ensures default extensions are available without overwriting user-installed ones.
+echo "Checking for pre-installed extensions..."
+mkdir -p /home/node/.gemini/extensions
+for ext_source in /opt/extensions/*; do
+  if [ -e "$ext_source" ]; then
+    ext_name=$(basename "$ext_source")
+    ext_dest="/home/node/.gemini/extensions/$ext_name"
+    if [ ! -e "$ext_dest" ]; then
+      echo "Installing default extension: $ext_name"
+      cp -r "$ext_source" "$ext_dest"
+    fi
+  fi
+done
+
 # Define the internal port for ttyd and the public port for Caddy.
 export TTYD_PORT=7681
 export PUBLIC_PORT=${PORT:-8080}
