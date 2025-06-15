@@ -84,3 +84,87 @@ describe('WebFetchTool', () => {
     });
   });
 });
+
+
+describe('WebFetchTool2', () => {
+  let webFetchTool: WebFetchTool;
+  let mockConfig: Config;
+  let mockGeminiClient: GeminiClient;
+
+  beforeEach(() => {
+    mockGeminiClient = {
+      generateContent: vi.fn(),
+    } as unknown as GeminiClient;
+
+    mockConfig = {
+      getGeminiClient: () => mockGeminiClient,
+    } as unknown as Config;
+
+    webFetchTool = new WebFetchTool(mockConfig);
+  });
+
+  describe('validateParams', () => {
+    it('should return null for valid parameters', () => {
+      const params = { prompt: 'Summarize https://example.com' };
+      expect(webFetchTool.validateParams(params)).toBeNull();
+    });
+
+    it('should return an error for an empty prompt', () => {
+      const params = { prompt: ' ' };
+      expect(webFetchTool.validateParams(params)).toContain('cannot be empty');
+    });
+
+    it('should return an error if no URL is present', () => {
+      const params = { prompt: 'Summarize the content' };
+      expect(webFetchTool.validateParams(params)).toContain('must contain at least one valid URL');
+    });
+  });
+
+  describe('execute', () => {
+    it('should call the gemini client with the correct parameters', async () => {
+      const params = { prompt: 'Summarize https://example.com' };
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue({} as any);
+
+      await webFetchTool.execute(params, new AbortController().signal);
+
+      expect(mockGeminiClient.generateContent).toHaveBeenCalledWith(
+        [{ role: 'user', parts: [{ text: params.prompt }] }],
+        { tools: [{ urlContext: {} }] },
+        expect.any(AbortSignal)
+      );
+    });
+
+    it('should format the response with sources', async () => {
+        const mockApiResponse = {
+            candidates: [
+                {
+                    urlContextMetadata: { urlMetadata: [{ urlRetrievalStatus: 'URL_RETRIEVAL_STATUS_SUCCESS' }] },
+                    groundingMetadata: {
+                        groundingChunks: [
+                            { web: { title: 'Test Title', uri: 'https://example.com' } },
+                        ],
+                        groundingSupports: [],
+                    },
+                    content: { parts: [{ text: 'This is the summary.' }] },
+                },
+            ],
+        };
+        vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(mockApiResponse as any);
+
+        const result = await webFetchTool.execute({ prompt: 'Summarize https://example.com' }, new AbortController().signal);
+
+        expect(result.llmContent).toContain('This is the summary.');
+        expect(result.llmContent).toContain('Sources:');
+        expect(result.llmContent).toContain('[1] Test Title (https://example.com)');
+    });
+
+    it('should handle API errors gracefully', async () => {
+        const error = new Error('API Error');
+        vi.mocked(mockGeminiClient.generateContent).mockRejectedValue(error);
+
+        const result = await webFetchTool.execute({ prompt: 'Summarize https://example.com' }, new AbortController().signal);
+
+        expect(result.llmContent).toContain('Error: Error processing web content');
+    });
+  });
+});
