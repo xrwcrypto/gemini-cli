@@ -191,6 +191,23 @@ async function getService(token, project, service) {
   return result;
 }
 
+async function listServices(token, project) {
+  console.log(`Listing services in: ${project} ${region}`);
+
+  const response = await fetch(`https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services`, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    }
+  });
+  const result = await response.json();
+  console.log(result);
+
+  return result;
+}
+
+
 
 async function deployAndWait() {
   let {token, project} = getTokenAndProject();
@@ -225,6 +242,8 @@ async function deployAndWait() {
   await waitOperation(token, project, operation);
   document.getElementById('waiting-message').hidden = true;
   document.getElementById('deployed-message').hidden = false;
+  
+  await refreshServicesList();
 }
 
 /*
@@ -278,4 +297,32 @@ if (document.referrer) {
 const storedProject = localStorage.getItem('project');
 if (storedProject) {
   document.getElementById('project').value = storedProject;
+  if (localStorage.getItem('token')) {
+    refreshServicesList();
+  }
+}
+
+async function refreshServicesList() {
+  let {token, project} = getTokenAndProject();
+  if (!token || !project) {
+    return;
+  }
+  const servicesResult = await listServices(token, project);
+  const services = (servicesResult.services || []).filter(service => service.labels && service.labels['managed-by'] === 'gemini-dev');
+  const servicesList = document.getElementById('services-list');
+  servicesList.innerHTML = '';
+  if (services.length > 0) {
+    document.getElementById('existing-services').hidden = false;
+    for (const service of services) {
+      const serviceName = service.name.split('/').pop();
+      const serviceUrl = service.uri;
+      const listItem = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = serviceUrl;
+      link.textContent = serviceName;
+      link.target = '_blank';
+      listItem.appendChild(link);
+      servicesList.appendChild(listItem);
+    }
+  }
 }
