@@ -21,16 +21,17 @@ const MIN_LINES_HIDDEN = 3; // hide at least this many lines (or don't hide any)
 export type TextEmphasis = 'high' | 'medium' | 'low';
 
 export interface ToolMessageProps extends IndividualToolCallDisplay {
+  prefix: string;
+  errorLinePrefix: string;
   availableTerminalHeight: number;
   emphasis?: TextEmphasis;
   renderOutputAsMarkdown?: boolean;
   displayMode?: 'box' | 'line';
-  isFirstContent?: boolean;
-  index?: number;
-  total?: number;
 }
 
 export const ToolMessage: React.FC<ToolMessageProps> = ({
+  prefix,
+  errorLinePrefix,
   name,
   description,
   resultDisplay,
@@ -39,9 +40,6 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   emphasis = 'medium',
   renderOutputAsMarkdown = true,
   displayMode = 'box',
-  isFirstContent = false,
-  index = 0,
-  total = 1,
 }) => {
   const resultIsString =
     typeof resultDisplay === 'string' && resultDisplay.trim().length > 0;
@@ -78,18 +76,10 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
       resultDisplay.length < 80 &&
       !resultDisplay.includes('\n');
 
-    const isLastInChain = index === total - 1;
-    const errorLinePrefix = isLastInChain ? '    ' : '│   ';
-
     return (
-      <Box paddingX={1} paddingY={0} flexDirection="column">
+      <Box paddingY={0} flexDirection="column">
         <Box minHeight={1}>
-          <LineToolStatusIndicator
-            status={status}
-            isFirstContent={isFirstContent}
-            index={index}
-            total={total}
-          />
+          <LineToolStatusIndicator status={status} prefix={prefix} />
           <ToolInfo
             name={name}
             status={status}
@@ -263,32 +253,15 @@ const TrailingIndicator: React.FC = () => (
 
 type LineToolStatusIndicatorProps = {
   status: ToolCallStatus;
-  isFirstContent: boolean;
-  index: number;
-  total: number;
+  prefix: string;
 };
 
 const LineToolStatusIndicator: React.FC<LineToolStatusIndicatorProps> = ({
   status,
-  isFirstContent,
-  index,
-  total,
+  prefix,
 }) => {
-  let prefix: string;
-  if (total === 1) {
-    prefix = isFirstContent ? '─── ' : '╰── ';
-  } else {
-    if (index === 0) {
-      prefix = isFirstContent ? '┌── ' : '├── ';
-    } else if (index === total - 1) {
-      prefix = '╰── ';
-    } else {
-      prefix = '├── ';
-    }
-  }
-
   return (
-    <Box minWidth={STATUS_INDICATOR_WIDTH}>
+    <Box>
       {status === ToolCallStatus.Pending && (
         <Text color={Colors.AccentGreen}>{prefix}o </Text>
       )}
@@ -314,10 +287,11 @@ const LineToolStatusIndicator: React.FC<LineToolStatusIndicatorProps> = ({
       )}
       {status === ToolCallStatus.Error && (
         <Text color={Colors.AccentRed} bold>
-          {prefix}✘{' '}
+          {prefix}✘{'  '}
         </Text>
       )}
     </Box>
   );
 };
+
 

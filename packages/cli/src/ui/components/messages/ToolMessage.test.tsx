@@ -55,6 +55,8 @@ const renderWithContext = (
 
 describe('<ToolMessage />', () => {
   const baseProps: ToolMessageProps = {
+    prefix: '├─',
+    errorLinePrefix: '│ ',
     callId: 'tool-123',
     name: 'test-tool',
     description: 'A tool for testing',

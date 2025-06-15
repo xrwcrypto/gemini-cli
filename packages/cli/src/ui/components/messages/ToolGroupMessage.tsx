@@ -5,7 +5,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Box } from 'ink';
+import { Box, Text } from 'ink';
 import { IndividualToolCallDisplay, ToolCallStatus } from '../../types.js';
 import { ToolMessage } from './ToolMessage.js';
 import { ToolConfirmationMessage } from './ToolConfirmationMessage.js';
@@ -48,28 +48,41 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     return (
       <Box flexDirection="column" marginLeft={1}>
         {toolCalls.map((tool, index) => {
-          const isFirstToolInGroup = index === 0;
+          const isLastInChain = index === toolCalls.length - 1;
+
+          let prefix: string;
+          if (toolCalls.length === 1) {
+            prefix = isFirstContent ? '─── ' : '╰── ';
+          } else {
+            if (index === 0) {
+              prefix = isFirstContent ? '┌── ' : '├── ';
+            } else if (isLastInChain) {
+              prefix = '╰── ';
+            } else {
+              prefix = '├── ';
+            }
+          }
+
+          const errorLinePrefix = isLastInChain ? '       ' : '│      ';
+
           return (
             <Box key={tool.callId} flexDirection="column" minHeight={1}>
-              <Box flexDirection="row" alignItems="center">
-                <ToolMessage
-                  callId={tool.callId}
-                  name={tool.name}
-                  description={tool.description}
-                  resultDisplay={tool.resultDisplay}
-                  status={tool.status}
-                  confirmationDetails={tool.confirmationDetails}
-                  availableTerminalHeight={
-                    availableTerminalHeight - staticHeight
-                  }
-                  emphasis={'medium'}
-                  renderOutputAsMarkdown={tool.renderOutputAsMarkdown}
-                  displayMode="line"
-                  isFirstContent={isFirstContent && isFirstToolInGroup}
-                  index={index}
-                  total={toolCalls.length}
-                />
-              </Box>
+              <ToolMessage
+                prefix={prefix}
+                errorLinePrefix={errorLinePrefix}
+                callId={tool.callId}
+                name={tool.name}
+                description={tool.description}
+                resultDisplay={tool.resultDisplay}
+                status={tool.status}
+                confirmationDetails={tool.confirmationDetails}
+                availableTerminalHeight={
+                  availableTerminalHeight - staticHeight
+                }
+                emphasis={'medium'}
+                renderOutputAsMarkdown={tool.renderOutputAsMarkdown}
+                displayMode="line"
+              />
             </Box>
           );
         })}
@@ -99,6 +112,8 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
           <Box key={tool.callId} flexDirection="column" minHeight={1}>
             <Box flexDirection="row" alignItems="center">
               <ToolMessage
+                prefix=""
+                errorLinePrefix=""
                 callId={tool.callId}
                 name={tool.name}
                 description={tool.description}
