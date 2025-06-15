@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "mcpServers": {
     "github-remote": {
-      "url": "https://api.githubcopilot.com/mcp/"
+     "command": "npx",
+     "args": ["-y", "mcp-remote", "https://api.githubcopilot.com/mcp/"] 
     }
   }
 }
