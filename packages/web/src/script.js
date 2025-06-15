@@ -266,7 +266,6 @@ async function deployAndWait() {
     url += `?repo=${encodeURIComponent(repo)}`;
   }
   console.log(`Service URL: ${url}`);
-  document.getElementById('service-url').textContent = url;
   document.getElementById('service-url').href = url;
 
   // Wait for deployment to finish
@@ -277,9 +276,15 @@ async function deployAndWait() {
   await refreshServicesList();
 }
 
-/*
-  * Create form to request access token from Google's OAuth 2.0 server.
-  */
+document.getElementById('button-deploy').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (localStorage.getItem('token')) {
+    await deployAndWait();
+  } else {
+    oauth2SignIn();
+  }
+});
+
 function oauth2SignIn() {
   // create random state value and store in local storage
   var state = generateCryptoRandomState();
@@ -314,9 +319,6 @@ function oauth2SignIn() {
   document.body.appendChild(form);
   form.submit();
 }
-
-document.getElementById('button-signin').addEventListener('click', oauth2SignIn);
-document.getElementById('button-deploy').addEventListener('click', deployAndWait);
 
 if (document.referrer) {
   const referrer = new URL(document.referrer);

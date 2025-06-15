@@ -58,22 +58,20 @@ limitations under the License.
       </p>
     </header>
     <main>
-      <ol>
-        <li><button id="button-signin">Sign in with Google</button></li>
-        <li><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></li>
-        <li><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40" placeholder="https://github.com/user/repo.git"/></label></li>
-        <li><button id="button-deploy">Give me a Gemini CLI in the cloud!</button></li>
-        <li>
-          <span id="waiting-message" hidden>
-            <label for="deployment">Deployment in progress:</label>
-            <progress id="deployment" aria-label="Deployment in progress…"></progress><br>
-          </span>
+      <form>
+        <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></p>
+        <p><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
+        <p><button id="button-deploy">Give me a Gemini CLI in the cloud!</button></p>
+      </form>
+      
+      <span id="waiting-message" hidden>
+        <label for="deployment">Deployment in progress:</label>
+        <progress id="deployment" aria-label="Deployment in progress…"></progress><br>
+      </span>
+      
+      <div id="deployed-message" hidden><a id="service-url" target="_blank">Your Gemini CLI in the cloud</a>
+    </div>
           
-          <div id="deployed-message" hidden>Cloud Run service: <a id="service-url" target="_blank"></a><br>.
-        </div>
-          
-        </li>
-      </ol>
     </main>
     <div id="existing-services" hidden>
       <h2>Existing Gemini CLIs:</h2>
