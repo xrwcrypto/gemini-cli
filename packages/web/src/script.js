@@ -210,7 +210,11 @@ async function deployAndWait() {
   
   // Get service URL
   const serviceResult = await getService(token, project, service);
-  const url = serviceResult.urls[0];
+  let url = serviceResult.urls[0];
+  const repo = document.getElementById('repo').value;
+  if (repo) {
+    url += `?repo=${encodeURIComponent(repo)}`;
+  }
   console.log(`Service URL: ${url}`);
   document.getElementById('service-url').textContent = url;
   document.getElementById('service-url').href = url;
@@ -261,3 +265,10 @@ function oauth2SignIn() {
 
 document.getElementById('button-signin').addEventListener('click', oauth2SignIn);
 document.getElementById('button-deploy').addEventListener('click', deployAndWait);
+
+if (document.referrer) {
+  const referrer = new URL(document.referrer);
+  if (referrer.hostname === 'github.com') {
+    document.getElementById('repo').value = referrer.href;
+  }
+}
