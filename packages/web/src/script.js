@@ -38,6 +38,11 @@ if (Object.keys(params).length > 0 && params['state']) {
     localStorage.setItem('oauth2-params', JSON.stringify(params) );
 
     localStorage.setItem('token', params['access_token']);
+    // store token expiration time
+    const expiresIn = parseInt(params['expires_in'], 10);
+    const expirationTime = Date.now() + expiresIn * 1000;
+    localStorage.setItem('token_expiration', expirationTime);
+
 
     console.log('Credential received and stored');
   } else {
@@ -139,16 +144,27 @@ function getCloudRunServicePayload(project, bucket) {
 }
 
 function getTokenAndProject() {
-  var token = localStorage.getItem('token');
+  let token = localStorage.getItem('token');
+  const expirationTime = localStorage.getItem('token_expiration');
+
+  if (token && expirationTime && Date.now() > parseInt(expirationTime, 10)) {
+    // Token is expired, clear it
+    localStorage.removeItem('token');
+    localStorage.removeItem('token_expiration');
+    localStorage.removeItem('oauth2-params');
+    token = null;
+    console.log('Token expired and removed');
+  }
+
   if (!token) {
     console.error('No access token. Get one by signing in.');
-    return;
+    return {};
   }
 
   let project = document.getElementById('project').value;
   if (!project) {
     console.error('No project ID');
-    return;
+    return {};
   }
   localStorage.setItem('project', project);
 
@@ -347,7 +363,8 @@ async function createGcsBucket(token, project, bucket, location) {
 
 document.getElementById('button-deploy').addEventListener('click', async (e) => {
   e.preventDefault();
-  if (localStorage.getItem('token')) {
+  const { token } = getTokenAndProject();
+  if (token) {
     await deployAndWait();
   } else {
     oauth2SignIn();
