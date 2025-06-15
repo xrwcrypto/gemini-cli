@@ -47,7 +47,8 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   if (config?.getToolCallDisplay() === 'line' && !toolAwaitingApproval) {
     return (
       <Box flexDirection="column" marginLeft={1}>
-        {toolCalls.map((tool) => {
+        {toolCalls.map((tool, index) => {
+          const isFirstToolInGroup = index === 0;
           return (
             <Box key={tool.callId} flexDirection="column" minHeight={1}>
               <Box flexDirection="row" alignItems="center">
@@ -64,7 +65,9 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
                   emphasis={'medium'}
                   renderOutputAsMarkdown={tool.renderOutputAsMarkdown}
                   displayMode="line"
-                  isFirstContent={isFirstContent}
+                  isFirstContent={isFirstContent && isFirstToolInGroup}
+                  index={index}
+                  total={toolCalls.length}
                 />
               </Box>
             </Box>

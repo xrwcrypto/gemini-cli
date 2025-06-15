@@ -26,6 +26,8 @@ export interface ToolMessageProps extends IndividualToolCallDisplay {
   renderOutputAsMarkdown?: boolean;
   displayMode?: 'box' | 'line';
   isFirstContent?: boolean;
+  index?: number;
+  total?: number;
 }
 
 export const ToolMessage: React.FC<ToolMessageProps> = ({
@@ -38,6 +40,8 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   renderOutputAsMarkdown = true,
   displayMode = 'box',
   isFirstContent = false,
+  index = 0,
+  total = 1,
 }) => {
   const resultIsString =
     typeof resultDisplay === 'string' && resultDisplay.trim().length > 0;
@@ -74,12 +78,22 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
       resultDisplay.length < 80 &&
       !resultDisplay.includes('\n');
 
+    const isLastInChain = index === total - 1;
+    let errorLinePrefix;
+    if (isFirstContent) {
+      errorLinePrefix = isLastInChain ? '    ' : '│   ';
+    } else {
+      errorLinePrefix = isLastInChain ? '   ' : '│  ';
+    }
+
     return (
       <Box paddingX={1} paddingY={0} flexDirection="column">
         <Box minHeight={1}>
           <LineToolStatusIndicator
             status={status}
             isFirstContent={isFirstContent}
+            index={index}
+            total={total}
           />
           <ToolInfo
             name={name}
@@ -107,8 +121,15 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
         {status === ToolCallStatus.Error &&
           resultIsString &&
           !resultIsShortString && (
-            <Box paddingLeft={isFirstContent ? 3 : 5} width="100%">
-              <Text color={Colors.AccentRed}>{resultDisplay}</Text>
+            <Box
+              paddingLeft={isFirstContent ? 0 : 1}
+              width="100%"
+              flexDirection="row"
+            >
+              <Text color={Colors.AccentRed}>{errorLinePrefix}</Text>
+              <Box>
+                <Text color={Colors.AccentRed}>{resultDisplay}</Text>
+              </Box>
             </Box>
           )}
       </Box>
@@ -252,13 +273,28 @@ const TrailingIndicator: React.FC = () => (
 type LineToolStatusIndicatorProps = {
   status: ToolCallStatus;
   isFirstContent: boolean;
+  index: number;
+  total: number;
 };
 
 const LineToolStatusIndicator: React.FC<LineToolStatusIndicatorProps> = ({
   status,
   isFirstContent,
+  index,
+  total,
 }) => {
-  const prefix = isFirstContent ? '─── ' : '╰── ';
+  let prefix: string;
+  if (total === 1) {
+    prefix = isFirstContent ? '─── ' : '╰── ';
+  } else {
+    if (index === 0) {
+      prefix = isFirstContent ? '┌── ' : '├── ';
+    } else if (index === total - 1) {
+      prefix = '╰── ';
+    } else {
+      prefix = '├── ';
+    }
+  }
 
   return (
     <Box minWidth={STATUS_INDICATOR_WIDTH + (isFirstContent ? 0 : 2)}>
