@@ -16,12 +16,13 @@ limitations under the License.
 
 <html>
   <head>
+    <title>gemini.dev</title>
     <style>
       html {
         max-width: 70ch;
         padding: 3em 1em;
         margin: auto;
-        font-family: sans-serif;
+        font-family: monospace;
         line-height: 1.75;
       }
     
@@ -41,20 +42,19 @@ limitations under the License.
   </head>
   <body>
     <header>
-      <h1>Deploy Gemini CLI to Cloud Run</h1>
-      <p>
-        A <b>client-side</b> webapp to deploy the Gemini CLI to <a href="https://cloud.google.com/run">Google Cloud Run</a>.<br>
-        Cloud Run is a serverless runtime that scales to zero and starts fast.
-      </p>
+      <h1>gemini.dev</h1>
       <p>
         <b>Googlers: This demo will not work with corp account yet, you must use a gmail.com account and ask steren@google.com to add you as a test user.</b>
+      </p>
+      <p>
+        Get Gemini CLI in the cloud in your own Google Cloud project. 
       </p>
     </header>
     <main>
       <ol>
         <li><button id="button-signin">Sign in with Google</button></li>
         <li><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></li>
-        <li><button id="button-deploy">Deploy to Cloud Run</button></li>
+        <li><button id="button-deploy">Give me a Gemini CLI in the cloud!</button></li>
         <li>
           <span id="waiting-message" hidden>
             <label for="deployment">Deployment in progress:</label>
@@ -69,7 +69,8 @@ limitations under the License.
     </main>
     <footer>
       <p>
-        <b>The deployment is done from your browser to your Google Cloud project, no server involved.
+        This is a <b>client-side</b> web app, the deployment is done from your browser to Cloud Run in your own Google Cloud project. <br>
+        <a href="https://cloud.google.com/run">Google Cloud Run</a> is a serverless runtime that scales to zero and starts fast.
       </p>
     </footer>
 
