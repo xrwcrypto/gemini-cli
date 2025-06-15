@@ -1,0 +1,22 @@
+{
+    # Global options block
+    admin off
+    log {
+        level INFO
+    }
+}
+
+# Server block listening on the public port
+:{$PUBLIC_PORT} {
+    # Define a matcher for requests that have the 'repo' query parameter.
+    @repo query repo=*
+
+    # When a request matches @repo, rewrite the URI.
+    # This uses the explicit Caddy v2 placeholders to reconstruct the URL.
+    # It preserves the original path and replaces the query string with
+    # 'arg=<value_of_repo_param>', which is what ttyd expects.
+    rewrite @repo {http.request.uri.path}?arg={http.request.uri.query.repo}
+
+    # Reverse proxy all requests to the internal ttyd service.
+    reverse_proxy localhost:{$TTYD_PORT}
+}
