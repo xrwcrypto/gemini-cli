@@ -24,6 +24,8 @@ export interface ToolMessageProps extends IndividualToolCallDisplay {
   availableTerminalHeight: number;
   emphasis?: TextEmphasis;
   renderOutputAsMarkdown?: boolean;
+  displayMode?: 'box' | 'line';
+  isFirstContent?: boolean;
 }
 
 export const ToolMessage: React.FC<ToolMessageProps> = ({
@@ -34,6 +36,8 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   availableTerminalHeight,
   emphasis = 'medium',
   renderOutputAsMarkdown = true,
+  displayMode = 'box',
+  isFirstContent = false,
 }) => {
   const resultIsString =
     typeof resultDisplay === 'string' && resultDisplay.trim().length > 0;
@@ -63,10 +67,59 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   );
   const hiddenLines = Math.max(0, lines.length - contentHeightEstimate);
 
+  if (displayMode === 'line') {
+    const resultIsShortString =
+      typeof resultDisplay === 'string' &&
+      resultDisplay.trim().length > 0 &&
+      resultDisplay.length < 80 &&
+      !resultDisplay.includes('\n');
+
+    return (
+      <Box paddingX={1} paddingY={0} flexDirection="column">
+        <Box minHeight={1}>
+          <LineToolStatusIndicator
+            status={status}
+            isFirstContent={isFirstContent}
+          />
+          <ToolInfo
+            name={name}
+            status={status}
+            description={description}
+            emphasis={emphasis}
+          />
+          {resultIsShortString &&
+            (status === ToolCallStatus.Success ||
+              status === ToolCallStatus.Error) && (
+              <Text>
+                {' '}
+                -{' '}
+                <Text color={Colors.Gray}>
+                  {status === ToolCallStatus.Error ? (
+                    <Text color={Colors.AccentRed}>{resultDisplay}</Text>
+                  ) : (
+                    resultDisplay
+                  )}
+                </Text>
+              </Text>
+            )}
+          {emphasis === 'high' && <TrailingIndicator />}
+        </Box>
+        {status === ToolCallStatus.Error &&
+          resultIsString &&
+          !resultIsShortString && (
+            <Box paddingLeft={isFirstContent ? 3 : 5} width="100%">
+              <Text color={Colors.AccentRed}>{resultDisplay}</Text>
+            </Box>
+          )}
+      </Box>
+    );
+  }
+
   return (
     <Box paddingX={1} paddingY={0} flexDirection="column">
       <Box minHeight={1}>
         <ToolStatusIndicator status={status} />
+
         <ToolInfo
           name={name}
           status={status}
@@ -195,3 +248,49 @@ const ToolInfo: React.FC<ToolInfo> = ({
 const TrailingIndicator: React.FC = () => (
   <Text color={Colors.Foreground}> ←</Text>
 );
+
+type LineToolStatusIndicatorProps = {
+  status: ToolCallStatus;
+  isFirstContent: boolean;
+};
+
+const LineToolStatusIndicator: React.FC<LineToolStatusIndicatorProps> = ({
+  status,
+  isFirstContent,
+}) => {
+  const prefix = isFirstContent ? '─── ' : '╰── ';
+
+  return (
+    <Box minWidth={STATUS_INDICATOR_WIDTH + (isFirstContent ? 0 : 2)}>
+      {status === ToolCallStatus.Pending && (
+        <Text color={Colors.AccentGreen}>{prefix}o </Text>
+      )}
+      {status === ToolCallStatus.Executing && (
+        <Text>
+          {prefix}
+          <GeminiRespondingSpinner
+            spinnerType="toggle"
+            nonRespondingDisplay={'⊷'}
+          />{' '}
+        </Text>
+      )}
+      {status === ToolCallStatus.Success && (
+        <Text color={Colors.AccentGreen}>{prefix}✔ </Text>
+      )}
+      {status === ToolCallStatus.Confirming && (
+        <Text color={Colors.AccentYellow}>{prefix}? </Text>
+      )}
+      {status === ToolCallStatus.Canceled && (
+        <Text color={Colors.AccentYellow} bold>
+          {prefix}-{' '}
+        </Text>
+      )}
+      {status === ToolCallStatus.Error && (
+        <Text color={Colors.AccentRed} bold>
+          {prefix}✘{' '}
+        </Text>
+      )}
+    </Box>
+  );
+};
+

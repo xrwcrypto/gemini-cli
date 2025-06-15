@@ -214,23 +214,11 @@ export function mapToDisplay(
 
   const toolDisplays = toolCalls.map(
     (trackedCall): IndividualToolCallDisplay => {
-      let displayName = trackedCall.request.name;
-      let description = '';
+      const { name, displayName, description } = trackedCall.request;
       let renderOutputAsMarkdown = false;
 
-      const currentToolInstance =
-        'tool' in trackedCall && trackedCall.tool
-          ? (trackedCall as { tool: Tool }).tool
-          : undefined;
-
-      if (currentToolInstance) {
-        displayName = currentToolInstance.displayName;
-        description = currentToolInstance.getDescription(
-          trackedCall.request.args,
-        );
-        renderOutputAsMarkdown = currentToolInstance.isOutputMarkdown;
-      } else if ('request' in trackedCall && 'args' in trackedCall.request) {
-        description = JSON.stringify(trackedCall.request.args);
+      if ('tool' in trackedCall && trackedCall.tool) {
+        renderOutputAsMarkdown = trackedCall.tool.isOutputMarkdown;
       }
 
       const baseDisplayProperties: Omit<
@@ -238,8 +226,8 @@ export function mapToDisplay(
         'status' | 'resultDisplay' | 'confirmationDetails'
       > = {
         callId: trackedCall.request.callId,
-        name: displayName,
-        description,
+        name: displayName ?? name,
+        description: description ?? '',
         renderOutputAsMarkdown,
       };
 
@@ -254,9 +242,9 @@ export function mapToDisplay(
         case 'error':
           return {
             ...baseDisplayProperties,
-            name: currentToolInstance?.displayName ?? trackedCall.request.name,
             status: mapCoreStatusToDisplayStatus(trackedCall.status),
-            resultDisplay: trackedCall.response.resultDisplay,
+            resultDisplay:
+              trackedCall.response.error?.message ?? 'Unknown error',
             confirmationDetails: undefined,
           };
         case 'cancelled':
@@ -271,7 +259,9 @@ export function mapToDisplay(
             ...baseDisplayProperties,
             status: mapCoreStatusToDisplayStatus(trackedCall.status),
             resultDisplay: undefined,
-            confirmationDetails: trackedCall.confirmationDetails,
+            confirmationDetails:
+              (trackedCall as TrackedWaitingToolCall).confirmationDetails ??
+              undefined,
           };
         case 'executing':
           return {

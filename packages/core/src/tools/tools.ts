@@ -187,6 +187,7 @@ export interface ToolResult {
    * For now, we keep it as the core logic in ReadFileTool currently produces it.
    */
   returnDisplay: ToolResultDisplay;
+  isError?: boolean;
 }
 
 export type ToolResultDisplay = string | FileDiff;

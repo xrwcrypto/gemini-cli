@@ -425,6 +425,8 @@ export class CoreToolScheduler {
       (reqInfo): ToolCall => {
         const toolInstance = toolRegistry.getTool(reqInfo.name);
         if (!toolInstance) {
+          reqInfo.displayName = reqInfo.name;
+          reqInfo.description = JSON.stringify(reqInfo.args);
           return {
             status: 'error',
             request: reqInfo,
@@ -435,6 +437,10 @@ export class CoreToolScheduler {
             durationMs: 0,
           };
         }
+
+        reqInfo.displayName = toolInstance.displayName;
+        reqInfo.description = toolInstance.getDescription(reqInfo.args);
+
         return {
           status: 'validating',
           request: reqInfo,
@@ -605,6 +611,18 @@ export class CoreToolScheduler {
                 callId,
                 'cancelled',
                 'User cancelled tool execution.',
+              );
+              return;
+            }
+
+            if (toolResult.isError) {
+              this.setStatusInternal(
+                callId,
+                'error',
+                createErrorResponse(
+                  scheduledCall.request,
+                  new Error(toolResult.returnDisplay as string),
+                ),
               );
               return;
             }

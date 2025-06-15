@@ -18,6 +18,8 @@ interface ToolGroupMessageProps {
   availableTerminalHeight: number;
   config?: Config;
   isFocused?: boolean;
+  isFirstContent?: boolean;
+  isLastContent?: boolean;
 }
 
 // Main component renders the border and maps the tools using ToolMessage
@@ -26,6 +28,8 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   availableTerminalHeight,
   config,
   isFocused = true,
+  isFirstContent = false,
+  isLastContent = false,
 }) => {
   const hasPending = !toolCalls.every(
     (t) => t.status === ToolCallStatus.Success,
@@ -41,6 +45,40 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     [toolCalls],
   );
 
+  if (config?.getToolCallDisplay() === 'line' && !toolAwaitingApproval) {
+    return (
+      <Box
+        flexDirection="column"
+        marginLeft={1}
+        marginBottom={isLastContent ? 0 : 1}
+      >
+        {toolCalls.map((tool) => {
+          return (
+            <Box key={tool.callId} flexDirection="column" minHeight={1}>
+              <Box flexDirection="row" alignItems="center">
+                <ToolMessage
+                  callId={tool.callId}
+                  name={tool.name}
+                  description={tool.description}
+                  resultDisplay={tool.resultDisplay}
+                  status={tool.status}
+                  confirmationDetails={tool.confirmationDetails}
+                  availableTerminalHeight={
+                    availableTerminalHeight - staticHeight
+                  }
+                  emphasis={'medium'}
+                  renderOutputAsMarkdown={tool.renderOutputAsMarkdown}
+                  displayMode="line"
+                  isFirstContent={isFirstContent}
+                />
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
   return (
     <Box
       flexDirection="column"
@@ -55,10 +93,11 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
       marginLeft={1}
       borderDimColor={hasPending}
       borderColor={borderColor}
-      marginBottom={1}
+      marginBottom={isLastContent ? 0 : 1}
     >
       {toolCalls.map((tool) => {
-        const isConfirming = toolAwaitingApproval?.callId === tool.callId;
+        const isConfirming =
+          !!toolAwaitingApproval && toolAwaitingApproval.callId === tool.callId;
         return (
           <Box key={tool.callId} flexDirection="column" minHeight={1}>
             <Box flexDirection="row" alignItems="center">

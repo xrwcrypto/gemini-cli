@@ -55,6 +55,7 @@ export interface Settings {
   hideWindowTitle?: boolean;
 
   // Add other settings here.
+  toolCallDisplay?: 'box' | 'line';
 }
 
 export interface SettingsError {

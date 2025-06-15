@@ -54,6 +54,8 @@ export interface GeminiErrorEventValue {
 export interface ToolCallRequestInfo {
   callId: string;
   name: string;
+  displayName?: string;
+  description?: string;
   args: Record<string, unknown>;
 }
 

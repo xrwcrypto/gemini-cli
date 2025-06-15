@@ -429,11 +429,12 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
   if (quittingMessages) {
     return (
       <Box flexDirection="column" marginBottom={1}>
-        {quittingMessages.map((item) => (
+        {quittingMessages.map((item, i) => (
           <HistoryItemDisplay
             key={item.id}
             availableTerminalHeight={availableTerminalHeight}
             item={item}
+            previousItem={quittingMessages[i - 1]}
             isPending={false}
             config={config}
           />
@@ -463,13 +464,15 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
               <Header terminalWidth={terminalWidth} />
               <Tips config={config} />
             </Box>,
-            ...history.map((h) => (
+            ...history.map((h, i) => (
               <HistoryItemDisplay
                 availableTerminalHeight={availableTerminalHeight}
                 key={h.id}
                 item={h}
+                previousItem={history[i - 1]}
                 isPending={false}
                 config={config}
+                isLastContent={i === history.length - 1}
               />
             )),
           ]}
@@ -477,18 +480,26 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
           {(item) => item}
         </Static>
         <Box ref={pendingHistoryItemRef}>
-          {pendingHistoryItems.map((item, i) => (
-            <HistoryItemDisplay
-              key={i}
-              availableTerminalHeight={availableTerminalHeight}
-              // TODO(taehykim): It seems like references to ids aren't necessary in
-              // HistoryItemDisplay. Refactor later. Use a fake id for now.
-              item={{ ...item, id: 0 }}
-              isPending={true}
-              config={config}
-              isFocused={!isEditorDialogOpen}
-            />
-          ))}
+          {pendingHistoryItems.map((item, i) => {
+            const previousItem =
+              i === 0
+                ? history[history.length - 1]
+                : pendingHistoryItems[i - 1];
+            return (
+              <HistoryItemDisplay
+                key={i}
+                availableTerminalHeight={availableTerminalHeight}
+                // TODO(taehykim): It seems like references to ids aren't necessary in
+                // HistoryItemDisplay. Refactor later. Use a fake id for now.
+                item={{ ...item, id: 0 }}
+                previousItem={previousItem}
+                isPending={true}
+                config={config}
+                isFocused={!isEditorDialogOpen}
+                isLastContent={i === pendingHistoryItems.length - 1}
+              />
+            );
+          })}
         </Box>
         {showHelp && <Help commands={slashCommands} />}
 
