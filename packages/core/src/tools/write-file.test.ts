@@ -605,10 +605,15 @@ describe('WriteFileTool', () => {
       beforeEach(() => {
         // Mock the platform to simulate running on Windows
         vi.spyOn(os, 'platform').mockReturnValue('win32');
-        vi.spyOn(path, 'normalize').mockImplementation((p) => path.win32.normalize(p));
+        vi.spyOn(path, 'normalize').mockImplementation((p) =>
+          path.win32.normalize(p),
+        );
 
         win32Root = 'C:\\gemini-test-root';
-        const mockConfigInstance = { getTargetDir: () => win32Root, getGeminiClient: () => mockGeminiClientInstance } as unknown as Config;
+        const mockConfigInstance = {
+          getTargetDir: () => win32Root,
+          getGeminiClient: () => mockGeminiClientInstance,
+        } as unknown as Config;
         tool = new WriteFileTool(mockConfigInstance);
         vi.spyOn(fileUtils, 'isWithinRoot').mockImplementation((p: string) => {
           const relative = path.win32.relative(win32Root, p);

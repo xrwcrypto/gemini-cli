@@ -116,55 +116,73 @@ describe('WebFetchTool2', () => {
 
     it('should return an error if no URL is present', () => {
       const params = { prompt: 'Summarize the content' };
-      expect(webFetchTool.validateParams(params)).toContain('must contain at least one valid URL');
+      expect(webFetchTool.validateParams(params)).toContain(
+        'must contain at least one valid URL',
+      );
     });
   });
 
   describe('execute', () => {
     it('should call the gemini client with the correct parameters', async () => {
       const params = { prompt: 'Summarize https://example.com' };
-      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue({} as any);
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue({} as unknown as GenerateContentResponse);
 
       await webFetchTool.execute(params, new AbortController().signal);
 
       expect(mockGeminiClient.generateContent).toHaveBeenCalledWith(
         [{ role: 'user', parts: [{ text: params.prompt }] }],
         { tools: [{ urlContext: {} }] },
-        expect.any(AbortSignal)
+        expect.any(AbortSignal),
       );
     });
 
     it('should format the response with sources', async () => {
-        const mockApiResponse = {
-            candidates: [
-                {
-                    urlContextMetadata: { urlMetadata: [{ urlRetrievalStatus: 'URL_RETRIEVAL_STATUS_SUCCESS' }] },
-                    groundingMetadata: {
-                        groundingChunks: [
-                            { web: { title: 'Test Title', uri: 'https://example.com' } },
-                        ],
-                        groundingSupports: [],
-                    },
-                    content: { parts: [{ text: 'This is the summary.' }] },
-                },
-            ],
-        };
-        vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(mockApiResponse as any);
+      const mockApiResponse = {
+        candidates: [
+          {
+            urlContextMetadata: {
+              urlMetadata: [
+                { urlRetrievalStatus: 'URL_RETRIEVAL_STATUS_SUCCESS' },
+              ],
+            },
+            groundingMetadata: {
+              groundingChunks: [
+                { web: { title: 'Test Title', uri: 'https://example.com' } },
+              ],
+              groundingSupports: [],
+            },
+            content: { parts: [{ text: 'This is the summary.' }] },
+          },
+        ],
+      };
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(
+        mockApiResponse as unknown as GenerateContentResponse,
+      );
 
-        const result = await webFetchTool.execute({ prompt: 'Summarize https://example.com' }, new AbortController().signal);
+      const result = await webFetchTool.execute(
+        { prompt: 'Summarize https://example.com' },
+        new AbortController().signal,
+      );
 
-        expect(result.llmContent).toContain('This is the summary.');
-        expect(result.llmContent).toContain('Sources:');
-        expect(result.llmContent).toContain('[1] Test Title (https://example.com)');
+      expect(result.llmContent).toContain('This is the summary.');
+      expect(result.llmContent).toContain('Sources:');
+      expect(result.llmContent).toContain(
+        '[1] Test Title (https://example.com)',
+      );
     });
 
     it('should handle API errors gracefully', async () => {
-        const error = new Error('API Error');
-        vi.mocked(mockGeminiClient.generateContent).mockRejectedValue(error);
+      const error = new Error('API Error');
+      vi.mocked(mockGeminiClient.generateContent).mockRejectedValue(error);
 
-        const result = await webFetchTool.execute({ prompt: 'Summarize https://example.com' }, new AbortController().signal);
+      const result = await webFetchTool.execute(
+        { prompt: 'Summarize https://example.com' },
+        new AbortController().signal,
+      );
 
-        expect(result.llmContent).toContain('Error: Error processing web content');
+      expect(result.llmContent).toContain(
+        'Error: Error processing web content',
+      );
     });
   });
 });

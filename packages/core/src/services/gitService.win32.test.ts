@@ -56,18 +56,17 @@ describe('GitService on win32', () => {
       vi.spyOn(fs, 'readFile').mockResolvedValue('');
       vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
       vi.mock('simple-git', () => ({
-  simpleGit: vi.fn(() => ({
-    checkIsRepo: vi.fn().mockResolvedValue(false),
-    init: vi.fn().mockResolvedValue(undefined),
-    raw: vi.fn().mockResolvedValue(''),
-    add: vi.fn().mockResolvedValue(undefined),
-    commit: vi.fn().mockResolvedValue({ commit: 'initial' }),
-  })),
-  CheckRepoActions: {
-    IS_REPO_ROOT: 'is-repo-root',
-  },
-}));
-
+        simpleGit: vi.fn(() => ({
+          checkIsRepo: vi.fn().mockResolvedValue(false),
+          init: vi.fn().mockResolvedValue(undefined),
+          raw: vi.fn().mockResolvedValue(''),
+          add: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue({ commit: 'initial' }),
+        })),
+        CheckRepoActions: {
+          IS_REPO_ROOT: 'is-repo-root',
+        },
+      }));
 
       await service.setupHiddenGitRepository();
 

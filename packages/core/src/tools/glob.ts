@@ -122,7 +122,6 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
     this.rootDirectory = path.resolve(rootDirectory);
   }
 
-
   /**
    * Validates the parameters for the tool.
    */

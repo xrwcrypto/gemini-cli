@@ -9,7 +9,7 @@ import { partListUnionToString } from '../core/geminiRequest.js';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'; 
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { Config } from '../config/config.js';
 
@@ -406,8 +406,13 @@ describe('GlobTool Path Resilience', () => {
     });
 
     it('should reject a path traversal attempt', () => {
-      const params: GlobToolParams = { pattern: '*.txt', path: path.join(tempRootDir, '..', '..') };
-      expect(globTool.validateToolParams(params)).toContain('resolves outside the tool\'s root directory');
+      const params: GlobToolParams = {
+        pattern: '*.txt',
+        path: path.join(tempRootDir, '..', '..'),
+      };
+      expect(globTool.validateToolParams(params)).toContain(
+        "resolves outside the tool's root directory",
+      );
     });
   });
 
@@ -416,10 +421,12 @@ describe('GlobTool Path Resilience', () => {
       tempRootDir = 'C:\\temp';
       vi.spyOn(os, 'platform').mockReturnValue('win32');
       vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
-        path.win32.resolve(...paths)
+        path.win32.resolve(...paths),
       );
       vi.spyOn(fs, 'existsSync').mockImplementation(() => true);
-      vi.spyOn(fs, 'statSync').mockImplementation(() => ({ isDirectory: () => true } as any));
+      vi.spyOn(fs, 'statSync').mockImplementation(
+        () => ({ isDirectory: () => true }) as unknown as fs.Stats,
+      );
       globTool = new GlobTool(tempRootDir, mockConfig);
     });
 
@@ -434,8 +441,10 @@ describe('GlobTool Path Resilience', () => {
     });
 
     it('should reject a path traversal attempt', () => {
-      const params: GlobToolParams = { pattern: '*.txt', path: 'C:\\..\\..\\'};
-      expect(globTool.validateToolParams(params)).toContain('resolves outside the tool\'s root directory');
+      const params: GlobToolParams = { pattern: '*.txt', path: 'C:\\..\\..\\' };
+      expect(globTool.validateToolParams(params)).toContain(
+        "resolves outside the tool's root directory",
+      );
     });
   });
 });

@@ -624,7 +624,9 @@ describe('EditTool', () => {
           old_string: 'old',
           new_string: 'new',
         };
-        expect(tool.validateToolParams(params)).toContain('File path must be within the root directory');
+        expect(tool.validateToolParams(params)).toContain(
+          'File path must be within the root directory',
+        );
       });
 
       it('should execute an edit with a valid posix path', async () => {
@@ -647,7 +649,7 @@ describe('EditTool', () => {
       beforeEach(() => {
         vi.spyOn(os, 'platform').mockReturnValue('win32');
         vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
-          path.win32.resolve(...paths)
+          path.win32.resolve(...paths),
         );
       });
 
@@ -678,7 +680,9 @@ describe('EditTool', () => {
           new_string: 'new',
         };
         tool['rootDirectory'] = 'C:\\temp\\root';
-        expect(tool.validateToolParams(params)).toContain('File path must be within the root directory');
+        expect(tool.validateToolParams(params)).toContain(
+          'File path must be within the root directory',
+        );
       });
     });
   });

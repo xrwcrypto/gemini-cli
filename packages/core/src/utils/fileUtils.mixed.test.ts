@@ -26,7 +26,7 @@ describe('Mixed paths', () => {
     });
 
     it('should return false for mixed-style paths outside the root', () => {
-      expect(isWithinRoot('C:\a/c', 'C:\a/b')).toBe(false);
+      expect(isWithinRoot('C:\\a/c', 'C:\\a/b')).toBe(false);
     });
   });
 

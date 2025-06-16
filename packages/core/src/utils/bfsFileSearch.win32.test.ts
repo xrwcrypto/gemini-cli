@@ -1,13 +1,12 @@
 /**
  * @license
  * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-20
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 import { Dirent, PathLike } from 'fs';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import { bfsFileSearch } from './bfsFileSearch.js';
 
 vi.mock('os', async (importOriginal) => {

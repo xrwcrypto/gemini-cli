@@ -4,14 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import os from 'os';
-import fs from 'fs';
-import path from 'path';
 import { BaseTool, ToolResult } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { Config } from '../config/config.js';
-import { isNodeError } from '../utils/errors.js';
 import { isWithinRoot, isAbsolute } from '../utils/fileUtils.js';
 
 /**

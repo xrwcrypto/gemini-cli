@@ -1,10 +1,9 @@
 /**
  * @license
  * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-20
+ * SPDX-License-Identifier: Apache-2.0
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import fsPromises from 'fs/promises';
 import { Dirent as FSDirent } from 'fs';
@@ -46,10 +45,10 @@ describe('getFolderStructure on win32', () => {
 
     (path.resolve as Mock).mockImplementation((str: string) => str);
     (path.normalize as Mock).mockImplementation((p: string) =>
-      p.replace(/\\/g, '/')
+      p.replace(/\\/g, '/'),
     );
     (path.join as Mock).mockImplementation((...segments: string[]) =>
-      segments.join('/').replace(/\\/g, '/')
+      segments.join('/').replace(/\\/g, '/'),
     );
 
     (fsPromises.readdir as Mock).mockImplementation(
@@ -64,7 +63,7 @@ describe('getFolderStructure on win32', () => {
           ),
           { code: 'ENOENT' },
         );
-      }
+      },
     );
   });
 
@@ -77,9 +76,7 @@ describe('getFolderStructure on win32', () => {
       createDirent('file1.txt', 'file'),
       createDirent('subfolderA', 'dir'),
     ],
-    'C:/Users/user/project/subfolderA': [
-      createDirent('fileA1.ts', 'file'),
-    ],
+    'C:/Users/user/project/subfolderA': [createDirent('fileA1.ts', 'file')],
   };
 
   it('should return basic folder structure with Windows paths', async () => {

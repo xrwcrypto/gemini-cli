@@ -16,7 +16,6 @@ import {
   DEFAULT_ENCODING,
   getSpecificMimeType,
   isWithinRoot,
-  isAbsolute,
 } from '../utils/fileUtils.js';
 import { PartListUnion } from '@google/genai';
 import { Config } from '../config/config.js';

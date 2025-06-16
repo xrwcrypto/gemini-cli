@@ -112,7 +112,9 @@ describe('GrepTool', () => {
     it('should return error for path traversal attempt', () => {
       const traversalPath = path.join(tempRootDir, '..', '..');
       const params: GrepToolParams = { pattern: 'hello', path: traversalPath };
-      expect(grepTool.validateToolParams(params)).toContain('is outside the root directory');
+      expect(grepTool.validateToolParams(params)).toContain(
+        'is outside the root directory',
+      );
     });
   });
 
