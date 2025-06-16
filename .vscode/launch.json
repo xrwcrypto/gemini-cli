@@ -11,10 +11,7 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start"],
       "skipFiles": ["<node_internals>/**"],
-      "cwd": "${workspaceFolder}",
-      "env": {
-        "GEMINI_SANDBOX": "false"
-      }
+      "cwd": "${workspaceFolder}"
     },
     {
       "type": "node",
