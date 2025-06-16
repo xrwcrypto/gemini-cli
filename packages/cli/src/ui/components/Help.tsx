@@ -56,19 +56,19 @@ export const Help: React.FC<Help> = ({ commands }) => (
       <Text bold color={Colors.AccentPurple}>Enter</Text> - Send message
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Shift + Enter</Text> - New line
+      <Text bold color={Colors.AccentPurple}>Shift+Enter</Text> - New line
     </Text>
     <Text color={Colors.Foreground}>
       <Text bold color={Colors.AccentPurple}>Up/Down</Text> - Cycle through your prompt history
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Alt + Left/Right</Text> - Jump through words in the input
+      <Text bold color={Colors.AccentPurple}>Alt+Left/Right</Text> - Jump through words in the input
     </Text>
     <Text color={Colors.Foreground}>
       <Text bold color={Colors.AccentPurple}>Esc</Text> - Cancel operation
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Ctrl + C</Text> - Quit application
+      <Text bold color={Colors.AccentPurple}>Ctrl+C</Text> - Quit application
     </Text>
   </Box>
 );
