@@ -35,7 +35,7 @@ TARGET_DIR="/home/node"
 
 if [ -n "$REPO_URL" ]; then
   echo "Received repository URL: $REPO_URL"
-  if [[ "$REPO_URL" =~ ^https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+(\.git)?$ ]]; then
+  if [[ "$REPO_URL" =~ ^https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+(\.git)?/?$ ]]; then
     CLONE_DIR="/home/node/workspace"
     echo "Preparing workspace..."
     rm -rf "$CLONE_DIR" && mkdir -p "$CLONE_DIR"
