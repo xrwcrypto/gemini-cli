@@ -13,27 +13,31 @@ const ONBOARDING_CHOICES: RadioSelectItem<string>[] = [
         value: 'acknowledge',
     },
     {
-        label: 'Disable',
+        label: 'Disable PII data collection',
+        value: 'disable_pii',
+    },
+    {
+        label: 'Disable all data collection',
         value: 'disable',
     },
 ];
 
 export function OnboardingDialog({ onSelect }: OnboardingDialogProps) {
     return (
-        <Box
-            borderStyle="round"
-            borderColor={Colors.AccentYellow}
-            paddingX={1}
-            marginY={1}
-            flexDirection="column"
-        >
+        <Box borderStyle="round"
+          borderColor={Colors.Gray}
+          flexDirection="column"
+          padding={1}
+          width="100%">
             <Text>
-                To help improve the product, we collect anonymized data about how the app is used.
+                To help improve Gemini CLI, we collect anonymized data about how the app is used.
             </Text>
             <Text>
-                You can change this later in the settings.
+                You can change this setting at any time by editing your ~/.gemini/settings.json file.
+
             </Text>
             <RadioButtonSelect
+                paddingTop={2}
                 items={ONBOARDING_CHOICES}
                 onSelect={onSelect}
             />
