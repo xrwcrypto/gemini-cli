@@ -13,13 +13,12 @@ import { Colors } from '../../colors.js';
 import { Config } from '@gemini-cli/core';
 
 interface ToolGroupMessageProps {
-  groupId: number;
+  groupId?: number;
   toolCalls: IndividualToolCallDisplay[];
   availableTerminalHeight: number;
   config?: Config;
   isFocused?: boolean;
   isFirstContent?: boolean;
-  isFollowedByToolGroup?: boolean;
 }
 
 // Main component renders the border and maps the tools using ToolMessage
@@ -48,20 +47,16 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     return (
       <Box flexDirection="column" marginLeft={2}>
         {toolCalls.map((tool, index) => {
-          const isFirstToolInGroup = index === 0;
           const isLastInChain = index === toolCalls.length - 1;
+          const isSingleTool = toolCalls.length === 1;
 
           let prefix: string;
-          if (toolCalls.length === 1) {
+          if (isSingleTool) {
             prefix = isFirstContent ? '─── ' : '╰── ';
+          } else if (index === 0) {
+            prefix = isFirstContent ? '┌── ' : '├── ';
           } else {
-            if (index === 0) {
-              prefix = isFirstContent ? '┌── ' : '├── ';
-            } else if (isLastInChain) {
-              prefix = '╰── ';
-            } else {
-              prefix = '├── ';
-            }
+            prefix = isLastInChain ? '╰── ' : '├── ';
           }
 
           const errorLinePrefix = isLastInChain ? '      ' : '│     ';

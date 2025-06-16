@@ -15,7 +15,12 @@ import {
   useInput,
   type Key as InkKeyType,
 } from 'ink';
-import { StreamingState, type HistoryItem, MessageType } from './types.js';
+import {
+  StreamingState,
+  type HistoryItem,
+  MessageType,
+  type HistoryItemWithoutId,
+} from './types.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
@@ -59,6 +64,48 @@ import { useTextBuffer } from './components/shared/text-buffer.js';
 import * as fs from 'fs';
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
+
+function coalesceToolGroups(items: HistoryItem[]): HistoryItem[];
+function coalesceToolGroups(
+  items: (HistoryItem | HistoryItemWithoutId)[],
+): (HistoryItem | HistoryItemWithoutId)[];
+function coalesceToolGroups(
+  items: (HistoryItem | HistoryItemWithoutId)[],
+): (HistoryItem | HistoryItemWithoutId)[] {
+  if (items.length < 2) {
+    return items;
+  }
+
+  const coalescedItems: (HistoryItem | HistoryItemWithoutId)[] = [];
+  let currentToolGroup:
+    | (HistoryItem & { type: 'tool_group' })
+    | (HistoryItemWithoutId & { type: 'tool_group' })
+    | null = null;
+
+  for (const item of items) {
+    if (item.type === 'tool_group') {
+      if (currentToolGroup) {
+        // Merge with the previous tool group
+        currentToolGroup.tools.push(...item.tools);
+      } else {
+        // Start a new tool group
+        currentToolGroup = { ...item, tools: [...item.tools] };
+      }
+    } else {
+      if (currentToolGroup) {
+        coalescedItems.push(currentToolGroup);
+        currentToolGroup = null;
+      }
+      coalescedItems.push(item);
+    }
+  }
+
+  if (currentToolGroup) {
+    coalescedItems.push(currentToolGroup);
+  }
+
+  return coalescedItems;
+}
 
 interface AppProps {
   config: Config;
@@ -426,6 +473,15 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     return getAllGeminiMdFilenames();
   }, [settings.merged.contextFileName]);
 
+  const coalescedHistory = useMemo(
+    () => coalesceToolGroups(history),
+    [history],
+  );
+  const coalescedPendingHistoryItems = useMemo(
+    () => coalesceToolGroups(pendingHistoryItems),
+    [pendingHistoryItems],
+  );
+
   if (quittingMessages) {
     return (
       <Box flexDirection="column" marginBottom={1}>
@@ -464,28 +520,28 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
               <Header terminalWidth={terminalWidth} />
               <Tips config={config} />
             </Box>,
-            ...history.map((h, i) => (
-              <HistoryItemDisplay
-                availableTerminalHeight={availableTerminalHeight}
-                key={h.id}
-                item={h}
-                previousItem={history[i - 1]}
-                nextItem={history[i + 1]}
-                isPending={false}
-                config={config}
-              />
-            )),
+            ...coalescedHistory.map((h, i) => {
+              return (
+                <HistoryItemDisplay
+                  availableTerminalHeight={availableTerminalHeight}
+                  key={h.id}
+                  item={h}
+                  previousItem={coalescedHistory[i - 1]}
+                  isPending={false}
+                  config={config}
+                />
+              );
+            }),
           ]}
         >
           {(item) => item}
         </Static>
         <Box ref={pendingHistoryItemRef}>
-          {pendingHistoryItems.map((item, i) => {
+          {coalescedPendingHistoryItems.map((item, i) => {
             const previousItem =
               i === 0
-                ? history[history.length - 1]
-                : pendingHistoryItems[i - 1];
-            const nextItem = pendingHistoryItems[i + 1];
+                ? coalescedHistory[coalescedHistory.length - 1]
+                : coalescedPendingHistoryItems[i - 1];
             return (
               <HistoryItemDisplay
                 key={i}
@@ -494,7 +550,6 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
                 // HistoryItemDisplay. Refactor later. Use a fake id for now.
                 item={{ ...item, id: 0 }}
                 previousItem={previousItem}
-                nextItem={nextItem}
                 isPending={true}
                 config={config}
                 isFocused={!isEditorDialogOpen}

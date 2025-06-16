@@ -21,9 +21,8 @@ import { SessionSummaryDisplay } from './SessionSummaryDisplay.js';
 import { Config } from '@gemini-cli/core';
 
 interface HistoryItemDisplayProps {
-  item: HistoryItem;
+  item: HistoryItem | HistoryItemWithoutId;
   previousItem?: HistoryItem | HistoryItemWithoutId;
-  nextItem?: HistoryItem | HistoryItemWithoutId;
   availableTerminalHeight: number;
   isPending: boolean;
   config?: Config;
@@ -33,7 +32,6 @@ interface HistoryItemDisplayProps {
 export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
   item,
   previousItem,
-  nextItem,
   availableTerminalHeight,
   isPending,
   config,
@@ -44,15 +42,19 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
     previousItem.type === 'user' ||
     previousItem.type === 'user_shell';
 
-  const isFollowedByToolGroup = nextItem?.type === 'tool_group';
-
   const suppressMargin =
     (item.type === 'tool_group' && isFirstContent) ||
     (item.type === 'tool_group' && previousItem?.type === 'tool_group') ||
     (item.type === 'tool_group' && previousItem?.type === 'gemini');
 
+  const itemId = 'id' in item ? item.id : undefined;
+
   return (
-    <Box flexDirection="column" key={item.id} marginTop={suppressMargin ? 0 : 1}>
+    <Box
+      flexDirection="column"
+      key={itemId}
+      marginTop={suppressMargin ? 0 : 1}
+    >
       {/* Render standard message types */}
       {item.type === 'user' && <UserMessage text={item.text} />}
       {item.type === 'user_shell' && <UserShellMessage text={item.text} />}
@@ -61,7 +63,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           text={item.text}
           isPending={isPending}
           availableTerminalHeight={availableTerminalHeight}
-          isFollowedByToolGroup={isFollowedByToolGroup}
+          isFollowedByToolGroup={false}
         />
       )}
       {item.type === 'gemini_content' && (
@@ -69,7 +71,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           text={item.text}
           isPending={isPending}
           availableTerminalHeight={availableTerminalHeight}
-          isFollowedByToolGroup={isFollowedByToolGroup}
+          isFollowedByToolGroup={false}
         />
       )}
       {item.type === 'info' && <InfoMessage text={item.text} />}
@@ -95,12 +97,11 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
       {item.type === 'tool_group' && (
         <ToolGroupMessage
           toolCalls={item.tools}
-          groupId={item.id}
+          groupId={itemId}
           availableTerminalHeight={availableTerminalHeight}
           config={config}
           isFocused={isFocused}
           isFirstContent={isFirstContent}
-          isFollowedByToolGroup={isFollowedByToolGroup}
         />
       )}
       {item.type === 'compression' && (
