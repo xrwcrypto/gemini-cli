@@ -21,6 +21,13 @@
 const CLIENT_ID = '1023788818871-58e670siqp41sm92idla4k3octbhp4tj.apps.googleusercontent.com';
 const IMAGE = 'us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:latest';
 
+const REQUIRED_APIS = [
+  'storage.googleapis.com',
+  'run.googleapis.com',
+  'cloudbuild.googleapis.com',
+  'artifactregistry.googleapis.com'
+];
+
 const REDIRECT_URI = window.location.href.split('#')[0];
 
 const region = 'europe-west1';
@@ -141,6 +148,26 @@ function getCloudRunServicePayload(project, bucket) {
       timeout: '60s',
     },
   };
+}
+
+async function enableRequiredApis(token, project) {
+  console.log('Enabling required APIs...');
+  const response = await fetch(`https://serviceusage.googleapis.com/v1/projects/${project}/services:batchEnable`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      serviceIds: REQUIRED_APIS
+    })
+  });
+  
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(`Failed to enable APIs: ${result.error.message}`);
+  }
+  return result;
 }
 
 function getTokenAndProject() {
@@ -283,6 +310,8 @@ async function deployAndWait() {
   if (!token || !project) {
     return;
   }
+
+  await enableRequiredApis(token, project);
 
   const bucket = await getOrCreateGcsBucket(token, project);
   if (!bucket) {
