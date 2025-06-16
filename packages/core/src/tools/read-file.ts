@@ -8,7 +8,7 @@ import path from 'path';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { BaseTool, ToolResult } from './tools.js';
-import { isWithinRoot, processSingleFileContent } from '../utils/fileUtils.js';
+import { isWithinRoot, isAbsolute, processSingleFileContent } from '../utils/fileUtils.js';
 import { Config } from '../config/config.js';
 import { getSpecificMimeType } from '../utils/fileUtils.js';
 import {
@@ -86,12 +86,13 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
     ) {
       return 'Parameters failed schema validation.';
     }
-    const filePath = params.absolute_path;
-    if (!path.isAbsolute(filePath)) {
-      return `File path must be absolute, but was relative: ${filePath}. You must provide an absolute path.`;
+    params.absolute_path = path.normalize(params.absolute_path);
+    if (!path.isAbsolute(params.absolute_path)) {
+      return `File path must be absolute, but was relative: ${params.absolute_path}. You must provide an absolute path.`;
     }
-    if (!isWithinRoot(filePath, this.rootDirectory)) {
-      return `File path must be within the root directory (${this.rootDirectory}): ${filePath}`;
+
+    if (!isWithinRoot(params.path, this.rootDirectory)) {
+      return `File path must be within the root directory (${this.rootDirectory}): ${params.absolute_path}`;
     }
     if (params.offset !== undefined && params.offset < 0) {
       return 'Offset must be a non-negative number';

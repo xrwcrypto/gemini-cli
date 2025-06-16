@@ -15,6 +15,7 @@ import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
 import { isGitRepository } from '../utils/gitUtils.js';
+import { isAbsolute, isWithinRoot } from '../utils/fileUtils.js';
 
 // --- Interfaces ---
 
@@ -98,42 +99,6 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
    * @returns The absolute path if valid and exists.
    * @throws {Error} If path is outside root, doesn't exist, or isn't a directory.
    */
-  private resolveAndValidatePath(relativePath?: string): string {
-    const targetPath = path.resolve(this.rootDirectory, relativePath || '.');
-
-    // Security Check: Ensure the resolved path is still within the root directory.
-    if (
-      !targetPath.startsWith(this.rootDirectory) &&
-      targetPath !== this.rootDirectory
-    ) {
-      throw new Error(
-        `Path validation failed: Attempted path "${relativePath || '.'}" resolves outside the allowed root directory "${this.rootDirectory}".`,
-      );
-    }
-
-    // Check existence and type after resolving
-    try {
-      const stats = fs.statSync(targetPath);
-      if (!stats.isDirectory()) {
-        throw new Error(`Path is not a directory: ${targetPath}`);
-      }
-    } catch (error: unknown) {
-      if (isNodeError(error) && error.code !== 'ENOENT') {
-        throw new Error(`Path does not exist: ${targetPath}`);
-      }
-      throw new Error(
-        `Failed to access path stats for ${targetPath}: ${error}`,
-      );
-    }
-
-    return targetPath;
-  }
-
-  /**
-   * Validates the parameters for the tool
-   * @param params Parameters to validate
-   * @returns An error message string if invalid, null otherwise
-   */
   validateToolParams(params: GrepToolParams): string | null {
     if (
       this.schema.parameters &&
@@ -151,10 +116,25 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
       return `Invalid regular expression pattern provided: ${params.pattern}. Error: ${getErrorMessage(error)}`;
     }
 
-    try {
-      this.resolveAndValidatePath(params.path);
-    } catch (error) {
-      return getErrorMessage(error);
+    if (params.path) {
+      const resolvedPath = path.resolve(this.rootDirectory, params.path);
+      if (!isAbsolute(resolvedPath)) {
+        return `Path must be absolute: ${resolvedPath}`;
+      }
+      if (!isWithinRoot(resolvedPath, this.rootDirectory)) {
+        return `Path is outside the root directory: ${resolvedPath}`;
+      }
+      try {
+        const stats = fs.statSync(resolvedPath);
+        if (!stats.isDirectory()) {
+          return `Path is not a directory: ${resolvedPath}`;
+        }
+      } catch (error) {
+        if (isNodeError(error) && error.code === 'ENOENT') {
+          return `Path does not exist: ${resolvedPath}`;
+        }
+        throw error;
+      }
     }
 
     return null; // Parameters are valid
@@ -180,8 +160,13 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
     }
 
     let searchDirAbs: string;
+    if (params.path) {
+      searchDirAbs = path.resolve(this.rootDirectory, params.path);
+    } else {
+      searchDirAbs = this.rootDirectory;
+    }
+
     try {
-      searchDirAbs = this.resolveAndValidatePath(params.path);
       const searchDirDisplay = params.path || '.';
 
       const matches: GrepMatch[] = await this.performGrepSearch({

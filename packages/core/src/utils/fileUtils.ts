@@ -5,7 +5,7 @@
  */
 
 import fs from 'fs';
-import path from 'path';
+import * as path from 'path';
 import { PartUnion } from '@google/genai';
 import mime from 'mime-types';
 
@@ -52,6 +52,11 @@ export function isWithinRoot(
     normalizedPathToCheck.startsWith(rootWithSeparator)
   );
 }
+
+export function isAbsolute(filePath: string): boolean {
+      // A path is considered absolute if it's absolute in either format.
+  return path.win32.isAbsolute(filePath) || path.posix.isAbsolute(filePath);
+} 
 
 /**
  * Determines if a file is likely binary based on content sampling.

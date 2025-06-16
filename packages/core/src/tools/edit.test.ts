@@ -605,4 +605,218 @@ describe('EditTool', () => {
       );
     });
   });
+
+  describe('Path Resilience', () => {
+    describe('on POSIX', () => {
+      it('should allow a valid posix path', () => {
+        const params: EditToolParams = {
+          file_path: path.join(rootDir, 'test.txt'),
+          old_string: 'old',
+          new_string: 'new',
+        };
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
+
+      it('should reject a path traversal attempt', () => {
+        const traversalPath = path.join(rootDir, '..', '..', 'test.txt');
+        const params: EditToolParams = {
+          file_path: traversalPath,
+          old_string: 'old',
+          new_string: 'new',
+        };
+        expect(tool.validateToolParams(params)).toContain('File path must be within the root directory');
+      });
+
+      it('should execute an edit with a valid posix path', async () => {
+        const filePath = path.join(rootDir, 'test.txt');
+        const params: EditToolParams = {
+          file_path: filePath,
+          old_string: '',
+          new_string: 'new content',
+        };
+        (tool as any).shouldAlwaysEdit = true;
+        const result = await tool.execute(params, new AbortController().signal);
+        expect(result.llmContent).toMatch(
+          /Created new file: .* with provided content./,
+        );
+        expect(fs.readFileSync(filePath, 'utf8')).toBe('new content');
+      });
+    });
+
+    describe('on Windows', () => {
+      beforeEach(() => {
+        vi.spyOn(os, 'platform').mockReturnValue('win32');
+        vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
+          path.win32.resolve(...paths)
+        );
+      });
+
+      it('should allow a valid windows path', () => {
+        const params: EditToolParams = {
+          file_path: 'C:\\temp\\root\\test.txt',
+          old_string: 'old',
+          new_string: 'new',
+        };
+        tool['rootDirectory'] = 'C:\\temp\\root';
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
+
+      it('should allow a valid mixed path', () => {
+        const params: EditToolParams = {
+          file_path: 'C:/temp/root/test.txt',
+          old_string: 'old',
+          new_string: 'new',
+        };
+        tool['rootDirectory'] = 'C:\\temp\\root';
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
+
+      it('should reject a path traversal attempt', () => {
+        const params: EditToolParams = {
+          file_path: 'C:\\temp\\test.txt',
+          old_string: 'old',
+          new_string: 'new',
+        };
+        tool['rootDirectory'] = 'C:\\temp\\root';
+        expect(tool.validateToolParams(params)).toContain('File path must be within the root directory');
+      });
+    });
+  });
+
+  describe('onModify', () => {
+    const testFile = 'some_file.txt';
+    let filePath: string;
+    const diffDir = path.join(os.tmpdir(), 'gemini-cli-edit-tool-diffs');
+
+    beforeEach(() => {
+      filePath = path.join(rootDir, testFile);
+      mockOpenDiff.mockClear();
+    });
+
+    afterEach(() => {
+      fs.rmSync(diffDir, { recursive: true, force: true });
+    });
+
+    it('should create temporary files, call openDiff, and return updated params with diff', async () => {
+      const originalContent = 'original content';
+      const params: EditToolParams = {
+        file_path: filePath,
+        old_string: originalContent,
+        new_string: 'modified content',
+      };
+
+      fs.writeFileSync(filePath, originalContent, 'utf8');
+
+      const result = await tool.onModify(
+        params,
+        new AbortController().signal,
+        'vscode',
+      );
+
+      expect(mockOpenDiff).toHaveBeenCalledTimes(1);
+      const [oldPath, newPath] = mockOpenDiff.mock.calls[0];
+      expect(oldPath).toMatch(
+        /gemini-cli-edit-tool-diffs[/\\]gemini-cli-edit-some_file\.txt-old-\d+/,
+      );
+      expect(newPath).toMatch(
+        /gemini-cli-edit-tool-diffs[/\\]gemini-cli-edit-some_file\.txt-new-\d+/,
+      );
+
+      expect(result).toBeDefined();
+      expect(result!.updatedParams).toEqual({
+        file_path: filePath,
+        old_string: originalContent,
+        new_string: 'modified content',
+      });
+      expect(result!.updatedDiff).toEqual(`Index: some_file.txt
+===================================================================
+--- some_file.txt\tCurrent
++++ some_file.txt\tProposed
+@@ -1,1 +1,1 @@
+-original content
+\\ No newline at end of file
++modified content
+\\ No newline at end of file
+`);
+
+      // Verify temp files are cleaned up
+      expect(fs.existsSync(oldPath)).toBe(false);
+      expect(fs.existsSync(newPath)).toBe(false);
+    });
+
+    it('should handle non-existent files and return updated params', async () => {
+      const params: EditToolParams = {
+        file_path: filePath,
+        old_string: '',
+        new_string: 'new file content',
+      };
+
+      const result = await tool.onModify(
+        params,
+        new AbortController().signal,
+        'vscode',
+      );
+
+      expect(mockOpenDiff).toHaveBeenCalledTimes(1);
+
+      const [oldPath, newPath] = mockOpenDiff.mock.calls[0];
+
+      expect(result).toBeDefined();
+      expect(result!.updatedParams).toEqual({
+        file_path: filePath,
+        old_string: '',
+        new_string: 'new file content',
+      });
+      expect(result!.updatedDiff).toContain('new file content');
+
+      // Verify temp files are cleaned up
+      expect(fs.existsSync(oldPath)).toBe(false);
+      expect(fs.existsSync(newPath)).toBe(false);
+    });
+
+    it('should clean up previous temp files before creating new ones', async () => {
+      const params: EditToolParams = {
+        file_path: filePath,
+        old_string: 'old',
+        new_string: 'new',
+      };
+
+      fs.writeFileSync(filePath, 'some old content', 'utf8');
+
+      // Call onModify first time
+      const result1 = await tool.onModify(
+        params,
+        new AbortController().signal,
+        'vscode',
+      );
+      const firstCall = mockOpenDiff.mock.calls[0];
+      const firstOldPath = firstCall[0];
+      const firstNewPath = firstCall[1];
+
+      expect(result1).toBeDefined();
+      expect(fs.existsSync(firstOldPath)).toBe(false);
+      expect(fs.existsSync(firstNewPath)).toBe(false);
+
+      // Ensure different timestamps so that the file names are different for testing.
+      await new Promise((resolve) => setTimeout(resolve, 2));
+
+      const result2 = await tool.onModify(
+        params,
+        new AbortController().signal,
+        'vscode',
+      );
+      const secondCall = mockOpenDiff.mock.calls[1];
+      const secondOldPath = secondCall[0];
+      const secondNewPath = secondCall[1];
+
+      // Call onModify second time
+      expect(result2).toBeDefined();
+      expect(fs.existsSync(secondOldPath)).toBe(false);
+      expect(fs.existsSync(secondNewPath)).toBe(false);
+
+      // Verify different file names were used
+      expect(firstOldPath).not.toBe(secondOldPath);
+      expect(firstNewPath).not.toBe(secondNewPath);
+    });
+  });
 });

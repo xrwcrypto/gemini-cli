@@ -20,10 +20,12 @@ vi.mock('../utils/fileUtils', async () => {
   return {
     ...actualFileUtils, // Spread actual implementations
     processSingleFileContent: vi.fn(), // Mock specific function
+    isWithinRoot: vi.fn(),
   };
 });
 
 const mockProcessSingleFileContent = fileUtils.processSingleFileContent as Mock;
+const mockIsWithinRoot = fileUtils.isWithinRoot as Mock;
 
 describe('ReadFileTool', () => {
   let tempRootDir: string;
@@ -41,10 +43,15 @@ describe('ReadFileTool', () => {
     );
     const fileService = new FileDiscoveryService(tempRootDir);
     const mockConfigInstance = {
+      getGeminiIgnorePatterns: () => ['**/foo.bar', 'foo.baz', 'foo.*'],
       getFileService: () => fileService,
-    } as unknown as Config;
+    } as unknown as Partial<Config> as Config;
     tool = new ReadFileTool(tempRootDir, mockConfigInstance);
     mockProcessSingleFileContent.mockReset();
+    mockIsWithinRoot.mockImplementation((p: string, root: string) => {
+      const relative = path.relative(root, p);
+      return !relative.startsWith('..') && !path.isAbsolute(relative);
+    });
   });
 
   afterEach(() => {
@@ -52,6 +59,18 @@ describe('ReadFileTool', () => {
     if (fs.existsSync(tempRootDir)) {
       fs.rmSync(tempRootDir, { recursive: true, force: true });
     }
+    vi.restoreAllMocks();
+  });
+
+  describe('constructor', () => {
+    it('should handle null from getGeminiIgnorePatterns', () => {
+      const mockConfigInstance = {
+        getGeminiIgnorePatterns: () => null,
+      } as unknown as Config;
+      const newTool = new ReadFileTool(tempRootDir, mockConfigInstance);
+      // Accessing private member for test purposes
+      expect((newTool as any).geminiIgnorePatterns).toEqual([]);
+    });
   });
 
   describe('validateToolParams', () => {
@@ -74,7 +93,7 @@ describe('ReadFileTool', () => {
     it('should return error for relative path', () => {
       const params: ReadFileToolParams = { absolute_path: 'test.txt' };
       expect(tool.validateToolParams(params)).toMatch(
-        /File path must be absolute/,
+        /File path must be absolute/
       );
     });
 
@@ -82,7 +101,7 @@ describe('ReadFileTool', () => {
       const outsidePath = path.resolve(os.tmpdir(), 'outside-root.txt');
       const params: ReadFileToolParams = { absolute_path: outsidePath };
       expect(tool.validateToolParams(params)).toMatch(
-        /File path must be within the root directory/,
+        /File path must be within the root directory/
       );
     });
 
@@ -93,7 +112,7 @@ describe('ReadFileTool', () => {
         limit: 10,
       };
       expect(tool.validateToolParams(params)).toBe(
-        'Offset must be a non-negative number',
+        'Offset must be a non-negative number'
       );
     });
 
@@ -104,7 +123,7 @@ describe('ReadFileTool', () => {
         limit: 0,
       };
       expect(tool.validateToolParams(paramsZero)).toBe(
-        'Limit must be a positive number',
+        'Limit must be a positive number'
       );
       const paramsNegative: ReadFileToolParams = {
         absolute_path: path.join(tempRootDir, 'test.txt'),
@@ -112,14 +131,14 @@ describe('ReadFileTool', () => {
         limit: -5,
       };
       expect(tool.validateToolParams(paramsNegative)).toBe(
-        'Limit must be a positive number',
+        'Limit must be a positive number'
       );
     });
 
     it('should return error for schema validation failure (e.g. missing path)', () => {
       const params = { offset: 0 } as unknown as ReadFileToolParams;
       expect(tool.validateToolParams(params)).toBe(
-        'Parameters failed schema validation.',
+        'Parameters failed schema validation.'
       );
     });
   });
@@ -130,12 +149,23 @@ describe('ReadFileTool', () => {
       const params: ReadFileToolParams = { absolute_path: filePath };
       // Assuming tempRootDir is something like /tmp/read-file-tool-root-XXXXXX
       // The relative path would be sub/dir/file.txt
-      expect(tool.getDescription(params)).toBe('sub/dir/file.txt');
+      expect(tool.getDescription(params)).toBe(path.join('sub', 'dir', 'file.txt'));
     });
 
     it('should return . if path is the root directory', () => {
       const params: ReadFileToolParams = { absolute_path: tempRootDir };
       expect(tool.getDescription(params)).toBe('.');
+    });
+
+    it('should return "Path unavailable" for invalid params', () => {
+      expect(tool.getDescription(null as any)).toBe('Path unavailable');
+      expect(tool.getDescription({} as any)).toBe('Path unavailable');
+      expect(tool.getDescription({ path: 123 } as any)).toBe(
+        'Path unavailable'
+      );
+      expect(tool.getDescription({ path: '   ' } as any)).toBe(
+        'Path unavailable'
+      );
     });
   });
 
@@ -162,7 +192,7 @@ describe('ReadFileTool', () => {
         filePath,
         tempRootDir,
         undefined,
-        undefined,
+        undefined
       );
       expect(result.llmContent).toContain(errorMessage);
       expect(result.returnDisplay).toContain(errorMessage);
@@ -182,11 +212,11 @@ describe('ReadFileTool', () => {
         filePath,
         tempRootDir,
         undefined,
-        undefined,
+        undefined
       );
       expect(result.llmContent).toBe(fileContent);
       expect(result.returnDisplay).toBe(
-        `Read text file: ${path.basename(filePath)}`,
+        `Read text file: ${path.basename(filePath)}`
       );
     });
 
@@ -206,11 +236,11 @@ describe('ReadFileTool', () => {
         filePath,
         tempRootDir,
         undefined,
-        undefined,
+        undefined
       );
       expect(result.llmContent).toEqual(imageData);
       expect(result.returnDisplay).toBe(
-        `Read image file: ${path.basename(filePath)}`,
+        `Read image file: ${path.basename(filePath)}`
       );
     });
 
@@ -231,7 +261,7 @@ describe('ReadFileTool', () => {
         filePath,
         tempRootDir,
         10,
-        5,
+        5
       );
     });
 
@@ -242,6 +272,83 @@ describe('ReadFileTool', () => {
       const result = await tool.execute(params, abortSignal);
       expect(result.returnDisplay).toContain('foo.bar');
       expect(result.returnDisplay).not.toContain('foo.baz');
+    });
+  });
+
+  describe('Path Resilience', () => {
+    describe('on POSIX', () => {
+      it('should allow absolute POSIX paths within the root', () => {
+        const params: ReadFileToolParams = {
+          path: `${tempRootDir}/test.txt`,
+        };
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
+
+      it('should reject relative POSIX paths', () => {
+        const params: ReadFileToolParams = { path: 'test.txt' };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be absolute/
+        );
+      });
+
+      it('should reject absolute POSIX paths outside the root', () => {
+        const params: ReadFileToolParams = { path: '/elsewhere/test.txt' };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be within the root directory/
+        );
+      });
+    });
+
+    describe('on Windows', () => {
+      let win32Root: string;
+
+      beforeEach(() => {
+        // Mock the platform to simulate running on Windows
+        vi.spyOn(os, 'platform').mockReturnValue('win32');
+        vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
+          path.win32.resolve(...paths)
+        );
+
+        win32Root = 'C:\\gemini-test-root';
+        const mockConfigInstance = {
+          getGeminiIgnorePatterns: () => [],
+        } as unknown as Config;
+        tool = new ReadFileTool(win32Root, mockConfigInstance);
+
+        // Mock isWithinRoot to use win32 logic for this test suite
+        mockIsWithinRoot.mockImplementation((p: string, root: string) => {
+          const relative = path.win32.relative(root, p);
+          return !relative.startsWith('..') && !path.win32.isAbsolute(relative);
+        });
+      });
+
+      it('should allow absolute Win32 paths within the root', () => {
+        const params: ReadFileToolParams = {
+          path: 'C:\\gemini-test-root\\test.txt',
+        };
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
+
+      it('should reject relative Win32 paths', () => {
+        const params: ReadFileToolParams = { path: 'test.txt' };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be absolute/
+        );
+      });
+
+      it('should reject absolute Win32 paths outside the root', () => {
+        const params: ReadFileToolParams = { path: 'C:\\elsewhere\\test.txt' };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be within the root directory/
+        );
+      });
+
+      it('should handle mixed-separator paths correctly within the root', () => {
+        const params: ReadFileToolParams = {
+          path: 'C:/gemini-test-root/test.txt',
+        };
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
     });
   });
 });

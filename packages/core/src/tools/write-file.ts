@@ -17,6 +17,7 @@ import {
   ToolCallConfirmationDetails,
 } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
+import { isWithinRoot, isAbsolute } from '../utils/fileUtils.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
 import {
@@ -63,6 +64,7 @@ export class WriteFileTool
 {
   static readonly Name: string = 'write_file';
   private readonly client: GeminiClient;
+  private rootDirectory: string;
 
   constructor(private readonly config: Config) {
     super(
@@ -86,19 +88,8 @@ export class WriteFileTool
       },
     );
 
+    this.rootDirectory = path.resolve(this.config.getTargetDir());
     this.client = this.config.getGeminiClient();
-  }
-
-  private isWithinRoot(pathToCheck: string): boolean {
-    const normalizedPath = path.normalize(pathToCheck);
-    const normalizedRoot = path.normalize(this.config.getTargetDir());
-    const rootWithSep = normalizedRoot.endsWith(path.sep)
-      ? normalizedRoot
-      : normalizedRoot + path.sep;
-    return (
-      normalizedPath === normalizedRoot ||
-      normalizedPath.startsWith(rootWithSep)
-    );
   }
 
   validateToolParams(params: WriteFileToolParams): string | null {
@@ -111,27 +102,30 @@ export class WriteFileTool
     ) {
       return 'Parameters failed schema validation.';
     }
-    const filePath = params.file_path;
-    if (!path.isAbsolute(filePath)) {
-      return `File path must be absolute: ${filePath}`;
+
+    params.file_path = path.normalize(params.file_path);
+
+    if (!isAbsolute(params.file_path)) {
+      return `File path must be absolute: ${params.file_path}`;
     }
-    if (!this.isWithinRoot(filePath)) {
-      return `File path must be within the root directory (${this.config.getTargetDir()}): ${filePath}`;
+
+    if (!isWithinRoot(params.file_path, this.rootDirectory)) {
+      return `File path must be within the root directory (${this.config.getTargetDir()}): ${params.file_path}`;
     }
 
     try {
       // This check should be performed only if the path exists.
       // If it doesn't exist, it's a new file, which is valid for writing.
-      if (fs.existsSync(filePath)) {
-        const stats = fs.lstatSync(filePath);
+      if (fs.existsSync(params.file_path)) {
+        const stats = fs.lstatSync(params.file_path);
         if (stats.isDirectory()) {
-          return `Path is a directory, not a file: ${filePath}`;
+          return `Path is a directory, not a file: ${params.file_path}`;
         }
       }
     } catch (statError: unknown) {
       // If fs.existsSync is true but lstatSync fails (e.g., permissions, race condition where file is deleted)
       // this indicates an issue with accessing the path that should be reported.
-      return `Error accessing path properties for validation: ${filePath}. Reason: ${statError instanceof Error ? statError.message : String(statError)}`;
+      return `Error accessing path properties for validation: ${params.file_path}. Reason: ${statError instanceof Error ? statError.message : String(statError)}`;
     }
 
     return null;

@@ -70,8 +70,6 @@ describe('fileUtils', () => {
     vi.restoreAllMocks(); // Restore any spies
   });
 
-  
-
   describe('isBinaryFile', () => {
     let filePathForBinaryTest: string;
 
