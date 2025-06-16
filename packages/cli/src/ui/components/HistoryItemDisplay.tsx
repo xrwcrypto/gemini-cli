@@ -23,6 +23,7 @@ import { Config } from '@gemini-cli/core';
 interface HistoryItemDisplayProps {
   item: HistoryItem | HistoryItemWithoutId;
   previousItem?: HistoryItem | HistoryItemWithoutId;
+  nextItem?: HistoryItem | HistoryItemWithoutId;
   availableTerminalHeight: number;
   isPending: boolean;
   config?: Config;
@@ -32,6 +33,7 @@ interface HistoryItemDisplayProps {
 export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
   item,
   previousItem,
+  nextItem,
   availableTerminalHeight,
   isPending,
   config,
@@ -41,6 +43,8 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
     !previousItem ||
     previousItem.type === 'user' ||
     previousItem.type === 'user_shell';
+
+  const isFollowedByToolGroup = nextItem?.type === 'tool_group';
 
   const suppressMargin =
     (item.type === 'tool_group' && isFirstContent) ||
@@ -63,7 +67,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           text={item.text}
           isPending={isPending}
           availableTerminalHeight={availableTerminalHeight}
-          isFollowedByToolGroup={false}
+          isFollowedByToolGroup={isFollowedByToolGroup}
         />
       )}
       {item.type === 'gemini_content' && (
@@ -71,7 +75,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           text={item.text}
           isPending={isPending}
           availableTerminalHeight={availableTerminalHeight}
-          isFollowedByToolGroup={false}
+          isFollowedByToolGroup={isFollowedByToolGroup}
         />
       )}
       {item.type === 'info' && <InfoMessage text={item.text} />}
@@ -102,6 +106,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           config={config}
           isFocused={isFocused}
           isFirstContent={isFirstContent}
+          isFollowedByToolGroup={isFollowedByToolGroup}
         />
       )}
       {item.type === 'compression' && (

@@ -19,6 +19,7 @@ interface ToolGroupMessageProps {
   config?: Config;
   isFocused?: boolean;
   isFirstContent?: boolean;
+  isFollowedByToolGroup?: boolean;
 }
 
 // Main component renders the border and maps the tools using ToolMessage
@@ -28,6 +29,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   config,
   isFocused = true,
   isFirstContent = false,
+  isFollowedByToolGroup = false,
 }) => {
   const hasPending = !toolCalls.every(
     (t) => t.status === ToolCallStatus.Success,
@@ -47,16 +49,28 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     return (
       <Box flexDirection="column" marginLeft={2}>
         {toolCalls.map((tool, index) => {
-          const isLastInChain = index === toolCalls.length - 1;
-          const isSingleTool = toolCalls.length === 1;
+          const isLastInGroup = index === toolCalls.length - 1;
+          const isLastInChain = isLastInGroup && !isFollowedByToolGroup;
 
           let prefix: string;
-          if (isSingleTool) {
-            prefix = isFirstContent ? '─── ' : '╰── ';
-          } else if (index === 0) {
-            prefix = isFirstContent ? '┌── ' : '├── ';
+          if (toolCalls.length === 1) {
+            // This group has only one tool.
+            if (isFirstContent) {
+              // This is the very first item after a user prompt.
+              prefix = isFollowedByToolGroup ? '┌── ' : '─── ';
+            } else {
+              // This is a single tool that follows another item.
+              prefix = isLastInChain ? '╰── ' : '├── ';
+            }
           } else {
-            prefix = isLastInChain ? '╰── ' : '├── ';
+            // This group has multiple tools.
+            if (index === 0) {
+              // First tool in the group.
+              prefix = isFirstContent ? '┌── ' : '├── ';
+            } else {
+              // Subsequent tool in the group.
+              prefix = isLastInChain ? '╰── ' : '├── ';
+            }
           }
 
           const errorLinePrefix = isLastInChain ? '      ' : '│     ';
