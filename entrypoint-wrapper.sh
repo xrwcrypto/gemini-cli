@@ -26,7 +26,7 @@ echo "Starting ttyd on internal port $TTYD_PORT..."
 
 # Start ttyd in the background. The -a flag tells it to pass the URL
 # argument to the command.
-ttyd -p "$TTYD_PORT" -W -a tmux new-session -- bash -c '
+ttyd -p "$TTYD_PORT" -W -a tmux new-session -A -s gemini -- bash -c '
 # This script runs inside the tmux session.
 
 # The repo URL is passed as the first argument ($1) from ttyd.
