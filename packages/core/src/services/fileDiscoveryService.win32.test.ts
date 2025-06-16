@@ -59,7 +59,7 @@ describe('FileDiscoveryService on win32', () => {
   describe('filterFiles with Windows paths', () => {
     beforeEach(async () => {
       mockGitIgnoreParser.isIgnored.mockImplementation((filePath: string) =>
-        filePath.startsWith('C:\\test\\project\\node_modules')
+        filePath.startsWith('C:\\test\\project\\node_modules'),
       );
       await service.initialize();
     });

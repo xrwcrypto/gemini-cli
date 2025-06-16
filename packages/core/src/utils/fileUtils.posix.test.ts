@@ -5,8 +5,7 @@
  */
 
 import * as path from 'path';
-import { vol } from 'memfs';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 
 vi.mock('node:path', async (importOriginal) => {
   const actual = await importOriginal<typeof path>();

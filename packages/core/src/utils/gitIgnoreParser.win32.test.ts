@@ -7,7 +7,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GitIgnoreParser } from './gitIgnoreParser.js';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import { isGitRepository } from './gitUtils.js';
 
 vi.mock('os', async (importOriginal) => {

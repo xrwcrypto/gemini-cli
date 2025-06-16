@@ -46,10 +46,10 @@ describe('ReadManyFilesTool', () => {
 
   beforeEach(async () => {
     tempRootDirectory = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'read-many-files-root-')
+      path.join(os.tmpdir(), 'read-many-files-root-'),
     );
     tempDirOutsideRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'read-many-files-external-')
+      path.join(os.tmpdir(), 'read-many-files-external-'),
     );
     tool = new ReadManyFilesTool(tempRootDirectory, mockConfig);
 
@@ -70,7 +70,7 @@ describe('ReadManyFilesTool', () => {
 
         if (fp.endsWith('nonexistent-file.txt')) {
           const err = new Error(
-            `ENOENT: no such file or directory, open '${fp}'`
+            `ENOENT: no such file or directory, open '${fp}'`,
           );
           (err as NodeJS.ErrnoException).code = 'ENOENT';
           throw err;
@@ -87,11 +87,11 @@ describe('ReadManyFilesTool', () => {
           return Buffer.from([0x00, 0x01, 0x02, 0x00, 0x03]);
 
         const err = new Error(
-          `ENOENT: no such file or directory, open '${fp}' (unmocked path)`
+          `ENOENT: no such file or directory, open '${fp}' (unmocked path)`,
         );
         (err as NodeJS.ErrnoException).code = 'ENOENT';
         throw err;
-      }
+      },
     );
 
     mockIsWithinRoot.mockImplementation((p: string, root: string) => {
@@ -159,7 +159,7 @@ describe('ReadManyFilesTool', () => {
       const result = await tool.execute(params, new AbortController().signal);
       expect(result.returnDisplay).toContain('## Security Error');
       expect(result.returnDisplay).toContain(
-        'Path is outside the allowed root directory'
+        'Path is outside the allowed root directory',
       );
     });
 
@@ -507,10 +507,10 @@ describe('ReadManyFilesTool', () => {
       const result = await tool.execute(params, new AbortController().signal);
 
       expect(result.returnDisplay).toContain(
-        'Successfully read and concatenated content from **1 file(s)**'
+        'Successfully read and concatenated content from **1 file(s)**',
       );
       expect(result.returnDisplay).toContain(
-        '**Skipped 6 item(s) (first 5 shown):**'
+        '**Skipped 6 item(s) (first 5 shown):**',
       );
       expect(result.returnDisplay).toContain('- ...and 1 more.\n');
     });
@@ -543,13 +543,22 @@ describe('ReadManyFilesTool', () => {
         // Mock the platform to simulate running on Windows
         vi.spyOn(os, 'platform').mockReturnValue('win32');
         vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
-          path.win32.resolve(...paths)
+          path.win32.resolve(...paths),
         );
         vi.spyOn(path, 'relative').mockImplementation((from, to) =>
-          path.win32.relative(from, to)
+          path.win32.relative(from, to),
         );
 
-        win32Root = 'C:\gemini-test-root';        const mockConfigInstance = {          getGeminiIgnorePatterns: () => [],          getFileService: async () => {            const service = new FileDiscoveryService(win32Root);            await service.initialize({ respectGitIgnore: true });            return service;          },        } as unknown as Config;        tool = new ReadManyFilesTool(win32Root, mockConfigInstance);
+        win32Root = 'C:\\gemini-test-root';
+        const mockConfigInstance = {
+          getGeminiIgnorePatterns: () => [],
+          getFileService: async () => {
+            const service = new FileDiscoveryService(win32Root);
+            await service.initialize({ respectGitIgnore: true });
+            return service;
+          },
+        } as unknown as Config;
+        tool = new ReadManyFilesTool(win32Root, mockConfigInstance);
 
         // Mock isWithinRoot to use win32 logic for this test suite
         mockIsWithinRoot.mockImplementation((p: string, root: string) => {

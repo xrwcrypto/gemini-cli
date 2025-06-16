@@ -5,8 +5,7 @@
  */
 
 import * as path from 'path';
-import { vol } from 'memfs';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 
 vi.mock('node:path', async (importOriginal) => {
   const actual = await importOriginal<typeof path>();
@@ -27,7 +26,7 @@ describe('Windows paths', () => {
     });
 
     it('should return false for paths outside the root', () => {
-      expect(isWithinRoot('C:\a\c', 'C:\a\b')).toBe(false);
+      expect(isWithinRoot('C:\\a\\c', 'C:\\a\\b')).toBe(false);
     });
   });
 
@@ -38,8 +37,8 @@ describe('Windows paths', () => {
     });
 
     it('should return false for relative paths', () => {
-      expect(isAbsolute('a\b')).toBe(false);
-      expect(isAbsolute('..\a\b')).toBe(false);
+      expect(isAbsolute('a\\b')).toBe(false);
+      expect(isAbsolute('..\\a\\b')).toBe(false);
     });
   });
 });

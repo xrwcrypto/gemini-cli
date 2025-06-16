@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WebSearchTool } from './web-search.js';
@@ -36,62 +41,79 @@ describe('WebSearchTool', () => {
   describe('execute', () => {
     it('should call the gemini client with the correct parameters', async () => {
       const params = { query: 'test query' };
-      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue({} as any);
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue({} as unknown as GenerateContentResponse);
 
       await webSearchTool.execute(params, new AbortController().signal);
 
       expect(mockGeminiClient.generateContent).toHaveBeenCalledWith(
         [{ role: 'user', parts: [{ text: params.query }] }],
         { tools: [{ googleSearch: {} }] },
-        expect.any(AbortSignal)
+        expect.any(AbortSignal),
       );
     });
 
     it('should format the response with sources', async () => {
-        const mockApiResponse = {
-            candidates: [
-                {
-                    groundingMetadata: {
-                        groundingChunks: [
-                            { web: { title: 'Test Title', uri: 'https://example.com' } },
-                        ],
-                        groundingSupports: [],
-                    },
-                    content: { parts: [{ text: 'This is the search result.' }] },
-                },
-            ],
-        };
-        vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(mockApiResponse as any);
+      const mockApiResponse = {
+        candidates: [
+          {
+            groundingMetadata: {
+              groundingChunks: [
+                { web: { title: 'Test Title', uri: 'https://example.com' } },
+              ],
+              groundingSupports: [],
+            },
+            content: { parts: [{ text: 'This is the search result.' }] },
+          },
+        ],
+      };
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(
+        mockApiResponse as unknown as GenerateContentResponse,
+      );
 
-        const result = await webSearchTool.execute({ query: 'test query' }, new AbortController().signal);
+      const result = await webSearchTool.execute(
+        { query: 'test query' },
+        new AbortController().signal,
+      );
 
-        expect(result.llmContent).toContain('This is the search result.');
-        expect(result.llmContent).toContain('Sources:');
-        expect(result.llmContent).toContain('[1] Test Title (https://example.com)');
+      expect(result.llmContent).toContain('This is the search result.');
+      expect(result.llmContent).toContain('Sources:');
+      expect(result.llmContent).toContain(
+        '[1] Test Title (https://example.com)',
+      );
     });
 
     it('should handle API errors gracefully', async () => {
-        const error = new Error('API Error');
-        vi.mocked(mockGeminiClient.generateContent).mockRejectedValue(error);
+      const error = new Error('API Error');
+      vi.mocked(mockGeminiClient.generateContent).mockRejectedValue(error);
 
-        const result = await webSearchTool.execute({ query: 'test query' }, new AbortController().signal);
+      const result = await webSearchTool.execute(
+        { query: 'test query' },
+        new AbortController().signal,
+      );
 
-        expect(result.llmContent).toContain('Error: Error during web search');
+      expect(result.llmContent).toContain('Error: Error during web search');
     });
 
     it('should handle no results found', async () => {
-        const mockApiResponse = {
-            candidates: [
-                {
-                    content: { parts: [{ text: ' ' }] },
-                },
-            ],
-        };
-        vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(mockApiResponse as any);
+      const mockApiResponse = {
+        candidates: [
+          {
+            content: { parts: [{ text: ' ' }] },
+          },
+        ],
+      };
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(
+        mockApiResponse as unknown as GenerateContentResponse,
+      );
 
-        const result = await webSearchTool.execute({ query: 'test query' }, new AbortController().signal);
+      const result = await webSearchTool.execute(
+        { query: 'test query' },
+        new AbortController().signal,
+      );
 
-        expect(result.llmContent).toContain('No search results or information found');
+      expect(result.llmContent).toContain(
+        'No search results or information found',
+      );
     });
   });
 });

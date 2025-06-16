@@ -37,7 +37,9 @@ export function isWithinRoot(
   rootDirectory: string,
 ): boolean {
   const normalizedPathToCheck = path.normalize(pathToCheck.replace(/\\/g, '/'));
-  const normalizedRootDirectory = path.normalize(rootDirectory.replace(/\\/g, '/'));
+  const normalizedRootDirectory = path.normalize(
+    rootDirectory.replace(/\\/g, '/'),
+  );
 
   // Ensure the rootDirectory path ends with a separator for correct startsWith comparison,
   // unless it's the root path itself (e.g., '/' or 'C:\').
@@ -54,9 +56,9 @@ export function isWithinRoot(
 }
 
 export function isAbsolute(filePath: string): boolean {
-      // A path is considered absolute if it's absolute in either format.
+  // A path is considered absolute if it's absolute in either format.
   return path.win32.isAbsolute(filePath) || path.posix.isAbsolute(filePath);
-} 
+}
 
 /**
  * Determines if a file is likely binary based on content sampling.
