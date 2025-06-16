@@ -496,12 +496,35 @@ async function refreshServicesList() {
       card.appendChild(nameElement);
 
       const detailsElement = document.createElement('p');
+      const repo = service.annotations && service.annotations.repo ? service.annotations.repo : 'N/A';
       detailsElement.innerHTML = `
         <b>URI:</b> <a href="${serviceUrl}" target="_blank">${serviceUrl}</a><br>
-        <b>Created:</b> ${new Date(service.createTime).toLocaleString()}<br>
-        <b>Updated:</b> ${new Date(service.updateTime).toLocaleString()}
+        <b>Repo:</b> ${repo}
       `;
       card.appendChild(detailsElement);
+
+      const buttonContainer = document.createElement('div');
+      buttonContainer.classList.add('card-buttons');
+
+      const openInTabButton = document.createElement('button');
+      openInTabButton.textContent = 'Open in tab';
+      openInTabButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(serviceUrl, '_blank');
+      });
+      buttonContainer.appendChild(openInTabButton);
+
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = 'Delete';
+      deleteButton.addEventListener('click', async (e) => {
+        e.stopPropagation(); // prevent card click event
+        if (confirm(`Are you sure you want to delete "${serviceName}"?`)) {
+          await deleteServiceAndRefresh(serviceName);
+        }
+      });
+      buttonContainer.appendChild(deleteButton);
+
+      card.appendChild(buttonContainer);
 
       card.addEventListener('click', () => {
         // Handle card selection
@@ -516,16 +539,6 @@ async function refreshServicesList() {
         iframe.src = card.dataset.url;
         iframeContainer.appendChild(iframe);
       });
-
-      const deleteButton = document.createElement('button');
-      deleteButton.textContent = 'Delete';
-      deleteButton.addEventListener('click', async (e) => {
-        e.stopPropagation(); // prevent card click event
-        if (confirm(`Are you sure you want to delete "${serviceName}"?`)) {
-          await deleteServiceAndRefresh(serviceName);
-        }
-      });
-      card.appendChild(deleteButton);
 
       servicesList.appendChild(card);
     }

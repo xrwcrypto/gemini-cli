@@ -18,6 +18,15 @@ limitations under the License.
   <head>
     <title>gemini.dev</title>
     <style>
+      :root {
+        --brand-color-1: #85b3c4;
+        --brand-color-2: #90b9d4;
+        --brand-color-3: #a1a9d8;
+        --brand-color-4: #c0a4cc;
+        --brand-color-5: #dda9ba;
+        --brand-color-6: #e8b8b1;
+      }
+
       html, body {
         height: 100%;
         margin: 0;
@@ -46,7 +55,7 @@ limitations under the License.
 
       #left-column-content {
         overflow-y: auto;
-        padding: 1em;
+        padding: 0 1em;
       }
 
       #toggle-button {
@@ -79,6 +88,12 @@ limitations under the License.
         }
       }
     
+      h1 {
+        background: linear-gradient(to right, var(--brand-color-1), var(--brand-color-2), var(--brand-color-3), var(--brand-color-4), var(--brand-color-5), var(--brand-color-6));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
       h1,h2,h3,h4,h5,h6 {
         margin: 3em 0 1em;
       }
@@ -106,11 +121,13 @@ limitations under the License.
         flex-shrink: 0;
         overflow-y: auto;
         padding: 1em;
+        max-width: 92%;
       }
 
       #iframe-container {
         flex-grow: 1;
         height: 100%;
+        background-color: #2B2B2B;
       }
 
       iframe {
@@ -120,30 +137,82 @@ limitations under the License.
       }
 
       .service-card {
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        padding: 1em;
-        margin-bottom: 1em;
+        background-color: transparent;
+        border: 1px solid grey;
+        border-radius: 2px;
+        padding: 0.5em;
+        margin-bottom: 0.5em;
         cursor: pointer;
+        box-sizing: border-box;
+        max-width: 100%;
+        word-wrap: break-word;
+      }
+
+      .service-card h3, .service-card p {
+        margin: 0;
+        line-height: 1.2;
       }
 
       .service-card:hover {
-        background-color: #f0f0f0;
+        border-color: var(--brand-color-1);
       }
 
       .service-card.selected {
-        background-color: #e0e0e0;
-        border-color: #999;
+        border-width: 3px;
+        border-color: var(--brand-color-3);
+      }
+
+      .instances-title {
+        font-size: small;
+        color: grey;
+        text-transform: uppercase;
+      }
+
+      .important-text {
+        font-size: smaller;
+        color: grey;
+      }
+
+      .important-text a {
+        color: grey;
+      }
+
+      .card-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 5px;
+      }
+
+      .card-buttons button {
+        background: none;
+        border: none;
+        color: grey;
+        cursor: pointer;
+        font-size: smaller;
+        text-decoration: none;
+      }
+
+      .card-buttons button:hover {
+        text-decoration: underline;
+        color: #333;
       }
 
       @media (prefers-color-scheme: dark) {
         .service-card:hover {
-          background-color: #333;
+          border-color: var(--brand-color-1);
         }
 
         .service-card.selected {
-          background-color: #555;
-          border-color: #888;
+          border-color: var(--brand-color-3);
+        }
+
+        .card-buttons button {
+          color: #aaa;
+        }
+
+        .card-buttons button:hover {
+          color: #fff;
         }
       }
     
@@ -159,6 +228,10 @@ limitations under the License.
           </p>
           <p>
             <b>Important: This demo will not work with google.com corp accounts yet, you must use a gmail.com account and ask steren@google.com or jmahood@google.com to add you as a test user.</b>
+          </p>
+          <p class="important-text">
+            This is a <b>client-side</b> web app, the deployment is done from your browser to Cloud Run in your own Google Cloud project. <br>
+            <a href="https://cloud.google.com/run">Google Cloud Run</a> is a serverless runtime that scales to zero and starts fast.
           </p>
           <form>
             <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></p>
@@ -178,15 +251,11 @@ limitations under the License.
         </header>
         <main>
           <div id="services-container" hidden>
-            <h2>Existing Gemini CLIs:</h2>
+            <h2 class="instances-title">INSTANCES</h2>
             <div id="services-list"></div>
           </div>
         </main>
         <footer>
-          <p>
-            This is a <b>client-side</b> web app, the deployment is done from your browser to Cloud Run in your own Google Cloud project. <br>
-            <a href="https://cloud.google.com/run">Google Cloud Run</a> is a serverless runtime that scales to zero and starts fast.
-          </p>
         </footer>
       </div>
     </div>
