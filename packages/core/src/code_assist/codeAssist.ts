@@ -9,7 +9,9 @@ import { getOauthClient } from './oauth2.js';
 import { setupUser } from './setup.js';
 import { CodeAssistServer, HttpOptions } from './server.js';
 
-export async function createCodeAssistContentGenerator(httpOptions: HttpOptions): Promise<ContentGenerator> {
+export async function createCodeAssistContentGenerator(
+  httpOptions: HttpOptions,
+): Promise<ContentGenerator> {
   const oauth2Client = await getOauthClient();
   const projectId = await setupUser(
     oauth2Client,
