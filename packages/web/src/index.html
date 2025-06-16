@@ -44,13 +44,11 @@ limitations under the License.
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
-        border-right: 1px solid #ccc;
         transition: width 0.3s;
       }
 
       #left-column.hidden {
         width: 0;
-        border-right: none;
       }
 
       #left-column-content {
@@ -77,6 +75,14 @@ limitations under the License.
         left: 0;
       }
 
+      a, a:visited {
+        color: var(--brand-color-1);
+      }
+
+      a:active {
+        color: var(--brand-color-3);
+      }
+
       @media (prefers-color-scheme: dark) {
         html {
           background-color: #121212;
@@ -85,6 +91,16 @@ limitations under the License.
         #toggle-button {
           background: #333;
           border-color: #555;
+        }
+
+        form input {
+          background-color: #333;
+          border: 1px solid #555;
+          color: #fff;
+          border-radius: 5px;
+          padding: 5px;
+          width: 100%;
+          box-sizing: border-box;
         }
       }
     
@@ -128,6 +144,12 @@ limitations under the License.
         flex-grow: 1;
         height: 100%;
         background-color: #2B2B2B;
+      }
+
+      #iframe-container .default-content {
+        color: grey;
+        font-size: 2em;
+        padding: 20px;
       }
 
       iframe {
@@ -226,7 +248,7 @@ limitations under the License.
           <p>
             Get Gemini CLI in the cloud in your own Google Cloud project. 
           </p>
-          <p>
+          <p class="important-text">
             <b>Important: This demo will not work with google.com corp accounts yet, you must use a gmail.com account and ask steren@google.com or jmahood@google.com to add you as a test user.</b>
           </p>
           <p class="important-text">
@@ -262,7 +284,9 @@ limitations under the License.
     <div id="toggle-button">
       <span>&lt;</span>
     </div>
-    <div id="iframe-container"></div>
+    <div id="iframe-container">
+      <div class="default-content">$</div>
+    </div>
 
     <script type="module" src="script.js"></script>
   </body>

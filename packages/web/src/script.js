@@ -305,9 +305,13 @@ async function deleteServiceAndRefresh(service) {
   const operation = deleteResult.name;
   await waitOperation(token, project, operation);
   await refreshServicesList();
+  showDefaultContent();
 }
 
-
+function showDefaultContent() {
+  const iframeContainer = document.getElementById('iframe-container');
+  iframeContainer.innerHTML = '<div class="default-content">$</div>';
+}
 
 async function deployAndWait() {
   let {token, project} = getTokenAndProject();
