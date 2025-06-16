@@ -342,6 +342,7 @@ async function deployAndWait() {
   await waitOperation(token, project, operation);
   document.getElementById('waiting-message').hidden = true;
   document.getElementById('deployed-message').hidden = false;
+  window.open(url, '_blank');
   
   await refreshServicesList();
 }
