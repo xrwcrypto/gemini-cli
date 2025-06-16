@@ -224,14 +224,22 @@ limitations under the License.
         color: #333;
       }
 
+      button {
+        font-family: monospace;
+      }
+
       .primary-button {
-        background: linear-gradient(to right, var(--brand-color-1), var(--brand-color-2), var(--brand-color-3), var(--brand-color-4), var(--brand-color-5), var(--brand-color-6));
-        color: white;
-        border: none;
+        background: transparent;
+        color: var(--brand-color-1);
+        border: 2px solid var(--brand-color-1);
+   /*     background-image: linear-gradient(black, black), linear-gradient(to right, var(--brand-color-1), var(--brand-color-2), var(--brand-color-3), var(--brand-color-4), var(--brand-color-5), var(--brand-color-6));*/
+        background-origin: border-box;
+        background-clip: content-box, border-box;
         padding: 10px 15px;
         border-radius: 5px;
         cursor: pointer;
         font-weight: bold;
+        margin-top: 8px;
       }
 
       @media (prefers-color-scheme: dark) {
@@ -288,13 +296,13 @@ limitations under the License.
                 <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="40"/></label></p>
               </form>
             </div>
+            <h2 class="instances-title">INSTANCES</h2>
             <div class="service-card">
               <form>
-                <p><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
-                <p><button id="button-deploy" class="primary-button">New instance</button></p>
+                <p style="margin-bottom: 8px"><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
+                <button id="button-deploy" class="primary-button">New instance</button>
               </form>
             </div>
-            <h2 class="instances-title">INSTANCES</h2>
             <div id="services-list"></div>
           </div>
         </main>
