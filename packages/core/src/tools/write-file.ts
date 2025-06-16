@@ -75,7 +75,7 @@ export class WriteFileTool
       'WriteFile',
       `Writes content to a specified file in the local filesystem. 
       
-      The user has the ability to modify the proposed content. If modified, this will be stated in the LLM response.`,
+      The user has the ability to modify the proposed content. If modified, this will be stated in the tool response.`,
       {
         properties: {
           file_path: {
