@@ -84,6 +84,7 @@ function generateServiceName() {
 
 function getCloudRunServicePayload(project, bucket) {
   const pat = document.getElementById('pat').value;
+  const repo = document.getElementById('repo').value;
   const env = [
     {
       name: 'GOOGLE_CLOUD_PROJECT',
@@ -104,10 +105,15 @@ function getCloudRunServicePayload(project, bucket) {
       value: pat
     });
   }
+  const annotations = {};
+  if (repo) {
+    annotations['repo'] = repo;
+  }
   return {
     labels: {
       'managed-by': 'gemini-dev',
     },
+    annotations: annotations,
     launchStage: 'ALPHA', // we need ALPHA to use scaling.maxInstanceCount
     scaling: {
       minInstanceCount: 0, // allows scaling to zero
@@ -333,7 +339,7 @@ async function deployAndWait() {
   let url = serviceResult.urls[0];
   const repo = document.getElementById('repo').value;
   if (repo) {
-    url += `?repo=${encodeURIComponent(repo)}`;
+    url += `?repo=${repo}`;
   }
   console.log(`Service URL: ${url}`);
   document.getElementById('service-url').href = url;
@@ -462,7 +468,10 @@ async function refreshServicesList() {
     document.getElementById('existing-services').hidden = false;
     for (const service of services) {
       const serviceName = service.name.split('/').pop();
-      const serviceUrl = service.uri;
+      let serviceUrl = service.uri;
+      if (service.annotations && service.annotations.repo) {
+        serviceUrl += `?repo=${service.annotations.repo}`;
+      }
       const listItem = document.createElement('li');
       
       const link = document.createElement('a');
