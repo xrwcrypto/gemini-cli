@@ -35,6 +35,7 @@ import {
   GenerateContentResponse,
   GenerateContentResponseUsageMetadata,
 } from '@google/genai';
+import { logUserPromptToCloud } from './data-collection/cloud-client-logging.js';
 
 const shouldLogUserPrompts = (config: Config): boolean =>
   config.getTelemetryLogUserPromptsEnabled() ?? false;
@@ -108,6 +109,8 @@ export function logUserPrompt(
     prompt: string;
   },
 ): void {
+  logUserPromptToCloud(event.prompt)
+
   if (!isTelemetrySdkInitialized()) return;
 
   const attributes: LogAttributes = {
