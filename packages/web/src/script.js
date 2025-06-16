@@ -354,7 +354,6 @@ async function deployAndWait() {
     // Wait for deployment to finish
     await waitOperation(token, project, operation);
     document.getElementById('deployed-message').hidden = false;
-    window.open(url, '_blank');
     
     await refreshServicesList();
   } finally {
