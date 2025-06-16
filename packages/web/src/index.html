@@ -184,6 +184,10 @@ limitations under the License.
         border-color: var(--brand-color-3);
       }
 
+      .settings-card {
+        margin-bottom: 1em;
+      }
+
       .instances-title {
         font-size: small;
         color: grey;
@@ -218,6 +222,16 @@ limitations under the License.
       .card-buttons button:hover {
         text-decoration: underline;
         color: #333;
+      }
+
+      .primary-button {
+        background: linear-gradient(to right, var(--brand-color-1), var(--brand-color-2), var(--brand-color-3), var(--brand-color-4), var(--brand-color-5), var(--brand-color-6));
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
       }
 
       @media (prefers-color-scheme: dark) {
@@ -255,12 +269,6 @@ limitations under the License.
             This is a <b>client-side</b> web app, the deployment is done from your browser to Cloud Run in your own Google Cloud project. <br>
             <a href="https://cloud.google.com/run">Google Cloud Run</a> is a serverless runtime that scales to zero and starts fast.
           </p>
-          <form>
-            <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></p>
-            <p><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
-            <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="40"/></label></p>
-            <p><button id="button-deploy">Give me a Gemini CLI in the cloud!</button></p>
-          </form>
           
           <span id="waiting-message" hidden>
             <label for="deployment">Deployment in progress:</label>
@@ -272,7 +280,20 @@ limitations under the License.
               
         </header>
         <main>
-          <div id="services-container" hidden>
+          <div id="services-container">
+            <div class="settings-card">
+              <h2 class="instances-title">Settings</h2>
+              <form>
+                <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></p>
+                <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="40"/></label></p>
+              </form>
+            </div>
+            <div class="service-card">
+              <form>
+                <p><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
+                <p><button id="button-deploy" class="primary-button">New instance</button></p>
+              </form>
+            </div>
             <h2 class="instances-title">INSTANCES</h2>
             <div id="services-list"></div>
           </div>
