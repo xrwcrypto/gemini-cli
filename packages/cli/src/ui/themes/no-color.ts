@@ -19,6 +19,7 @@ const noColorColorsTheme: ColorsTheme = {
   AccentRed: '',
   Comment: '',
   Gray: '',
+  ToolPrefix: '',
 };
 
 export const NoColorTheme: Theme = new Theme(

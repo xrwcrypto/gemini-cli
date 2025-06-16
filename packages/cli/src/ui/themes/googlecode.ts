@@ -19,6 +19,7 @@ const googleCodeColors: ColorsTheme = {
   AccentRed: '#800',
   Comment: '#5f6368',
   Gray: lightTheme.Gray,
+  ToolPrefix: lightTheme.Gray,
   GradientColors: ['#066', '#606'],
 };
 

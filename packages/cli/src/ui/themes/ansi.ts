@@ -19,6 +19,7 @@ const ansiColors: ColorsTheme = {
   AccentRed: 'red',
   Comment: 'gray',
   Gray: 'gray',
+  ToolPrefix: 'gray',
   GradientColors: ['cyan', 'green'],
 };
 

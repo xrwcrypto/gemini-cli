@@ -19,6 +19,7 @@ const xcodeColors: ColorsTheme = {
   AccentRed: '#c41a16',
   Comment: '#007400',
   Gray: '#c0c0c0',
+  ToolPrefix: '#c0c0c0',
   GradientColors: ['#1c00cf', '#007400'],
 };
 

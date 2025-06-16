@@ -19,6 +19,7 @@ const githubDarkColors: ColorsTheme = {
   AccentRed: '#F97583',
   Comment: '#6A737D',
   Gray: '#6A737D',
+  ToolPrefix: '#6A737D',
   GradientColors: ['#79B8FF', '#85E89D'],
 };
 

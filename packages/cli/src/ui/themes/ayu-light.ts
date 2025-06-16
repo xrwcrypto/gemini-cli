@@ -19,6 +19,7 @@ const ayuLightColors: ColorsTheme = {
   AccentRed: '#f07171',
   Comment: '#ABADB1',
   Gray: '#CCCFD3',
+  ToolPrefix: '#CCCFD3',
   GradientColors: ['#399ee6', '#86b300'],
 };
 

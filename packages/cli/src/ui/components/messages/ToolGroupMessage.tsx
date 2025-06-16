@@ -57,29 +57,31 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
             // This group has only one tool.
             if (isFirstContent) {
               // This is the very first item after a user prompt.
-              prefix = isFollowedByToolGroup ? '┌── ' : '─── ';
+              prefix = isFollowedByToolGroup ? '╭─ ' : '── ';
             } else {
               // This is a single tool that follows another item.
-              prefix = isLastInChain ? '╰── ' : '├── ';
+              prefix = isLastInChain ? '╰─ ' : '├─ ';
             }
           } else {
             // This group has multiple tools.
             if (index === 0) {
               // First tool in the group.
-              prefix = isFirstContent ? '┌── ' : '├── ';
+              prefix = isFirstContent ? '╭─ ' : '├─ ';
             } else {
               // Subsequent tool in the group.
-              prefix = isLastInChain ? '╰── ' : '├── ';
+              prefix = isLastInChain ? '╰─ ' : '├─ ';
             }
           }
 
-          const errorLinePrefix = isLastInChain ? '      ' : '│     ';
+          const errorLinePrefix = isLastInChain ? '     ' : '│    ';
 
           return (
             <Box key={tool.callId} flexDirection="column" minHeight={1}>
               <ToolMessage
-                prefix={prefix}
-                errorLinePrefix={errorLinePrefix}
+                prefix={<Text color={Colors.ToolPrefix}>{prefix}</Text>}
+                errorLinePrefix={
+                  <Text color={Colors.ToolPrefix}>{errorLinePrefix}</Text>
+                }
                 callId={tool.callId}
                 name={tool.name}
                 description={tool.description}

@@ -21,8 +21,8 @@ const MIN_LINES_HIDDEN = 3; // hide at least this many lines (or don't hide any)
 export type TextEmphasis = 'high' | 'medium' | 'low';
 
 export interface ToolMessageProps extends IndividualToolCallDisplay {
-  prefix: string;
-  errorLinePrefix: string;
+  prefix: React.ReactNode;
+  errorLinePrefix: React.ReactNode;
   availableTerminalHeight: number;
   emphasis?: TextEmphasis;
   renderOutputAsMarkdown?: boolean;
@@ -107,7 +107,7 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
           resultIsString &&
           !resultIsShortString && (
             <Box width="100%" flexDirection="row">
-              <Text color={Colors.AccentRed}>{errorLinePrefix}</Text>
+              {errorLinePrefix}
               <Box>
                 <Text color={Colors.AccentRed}>{resultDisplay}</Text>
               </Box>
@@ -253,7 +253,7 @@ const TrailingIndicator: React.FC = () => (
 
 type LineToolStatusIndicatorProps = {
   status: ToolCallStatus;
-  prefix: string;
+  prefix: React.ReactNode;
 };
 
 const LineToolStatusIndicator: React.FC<LineToolStatusIndicatorProps> = ({

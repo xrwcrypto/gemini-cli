@@ -19,6 +19,7 @@ const githubLightColors: ColorsTheme = {
   AccentRed: '#d14',
   Comment: '#998',
   Gray: '#999',
+  ToolPrefix: '#999',
   GradientColors: ['#458', '#008080'],
 };
 

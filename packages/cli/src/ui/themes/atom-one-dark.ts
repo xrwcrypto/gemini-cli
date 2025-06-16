@@ -19,6 +19,7 @@ const atomOneDarkColors: ColorsTheme = {
   AccentRed: '#e06c75',
   Comment: '#5c6370',
   Gray: '#5c6370',
+  ToolPrefix: '#5c6370',
   GradientColors: ['#61aeee', '#98c379'],
 };
 

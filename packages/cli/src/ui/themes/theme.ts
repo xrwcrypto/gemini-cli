@@ -21,6 +21,7 @@ export interface ColorsTheme {
   AccentRed: string;
   Comment: string;
   Gray: string;
+  ToolPrefix: string;
   GradientColors?: string[];
 }
 
@@ -37,6 +38,7 @@ export const lightTheme: ColorsTheme = {
   AccentRed: '#DD4C4C',
   Comment: '#008000',
   Gray: '#B7BECC',
+  ToolPrefix: '#B7BECC',
   GradientColors: ['#4796E4', '#847ACE', '#C3677F'],
 };
 
@@ -53,6 +55,7 @@ export const darkTheme: ColorsTheme = {
   AccentRed: '#F38BA8',
   Comment: '#6C7086',
   Gray: '#6C7086',
+  ToolPrefix: '#6C7086',
   GradientColors: ['#4796E4', '#847ACE', '#C3677F'],
 };
 
@@ -69,6 +72,7 @@ export const ansiTheme: ColorsTheme = {
   AccentRed: 'red',
   Comment: 'gray',
   Gray: 'gray',
+  ToolPrefix: 'gray',
 };
 
 export class Theme {
