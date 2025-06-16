@@ -319,42 +319,48 @@ async function deployAndWait() {
     return;
   }
 
-  await enableRequiredApis(token, project);
-
-  const bucket = await getOrCreateGcsBucket(token, project);
-  if (!bucket) {
-    return;
-  }
-
-  const service = generateServiceName();
-
+  document.getElementById('button-deploy').hidden = true;
   document.getElementById('waiting-message').hidden = false;
-  // Deploy
-  const deployResult = await deploy(token, project, service, bucket);
-  if(deployResult.error) {
-    alert(`Error: ${deployResult.error.message}`);
-    return;
-  }
-  const operation = deployResult.name;
-  console.log(`Deployment operation: ${operation}`);
-  
-  // Get service URL
-  const serviceResult = await getService(token, project, service);
-  let url = serviceResult.urls[0];
-  const repo = document.getElementById('repo').value;
-  if (repo) {
-    url += `?repo=${repo}`;
-  }
-  console.log(`Service URL: ${url}`);
-  document.getElementById('service-url').href = url;
 
-  // Wait for deployment to finish
-  await waitOperation(token, project, operation);
-  document.getElementById('waiting-message').hidden = true;
-  document.getElementById('deployed-message').hidden = false;
-  window.open(url, '_blank');
-  
-  await refreshServicesList();
+  try {
+    await enableRequiredApis(token, project);
+
+    const bucket = await getOrCreateGcsBucket(token, project);
+    if (!bucket) {
+      return;
+    }
+
+    const service = generateServiceName();
+
+    // Deploy
+    const deployResult = await deploy(token, project, service, bucket);
+    if(deployResult.error) {
+      alert(`Error: ${deployResult.error.message}`);
+      return;
+    }
+    const operation = deployResult.name;
+    console.log(`Deployment operation: ${operation}`);
+    
+    // Get service URL
+    const serviceResult = await getService(token, project, service);
+    let url = serviceResult.urls[0];
+    const repo = document.getElementById('repo').value;
+    if (repo) {
+      url += `?repo=${repo}`;
+    }
+    console.log(`Service URL: ${url}`);
+    document.getElementById('service-url').href = url;
+
+    // Wait for deployment to finish
+    await waitOperation(token, project, operation);
+    document.getElementById('deployed-message').hidden = false;
+    window.open(url, '_blank');
+    
+    await refreshServicesList();
+  } finally {
+    document.getElementById('button-deploy').hidden = false;
+    document.getElementById('waiting-message').hidden = true;
+  }
 }
 
 async function getOrCreateGcsBucket(token, project) {

@@ -277,15 +277,6 @@ limitations under the License.
             This is a <b>client-side</b> web app, the deployment is done from your browser to Cloud Run in your own Google Cloud project. <br>
             <a href="https://cloud.google.com/run">Google Cloud Run</a> is a serverless runtime that scales to zero and starts fast.
           </p>
-          
-          <span id="waiting-message" hidden>
-            <label for="deployment">Deployment in progress:</label>
-            <progress id="deployment" aria-label="Deployment in progress…"></progress><br>
-          </span>
-          
-          <div id="deployed-message" hidden><a id="service-url" target="_blank">Your Gemini CLI in the cloud</a>
-        </div>
-              
         </header>
         <main>
           <div id="services-container">
@@ -296,13 +287,18 @@ limitations under the License.
                 <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="40"/></label></p>
               </form>
             </div>
-            <h2 class="instances-title">INSTANCES</h2>
             <div class="service-card">
               <form>
                 <p style="margin-bottom: 8px"><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
                 <button id="button-deploy" class="primary-button">New instance</button>
+                <span id="waiting-message" hidden>
+                  <label for="deployment">Deployment in progress:</label>
+                  <progress id="deployment" aria-label="Deployment in progress…"></progress><br>
+                </span>
+                <div id="deployed-message" hidden><a id="service-url" target="_blank">Your Gemini CLI in the cloud</a>
               </form>
             </div>
+            <h2 class="instances-title">INSTANCES</h2>
             <div id="services-list"></div>
           </div>
         </main>
