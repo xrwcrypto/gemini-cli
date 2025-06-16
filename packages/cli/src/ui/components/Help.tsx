@@ -14,21 +14,56 @@ interface Help {
 }
 
 export const Help: React.FC<Help> = ({ commands }) => (
-  <Box flexDirection="column" marginBottom={1} borderColor={Colors.Gray} borderStyle="round" padding={1}>
+  <Box
+    flexDirection="column"
+    marginBottom={1}
+    borderColor={Colors.Gray}
+    borderStyle="round"
+    padding={1}
+  >
     {/* Basics */}
-    <Text bold color={Colors.Foreground}>Basics:</Text>
-    <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Add context</Text>: Use <Text bold color={Colors.AccentPurple}>@</Text> to specify files for
-      context (e.g., <Text bold color={Colors.AccentPurple}>@src/myFile.ts</Text>) to target specific files or folders.
+    <Text bold color={Colors.Foreground}>
+      Basics:
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Shell mode</Text>: Execute shell commands via <Text bold color={Colors.AccentPurple}>!</Text> (e.g., <Text bold color={Colors.AccentPurple}>!npm run start</Text>) or use natural language (e.g. <Text bold color={Colors.AccentPurple}>start server</Text>).
+      <Text bold color={Colors.AccentPurple}>
+        Add context
+      </Text>
+      : Use{' '}
+      <Text bold color={Colors.AccentPurple}>
+        @
+      </Text>{' '}
+      to specify files for context (e.g.,{' '}
+      <Text bold color={Colors.AccentPurple}>
+        @src/myFile.ts
+      </Text>
+      ) to target specific files or folders.
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Shell mode
+      </Text>
+      : Execute shell commands via{' '}
+      <Text bold color={Colors.AccentPurple}>
+        !
+      </Text>{' '}
+      (e.g.,{' '}
+      <Text bold color={Colors.AccentPurple}>
+        !npm run start
+      </Text>
+      ) or use natural language (e.g.{' '}
+      <Text bold color={Colors.AccentPurple}>
+        start server
+      </Text>
+      ).
     </Text>
 
     <Box height={1} />
 
     {/* Commands */}
-    <Text bold color={Colors.Foreground}>Commands:</Text>
+    <Text bold color={Colors.Foreground}>
+      Commands:
+    </Text>
     {commands
       .filter((command) => command.description)
       .map((command: SlashCommand) => (
@@ -51,24 +86,44 @@ export const Help: React.FC<Help> = ({ commands }) => (
     <Box height={1} />
 
     {/* Shortcuts */}
-    <Text bold color={Colors.Foreground}>Keyboard Shortcuts:</Text>
-    <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Enter</Text> - Send message
+    <Text bold color={Colors.Foreground}>
+      Keyboard Shortcuts:
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Shift+Enter</Text> - New line
+      <Text bold color={Colors.AccentPurple}>
+        Enter
+      </Text>{' '}
+      - Send message
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Up/Down</Text> - Cycle through your prompt history
+      <Text bold color={Colors.AccentPurple}>
+        Shift+Enter
+      </Text>{' '}
+      - New line
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Alt+Left/Right</Text> - Jump through words in the input
+      <Text bold color={Colors.AccentPurple}>
+        Up/Down
+      </Text>{' '}
+      - Cycle through your prompt history
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Esc</Text> - Cancel operation
+      <Text bold color={Colors.AccentPurple}>
+        Alt+Left/Right
+      </Text>{' '}
+      - Jump through words in the input
     </Text>
     <Text color={Colors.Foreground}>
-      <Text bold color={Colors.AccentPurple}>Ctrl+C</Text> - Quit application
+      <Text bold color={Colors.AccentPurple}>
+        Esc
+      </Text>{' '}
+      - Cancel operation
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Ctrl+C
+      </Text>{' '}
+      - Quit application
     </Text>
   </Box>
 );
