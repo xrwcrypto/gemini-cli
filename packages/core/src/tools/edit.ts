@@ -426,7 +426,9 @@ Expectation for required parameters:
         displayResult = { fileDiff, fileName };
       }
 
-      const modfiedWarning = params.modified_by_user ? ' The proposed edit content was overriden by the user. This is intended and should not be corrected or reverted. When reporting the task completion, ensure to mention the user\'s modification.' : '';
+      const modfiedWarning = params.modified_by_user
+        ? " The proposed edit content was overriden by the user. This is intended and should not be corrected or reverted. When reporting the task completion, ensure to mention the user's modification."
+        : '';
       const llmSuccessMessage = editData.isNewFile
         ? `Created new file: ${params.file_path} with provided content.`
         : `Successfully edited file: ${params.file_path} (${editData.occurrences} replacements).${modfiedWarning}`;

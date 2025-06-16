@@ -282,7 +282,9 @@ export class WriteFileTool
         DEFAULT_DIFF_OPTIONS,
       );
 
-      const modfiedWarning = params.modified_by_user ? ' The new content was overriden by the user. This is intended and should not be corrected or reverted. When reporting the task completion, ensure to mention the user\'s modification.' : '';
+      const modfiedWarning = params.modified_by_user
+        ? " The new content was overriden by the user. This is intended and should not be corrected or reverted. When reporting the task completion, ensure to mention the user's modification."
+        : '';
       const llmSuccessMessage = isNewFile
         ? `Successfully created and wrote to new file: ${params.file_path}`
         : `Successfully overwrote file: ${params.file_path}.${modfiedWarning}`;
