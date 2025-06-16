@@ -45,6 +45,11 @@ export interface WriteFileToolParams {
    * The content to write to the file
    */
   content: string;
+
+  /**
+   * Whether the proposed content was modified by the user.
+   */
+  modified_by_user?: boolean;
 }
 
 interface GetCorrectedFileContentResult {
@@ -68,7 +73,9 @@ export class WriteFileTool
     super(
       WriteFileTool.Name,
       'WriteFile',
-      'Writes content to a specified file in the local filesystem.',
+      `Writes content to a specified file in the local filesystem. 
+      
+      The user has the ability to modify the proposed content. If modified, this will be stated in the LLM response.`,
       {
         properties: {
           file_path: {
@@ -79,6 +86,11 @@ export class WriteFileTool
           content: {
             description: 'The content to write to the file.',
             type: 'string',
+          },
+          modified_by_user: {
+            type: 'boolean',
+            description:
+              'Whether the content was overridden by the user. This should default to false and only be set by the tool.',
           },
         },
         required: ['file_path', 'content'],
@@ -270,9 +282,10 @@ export class WriteFileTool
         DEFAULT_DIFF_OPTIONS,
       );
 
+      const modfiedWarning = params.modified_by_user ? ' The new content was overriden by the user. This is intended and should not be corrected or reverted. When reporting the task completion, ensure to mention the user\'s modification.' : '';
       const llmSuccessMessage = isNewFile
         ? `Successfully created and wrote to new file: ${params.file_path}`
-        : `Successfully overwrote file: ${params.file_path}`;
+        : `Successfully overwrote file: ${params.file_path}.${modfiedWarning}`;
 
       const displayResult: FileDiff = { fileDiff, fileName };
 
@@ -395,6 +408,7 @@ export class WriteFileTool
       ) => ({
         ...originalParams,
         content: modifiedProposedContent,
+        modified_by_user: true,
       }),
     };
   }
