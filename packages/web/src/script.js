@@ -455,6 +455,18 @@ if (storedProject) {
   }
 }
 
+document.getElementById('toggle-button').addEventListener('click', () => {
+  const leftColumn = document.getElementById('left-column');
+  const toggleButton = document.getElementById('toggle-button');
+  leftColumn.classList.toggle('hidden');
+  toggleButton.classList.toggle('hidden');
+  if (leftColumn.classList.contains('hidden')) {
+    toggleButton.innerHTML = '<span>&gt;</span>';
+  } else {
+    toggleButton.innerHTML = '<span>&lt;</span>';
+  }
+});
+
 async function refreshServicesList() {
   let {token, project} = getTokenAndProject();
   if (!token || !project) {
@@ -463,33 +475,61 @@ async function refreshServicesList() {
   const servicesResult = await listServices(token, project);
   const services = (servicesResult.services || []).filter(service => service.labels && service.labels['managed-by'] === 'gemini-dev');
   const servicesList = document.getElementById('services-list');
+  const servicesContainer = document.getElementById('services-container');
   servicesList.innerHTML = '';
+
   if (services.length > 0) {
-    document.getElementById('existing-services').hidden = false;
+    servicesContainer.hidden = false;
     for (const service of services) {
       const serviceName = service.name.split('/').pop();
       let serviceUrl = service.uri;
       if (service.annotations && service.annotations.repo) {
         serviceUrl += `?repo=${service.annotations.repo}`;
       }
-      const listItem = document.createElement('li');
-      
-      const link = document.createElement('a');
-      link.href = serviceUrl;
-      link.textContent = serviceName;
-      link.target = '_blank';
-      listItem.appendChild(link);
+
+      const card = document.createElement('div');
+      card.classList.add('service-card');
+      card.dataset.url = serviceUrl;
+
+      const nameElement = document.createElement('h3');
+      nameElement.textContent = serviceName;
+      card.appendChild(nameElement);
+
+      const detailsElement = document.createElement('p');
+      detailsElement.innerHTML = `
+        <b>URI:</b> <a href="${serviceUrl}" target="_blank">${serviceUrl}</a><br>
+        <b>Created:</b> ${new Date(service.createTime).toLocaleString()}<br>
+        <b>Updated:</b> ${new Date(service.updateTime).toLocaleString()}
+      `;
+      card.appendChild(detailsElement);
+
+      card.addEventListener('click', () => {
+        // Handle card selection
+        const allCards = document.querySelectorAll('.service-card');
+        allCards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+
+        // Handle iframe
+        const iframeContainer = document.getElementById('iframe-container');
+        iframeContainer.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = card.dataset.url;
+        iframeContainer.appendChild(iframe);
+      });
 
       const deleteButton = document.createElement('button');
       deleteButton.textContent = 'Delete';
-      deleteButton.addEventListener('click', async () => {
+      deleteButton.addEventListener('click', async (e) => {
+        e.stopPropagation(); // prevent card click event
         if (confirm(`Are you sure you want to delete "${serviceName}"?`)) {
           await deleteServiceAndRefresh(serviceName);
         }
       });
-      listItem.appendChild(deleteButton);
+      card.appendChild(deleteButton);
 
-      servicesList.appendChild(listItem);
+      servicesList.appendChild(card);
     }
+  } else {
+    servicesContainer.hidden = true;
   }
 }
