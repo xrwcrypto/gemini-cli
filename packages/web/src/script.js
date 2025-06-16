@@ -24,8 +24,6 @@ const IMAGE = 'us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:l
 const REQUIRED_APIS = [
   'storage.googleapis.com',
   'run.googleapis.com',
-  'cloudbuild.googleapis.com',
-  'artifactregistry.googleapis.com'
 ];
 
 const REDIRECT_URI = window.location.href.split('#')[0];
