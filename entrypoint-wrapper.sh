@@ -55,8 +55,7 @@ cd "$TARGET_DIR"
 echo "Working directory: $(pwd)"
 
 # If a repository was cloned, run startup commands.
-if [ "$TARGET_DIR" != "/home/node" ]; then
-  echo "Repository detected, running startup commands..."
+if [ "$GITHUB_PAT" ]; then
    git config --global user.name "GEMINI"
    git config --global user.email "gemini@google.com"
    git config --global credential.helper "!f() {echo username=$GITHUB_USERNAME; echo password=$GITHUB_PAT; }; f"

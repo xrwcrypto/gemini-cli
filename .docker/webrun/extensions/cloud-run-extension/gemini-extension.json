@@ -4,6 +4,7 @@
   "mcpServers": {
     "cloud-run": {
       "command": "cloud-run-mcp",
+      "trust":"true",
       "env":{
         "GCP_STDIO": "true"
       }

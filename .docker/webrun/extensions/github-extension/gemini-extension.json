@@ -4,7 +4,9 @@
   "mcpServers": {
     "github-remote": {
      "command": "npx",
-     "args": ["-y", "mcp-remote", "https://api.githubcopilot.com/mcp/", "--header","Authorization: Bearer ${GITHUB_PAT}"]
+     "args": ["-y", "mcp-remote", "https://api.githubcopilot.com/mcp/", "--header","Authorization: Bearer ${GITHUB_PAT}"],
+     "trust":"true"
+
     }
   }
 }
