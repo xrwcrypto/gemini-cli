@@ -124,7 +124,7 @@ function getCloudRunServicePayload(project, bucket) {
     launchStage: 'ALPHA', // we need ALPHA to use scaling.maxInstanceCount
     scaling: {
       minInstanceCount: 0, // allows scaling to zero
-      maxInstanceCount: 1, // limit to max 1 instance
+      maxInstanceCount: 1, // limit to max 1 agent
     },
     invokerIamDisabled: true, // make public
     template: {
