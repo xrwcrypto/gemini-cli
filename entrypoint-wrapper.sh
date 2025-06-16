@@ -59,7 +59,7 @@ if [ "$TARGET_DIR" != "/home/node" ]; then
   echo "Repository detected, running startup commands..."
    git config --global user.name "GEMINI"
    git config --global user.email "gemini@google.com"
-   git config --global credential.helper '!f() {echo username=username; echo password=$GITHUB_PAT; }; f'
+   git config --global credential.helper '!f() {echo username=$GITHUB_USERNAME; echo password=$GITHUB_PAT; }; f'
 
 fi
 

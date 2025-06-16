@@ -85,6 +85,7 @@ function generateServiceName() {
 function getCloudRunServicePayload(project, bucket) {
   const pat = document.getElementById('pat').value;
   const repo = document.getElementById('repo').value;
+  const githubUser = document.getElementById('github-user').value;
   const env = [
     {
       name: 'GOOGLE_CLOUD_PROJECT',
@@ -103,6 +104,12 @@ function getCloudRunServicePayload(project, bucket) {
     env.push({
       name: 'GITHUB_PAT',
       value: pat
+    });
+  }
+  if (githubUser) {
+    env.push({
+      name: 'GITHUB_USERNAME',
+      value: githubUser
     });
   }
   const annotations = {};
@@ -349,11 +356,9 @@ async function deployAndWait() {
       url += `?repo=${repo}`;
     }
     console.log(`Service URL: ${url}`);
-    document.getElementById('service-url').href = url;
 
     // Wait for deployment to finish
     await waitOperation(token, project, operation);
-    document.getElementById('deployed-message').hidden = false;
     
     await refreshServicesList();
   } finally {
