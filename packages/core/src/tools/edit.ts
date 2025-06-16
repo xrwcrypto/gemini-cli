@@ -24,6 +24,7 @@ import { ensureCorrectEdit } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { ReadFileTool } from './read-file.js';
 import { ModifiableTool, ModifyContext } from './modifiable-tool.js';
+import { isWithinRoot, isAbsolute } from '../utils/fileUtils.js';
 
 /**
  * Parameters for the Edit tool
@@ -68,7 +69,7 @@ export class EditTool
 {
   static readonly Name = 'replace';
   private readonly config: Config;
-  private readonly rootDirectory: string;
+  private rootDirectory: string;
   private readonly client: GeminiClient;
 
   /**
@@ -122,23 +123,6 @@ Expectation for required parameters:
   }
 
   /**
-   * Checks if a path is within the root directory.
-   * @param pathToCheck The absolute path to check.
-   * @returns True if the path is within the root directory, false otherwise.
-   */
-  private isWithinRoot(pathToCheck: string): boolean {
-    const normalizedPath = path.normalize(pathToCheck);
-    const normalizedRoot = this.rootDirectory;
-    const rootWithSep = normalizedRoot.endsWith(path.sep)
-      ? normalizedRoot
-      : normalizedRoot + path.sep;
-    return (
-      normalizedPath === normalizedRoot ||
-      normalizedPath.startsWith(rootWithSep)
-    );
-  }
-
-  /**
    * Validates the parameters for the Edit tool
    * @param params Parameters to validate
    * @returns Error message string or null if valid
@@ -154,11 +138,13 @@ Expectation for required parameters:
       return 'Parameters failed schema validation.';
     }
 
-    if (!path.isAbsolute(params.file_path)) {
+    params.file_path = path.normalize(params.file_path);
+
+    if (!isAbsolute(params.file_path)) {
       return `File path must be absolute: ${params.file_path}`;
     }
 
-    if (!this.isWithinRoot(params.file_path)) {
+    if (!isWithinRoot(params.file_path, this.rootDirectory)) {
       return `File path must be within the root directory (${this.rootDirectory}): ${params.file_path}`;
     }
 

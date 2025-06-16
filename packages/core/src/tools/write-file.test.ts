@@ -20,6 +20,7 @@ import {
   ToolEditConfirmationDetails,
 } from './tools.js';
 import { type EditToolParams } from './edit.js';
+import * as fileUtils from '../utils/fileUtils.js';
 import { ApprovalMode, Config } from '../config/config.js';
 import { ToolRegistry } from './tool-registry.js';
 import path from 'path';
@@ -405,7 +406,7 @@ describe('WriteFileTool', () => {
         }),
       );
       expect(confirmation.fileDiff).toMatch(
-        originalContent.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'),
+        originalContent.replace(/[.*+?^${}()|[\\]]/g, '\\$&'),
       );
     });
   });
@@ -487,7 +488,7 @@ describe('WriteFileTool', () => {
         /\+\+\+ execute_new_corrected_file.txt\tWritten/,
       );
       expect(display.fileDiff).toMatch(
-        correctedContent.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'),
+        correctedContent.replace(/[.*+?^${}()|[\\]]/g, '\\$&'),
       );
     });
 
@@ -537,10 +538,10 @@ describe('WriteFileTool', () => {
       const display = result.returnDisplay as FileDiff;
       expect(display.fileName).toBe('execute_existing_corrected_file.txt');
       expect(display.fileDiff).toMatch(
-        initialContent.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'),
+        initialContent.replace(/[.*+?^${}()|[\\]]/g, '\\$&'),
       );
       expect(display.fileDiff).toMatch(
-        correctedProposedContent.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'),
+        correctedProposedContent.replace(/[.*+?^${}()|[\\]]/g, '\\$&'),
       );
     });
 
@@ -566,6 +567,87 @@ describe('WriteFileTool', () => {
       expect(fs.statSync(dirPath).isDirectory()).toBe(true);
       expect(fs.existsSync(filePath)).toBe(true);
       expect(fs.readFileSync(filePath, 'utf8')).toBe(content);
+    });
+  });
+
+  describe('Path Resilience', () => {
+    describe('on POSIX', () => {
+      it('should allow absolute POSIX paths within the root', () => {
+        const params = {
+          file_path: path.join(rootDir, 'test.txt'),
+          content: 'hello',
+        };
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
+
+      it('should reject relative POSIX paths', () => {
+        const params = { file_path: 'test.txt', content: 'hello' };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be absolute/,
+        );
+      });
+
+      it('should reject absolute POSIX paths outside the root', () => {
+        const outsidePath = path.resolve(tempDir, 'outside-root.txt');
+        const params = {
+          file_path: outsidePath,
+          content: 'hello',
+        };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be within the root directory/,
+        );
+      });
+    });
+
+    describe('on Windows', () => {
+      let win32Root: string;
+
+      beforeEach(() => {
+        // Mock the platform to simulate running on Windows
+        vi.spyOn(os, 'platform').mockReturnValue('win32');
+        vi.spyOn(path, 'normalize').mockImplementation((p) => path.win32.normalize(p));
+
+        win32Root = 'C:\\gemini-test-root';
+        const mockConfigInstance = { getTargetDir: () => win32Root, getGeminiClient: () => mockGeminiClientInstance } as unknown as Config;
+        tool = new WriteFileTool(mockConfigInstance);
+        vi.spyOn(fileUtils, 'isWithinRoot').mockImplementation((p: string) => {
+          const relative = path.win32.relative(win32Root, p);
+          return !relative.startsWith('..') && !path.win32.isAbsolute(relative);
+        });
+      });
+
+      it('should allow absolute Win32 paths within the root', () => {
+        const params = {
+          file_path: 'C:\\gemini-test-root\\test.txt',
+          content: 'hello',
+        };
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
+
+      it('should reject relative Win32 paths', () => {
+        const params = { file_path: 'test.txt', content: 'hello' };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be absolute/,
+        );
+      });
+
+      it('should reject absolute Win32 paths outside the root', () => {
+        const params = {
+          file_path: 'C:\\elsewhere\\test.txt',
+          content: 'hello',
+        };
+        expect(tool.validateToolParams(params)).toMatch(
+          /File path must be within the root directory/,
+        );
+      });
+
+      it('should handle mixed-separator paths correctly within the root', () => {
+        const params = {
+          file_path: 'C:/gemini-test-root/test.txt',
+          content: 'hello',
+        };
+        expect(tool.validateToolParams(params)).toBeNull();
+      });
     });
   });
 });

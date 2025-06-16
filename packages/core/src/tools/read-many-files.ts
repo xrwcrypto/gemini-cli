@@ -8,13 +8,15 @@ import { BaseTool, ToolResult } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { getErrorMessage } from '../utils/errors.js';
 import * as path from 'path';
-import { glob } from 'glob';
+import { glob, hasMagic } from 'glob';
 import { getCurrentGeminiMdFilename } from './memoryTool.js';
 import {
   detectFileType,
   processSingleFileContent,
   DEFAULT_ENCODING,
   getSpecificMimeType,
+  isWithinRoot,
+  isAbsolute,
 } from '../utils/fileUtils.js';
 import { PartListUnion } from '@google/genai';
 import { Config } from '../config/config.js';
@@ -29,7 +31,7 @@ import {
 export interface ReadManyFilesParams {
   /**
    * An array of file paths or directory paths to search within.
-   * Paths are relative to the tool's configured target directory.
+   * Paths are relative to the tool's configured root directory.
    * Glob patterns can be used directly in these paths.
    */
   paths: string[];
@@ -116,7 +118,7 @@ const DEFAULT_OUTPUT_SEPARATOR_FORMAT = '--- {filePath} ---';
 
 /**
  * Tool implementation for finding and reading multiple text files from the local filesystem
- * within a specified target directory. The content is concatenated.
+ * within a specified root directory. The content is concatenated.
  * It is intended to run in an environment with access to the local file system (e.g., a Node.js backend).
  */
 export class ReadManyFilesTool extends BaseTool<
@@ -128,11 +130,11 @@ export class ReadManyFilesTool extends BaseTool<
 
   /**
    * Creates an instance of ReadManyFilesTool.
-   * @param targetDir The absolute root directory within which this tool is allowed to operate.
+   * @param rootDirectory The absolute root directory within which this tool is allowed to operate.
    * All paths provided in `params` will be resolved relative to this directory.
    */
   constructor(
-    readonly targetDir: string,
+    private rootDirectory: string,
     private config: Config,
   ) {
     const parameterSchema: Record<string, unknown> = {
@@ -142,7 +144,7 @@ export class ReadManyFilesTool extends BaseTool<
           type: 'array',
           items: { type: 'string' },
           description:
-            "Required. An array of glob patterns or paths relative to the tool's target directory. Examples: ['src/**/*.ts'], ['README.md', 'docs/']",
+            "Required. An array of glob patterns or paths relative to the tool's root directory. Examples: ['src/**/*.ts'], ['README.md', 'docs/']",
         },
         include: {
           type: 'array',
@@ -183,7 +185,7 @@ export class ReadManyFilesTool extends BaseTool<
     super(
       ReadManyFilesTool.Name,
       'ReadManyFiles',
-      `Reads content from multiple files specified by paths or glob patterns within a configured target directory. For text files, it concatenates their content into a single string. It is primarily designed for text-based files. However, it can also process image (e.g., .png, .jpg) and PDF (.pdf) files if their file names or extensions are explicitly included in the 'paths' argument. For these explicitly requested non-text files, their data is read and included in a format suitable for model consumption (e.g., base64 encoded).
+      `Reads content from multiple files specified by paths or glob patterns within a configured root directory. For text files, it concatenates their content into a single string. It is primarily designed for text-based files. However, it can also process image (e.g., .png, .jpg) and PDF (.pdf) files if their file names or extensions are explicitly included in the 'paths' argument. For these explicitly requested non-text files, their data is read and included in a format suitable for model consumption (e.g., base64 encoded).
 
 This tool is useful when you need to understand or analyze a collection of files, such as:
 - Getting an overview of a codebase or parts of it (e.g., all TypeScript files in the 'src' directory).
@@ -192,13 +194,11 @@ This tool is useful when you need to understand or analyze a collection of files
 - Gathering context from multiple configuration files.
 - When the user asks to "read all files in X directory" or "show me the content of all Y files".
 
-Use this tool when the user's query implies needing the content of several files simultaneously for context, analysis, or summarization. For text files, it uses default UTF-8 encoding and a '--- {filePath} ---' separator between file contents. Ensure paths are relative to the target directory. Glob patterns like 'src/**/*.js' are supported. Avoid using for single files if a more specific single-file reading tool is available, unless the user specifically requests to process a list containing just one file via this tool. Other binary files (not explicitly requested as image/PDF) are generally skipped. Default excludes apply to common non-text files (except for explicitly requested images/PDFs) and large dependency directories unless 'useDefaultExcludes' is false.`,
+Use this tool when the user's query implies needing the content of several files simultaneously for context, analysis, or summarization. For text files, it uses default UTF-8 encoding and a '--- {filePath} ---' separator between file contents. Ensure paths are relative to the root directory. Glob patterns like 'src/**/*.js' are supported. Avoid using for single files if a more specific single-file reading tool is available, unless the user specifically requests to process a list containing just one file via this tool. Other binary files (not explicitly requested as image/PDF) are generally skipped. Default excludes apply to common non-text files (except for explicitly requested images/PDFs) and large dependency directories unless 'useDefaultExcludes' is false.`,
       parameterSchema,
     );
-    this.targetDir = path.resolve(targetDir);
-    this.geminiIgnorePatterns = config
-      .getFileService()
-      .getGeminiIgnorePatterns();
+    this.rootDirectory = path.resolve(rootDirectory);
+    this.geminiIgnorePatterns = config.getFileService().getGeminiIgnorePatterns() || [];
   }
 
   validateParams(params: ReadManyFilesParams): string | null {
@@ -249,7 +249,7 @@ Use this tool when the user's query implies needing the content of several files
 
   getDescription(params: ReadManyFilesParams): string {
     const allPatterns = [...params.paths, ...(params.include || [])];
-    const pathDesc = `using patterns: \`${allPatterns.join('`, `')}\` (within target directory: \`${this.targetDir}\`)`;
+    const pathDesc = `using patterns: \`${allPatterns.join('`, `')}\` (within root directory: \`${this.rootDirectory}\`)`;
 
     // Determine the final list of exclusion patterns exactly as in execute method
     const paramExcludes = params.exclude || [];
@@ -301,7 +301,7 @@ Use this tool when the user's query implies needing the content of several files
     // Get centralized file discovery service
     const fileDiscovery = this.config.getFileService();
 
-    const toolBaseDir = this.targetDir;
+    const toolBaseDir = this.rootDirectory;
     const filesToConsider = new Set<string>();
     const skippedFiles: Array<{ path: string; reason: string }> = [];
     const processedFilesRelativePaths: string[] = [];
@@ -317,6 +317,20 @@ Use this tool when the user's query implies needing the content of several files
         llmContent: 'No search paths or include patterns provided.',
         returnDisplay: `## Information\n\nNo search paths or include patterns were specified. Nothing to read or concatenate.`,
       };
+    }
+
+    // Security check on all provided patterns before globbing
+    for (const pattern of searchPatterns) {
+      // For non-glob patterns, resolve the path and check if it's within the root.
+      if (!hasMagic(pattern)) {
+        const resolvedPath = path.resolve(toolBaseDir, pattern);
+        if (!isWithinRoot(resolvedPath, toolBaseDir)) {
+          return {
+            llmContent: `Error: Path is outside the root directory: ${pattern}`,
+            returnDisplay: `## Security Error\n\nPath is outside the allowed root directory: \`${pattern}\``,
+          };
+        }
+      }
     }
 
     try {
@@ -343,11 +357,11 @@ Use this tool when the user's query implies needing the content of several files
 
       let gitIgnoredCount = 0;
       for (const absoluteFilePath of entries) {
-        // Security check: ensure the glob library didn't return something outside targetDir.
-        if (!absoluteFilePath.startsWith(toolBaseDir)) {
+        // Security check: ensure the glob library didn't return something outside rootDirectory.
+        if (!isWithinRoot(absoluteFilePath, toolBaseDir)) {
           skippedFiles.push({
             path: absoluteFilePath,
-            reason: `Security: Glob library returned path outside target directory. Base: ${toolBaseDir}, Path: ${absoluteFilePath}`,
+            reason: `Security: Glob library returned path outside root directory. Base: ${toolBaseDir}, Path: ${absoluteFilePath}`,
           });
           continue;
         }
@@ -380,7 +394,8 @@ Use this tool when the user's query implies needing the content of several files
     for (const filePath of sortedFiles) {
       const relativePathForDisplay = path
         .relative(toolBaseDir, filePath)
-        .replace(/\\/g, '/');
+        .split(path.sep)
+        .join(path.posix.sep);
 
       const fileType = detectFileType(filePath);
 
@@ -440,7 +455,7 @@ Use this tool when the user's query implies needing the content of several files
       }
     }
 
-    let displayMessage = `### ReadManyFiles Result (Target Dir: \`${this.targetDir}\`)\n\n`;
+    let displayMessage = `### ReadManyFiles Result (Root Dir: \`${this.rootDirectory}\`)\n\n`;
     if (processedFilesRelativePaths.length > 0) {
       displayMessage += `Successfully read and concatenated content from **${processedFilesRelativePaths.length} file(s)**.\n`;
       if (processedFilesRelativePaths.length <= 10) {

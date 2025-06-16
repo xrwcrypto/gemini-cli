@@ -96,7 +96,7 @@ describe('GrepTool', () => {
       const params: GrepToolParams = { pattern: 'hello', path: 'nonexistent' };
       // Check for the core error message, as the full path might vary
       expect(grepTool.validateToolParams(params)).toContain(
-        'Failed to access path stats for',
+        'Path does not exist',
       );
       expect(grepTool.validateToolParams(params)).toContain('nonexistent');
     });
@@ -107,6 +107,12 @@ describe('GrepTool', () => {
       expect(grepTool.validateToolParams(params)).toContain(
         `Path is not a directory: ${filePath}`,
       );
+    });
+
+    it('should return error for path traversal attempt', () => {
+      const traversalPath = path.join(tempRootDir, '..', '..');
+      const params: GrepToolParams = { pattern: 'hello', path: traversalPath };
+      expect(grepTool.validateToolParams(params)).toContain('is outside the root directory');
     });
   });
 

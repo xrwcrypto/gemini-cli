@@ -4,12 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import { BaseTool, ToolResult } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { Config } from '../config/config.js';
+import { isNodeError } from '../utils/errors.js';
+import { isWithinRoot, isAbsolute } from '../utils/fileUtils.js';
 
 /**
  * Parameters for the LS tool
@@ -109,24 +112,6 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
   }
 
   /**
-   * Checks if a path is within the root directory
-   * @param dirpath The path to check
-   * @returns True if the path is within the root directory, false otherwise
-   */
-  private isWithinRoot(dirpath: string): boolean {
-    const normalizedPath = path.normalize(dirpath);
-    const normalizedRoot = path.normalize(this.rootDirectory);
-    // Ensure the normalizedRoot ends with a path separator for proper path comparison
-    const rootWithSep = normalizedRoot.endsWith(path.sep)
-      ? normalizedRoot
-      : normalizedRoot + path.sep;
-    return (
-      normalizedPath === normalizedRoot ||
-      normalizedPath.startsWith(rootWithSep)
-    );
-  }
-
-  /**
    * Validates the parameters for the tool
    * @param params Parameters to validate
    * @returns An error message string if invalid, null otherwise
@@ -141,10 +126,14 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     ) {
       return 'Parameters failed schema validation.';
     }
-    if (!path.isAbsolute(params.path)) {
+
+    params.path = path.normalize(params.path);
+
+    if (!isAbsolute(params.path)) {
       return `Path must be absolute: ${params.path}`;
     }
-    if (!this.isWithinRoot(params.path)) {
+
+    if (!isWithinRoot(params.path, this.rootDirectory)) {
       return `Path must be within the root directory (${this.rootDirectory}): ${params.path}`;
     }
     return null;
@@ -206,7 +195,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     if (validationError) {
       return this.errorResult(
         `Error: Invalid parameters provided. Reason: ${validationError}`,
-        `Failed to execute tool.`,
+        validationError,
       );
     }
 

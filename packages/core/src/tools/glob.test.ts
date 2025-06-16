@@ -7,9 +7,9 @@
 import { GlobTool, GlobToolParams, GlobPath, sortFileEntries } from './glob.js';
 import { partListUnionToString } from '../core/geminiRequest.js';
 import path from 'path';
-import fs from 'fs/promises';
+import fs from 'fs';
 import os from 'os';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'; // Removed vi
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'; 
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { Config } from '../config/config.js';
 
@@ -26,36 +26,36 @@ describe('GlobTool', () => {
 
   beforeEach(async () => {
     // Create a unique root directory for each test run
-    tempRootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'glob-tool-root-'));
+    tempRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glob-tool-root-'));
     globTool = new GlobTool(tempRootDir, mockConfig);
 
     // Create some test files and directories within this root
     // Top-level files
-    await fs.writeFile(path.join(tempRootDir, 'fileA.txt'), 'contentA');
-    await fs.writeFile(path.join(tempRootDir, 'FileB.TXT'), 'contentB'); // Different case for testing
+    fs.writeFileSync(path.join(tempRootDir, 'fileA.txt'), 'contentA');
+    fs.writeFileSync(path.join(tempRootDir, 'FileB.TXT'), 'contentB'); // Different case for testing
 
     // Subdirectory and files within it
-    await fs.mkdir(path.join(tempRootDir, 'sub'));
-    await fs.writeFile(path.join(tempRootDir, 'sub', 'fileC.md'), 'contentC');
-    await fs.writeFile(path.join(tempRootDir, 'sub', 'FileD.MD'), 'contentD'); // Different case
+    fs.mkdirSync(path.join(tempRootDir, 'sub'));
+    fs.writeFileSync(path.join(tempRootDir, 'sub', 'fileC.md'), 'contentC');
+    fs.writeFileSync(path.join(tempRootDir, 'sub', 'FileD.MD'), 'contentD'); // Different case
 
     // Deeper subdirectory
-    await fs.mkdir(path.join(tempRootDir, 'sub', 'deep'));
-    await fs.writeFile(
+    fs.mkdirSync(path.join(tempRootDir, 'sub', 'deep'));
+    fs.writeFileSync(
       path.join(tempRootDir, 'sub', 'deep', 'fileE.log'),
       'contentE',
     );
 
     // Files for mtime sorting test
-    await fs.writeFile(path.join(tempRootDir, 'older.sortme'), 'older_content');
+    fs.writeFileSync(path.join(tempRootDir, 'older.sortme'), 'older_content');
     // Ensure a noticeable difference in modification time
     await new Promise((resolve) => setTimeout(resolve, 50));
-    await fs.writeFile(path.join(tempRootDir, 'newer.sortme'), 'newer_content');
+    fs.writeFileSync(path.join(tempRootDir, 'newer.sortme'), 'newer_content');
   });
 
   afterEach(async () => {
     // Clean up the temporary root directory
-    await fs.rm(tempRootDir, { recursive: true, force: true });
+    fs.rmSync(tempRootDir, { recursive: true, force: true });
   });
 
   describe('execute', () => {
@@ -371,5 +371,71 @@ describe('sortFileEntries', () => {
       'recent_file.txt',
       'older_file.txt',
     ]);
+  });
+});
+
+describe('GlobTool Path Resilience', () => {
+  let tempRootDir: string;
+  let globTool: GlobTool;
+
+  const mockConfig = {
+    getFileService: async () => {
+      const service = new FileDiscoveryService(tempRootDir);
+      await service.initialize({ respectGitIgnore: true });
+      return service;
+    },
+    getFileFilteringRespectGitIgnore: () => true,
+  } as Partial<Config> as Config;
+
+  afterEach(async () => {
+    if (tempRootDir && fs.existsSync(tempRootDir)) {
+      fs.rmSync(tempRootDir, { recursive: true, force: true });
+    }
+    vi.restoreAllMocks();
+  });
+
+  describe('on POSIX', () => {
+    beforeEach(async () => {
+      tempRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glob-tool-root-'));
+      globTool = new GlobTool(tempRootDir, mockConfig);
+    });
+
+    it('should allow a valid posix path', () => {
+      const params: GlobToolParams = { pattern: '*.txt', path: tempRootDir };
+      expect(globTool.validateToolParams(params)).toBeNull();
+    });
+
+    it('should reject a path traversal attempt', () => {
+      const params: GlobToolParams = { pattern: '*.txt', path: path.join(tempRootDir, '..', '..') };
+      expect(globTool.validateToolParams(params)).toContain('resolves outside the tool\'s root directory');
+    });
+  });
+
+  describe('on Windows', () => {
+    beforeEach(() => {
+      tempRootDir = 'C:\\temp';
+      vi.spyOn(os, 'platform').mockReturnValue('win32');
+      vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
+        path.win32.resolve(...paths)
+      );
+      vi.spyOn(fs, 'existsSync').mockImplementation(() => true);
+      vi.spyOn(fs, 'statSync').mockImplementation(() => ({ isDirectory: () => true } as any));
+      globTool = new GlobTool(tempRootDir, mockConfig);
+    });
+
+    it('should allow a valid windows path', () => {
+      const params: GlobToolParams = { pattern: '*.txt', path: 'C:\\temp' };
+      expect(globTool.validateToolParams(params)).toBeNull();
+    });
+
+    it('should allow a valid mixed path', () => {
+      const params: GlobToolParams = { pattern: '*.txt', path: 'C:/temp' };
+      expect(globTool.validateToolParams(params)).toBeNull();
+    });
+
+    it('should reject a path traversal attempt', () => {
+      const params: GlobToolParams = { pattern: '*.txt', path: 'C:\\..\\..\\'};
+      expect(globTool.validateToolParams(params)).toContain('resolves outside the tool\'s root directory');
+    });
   });
 });
