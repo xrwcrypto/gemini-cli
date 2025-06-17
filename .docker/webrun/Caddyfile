@@ -17,6 +17,17 @@
     # 'arg=<value_of_repo_param>', which is what ttyd expects.
     rewrite @repo {http.request.uri.path}?arg={http.request.uri.query.repo}
 
-    # Reverse proxy all requests to the internal ttyd service.
-    reverse_proxy localhost:{$TTYD_PORT}
+    # Redirect /vscode to /vscode/ for user convenience.
+    @vscode_notslashed path /vscode
+    redir @vscode_notslashed /vscode/ 302
+
+    # Handle requests for VS Code, stripping the /vscode prefix before proxying.
+    handle_path /vscode/* {
+        reverse_proxy localhost:{$CODER_PORT}
+    }
+
+    # Handle all other requests by proxying to the ttyd terminal.
+    handle {
+        reverse_proxy localhost:{$TTYD_PORT}
+    }
 }

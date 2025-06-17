@@ -27,7 +27,11 @@ done
 
 # Define the internal port for ttyd and the public port for Caddy.
 export TTYD_PORT=7681
+export CODER_PORT=3000
 export PUBLIC_PORT=${PORT:-8080}
+
+echo "Starting code-server on internal port $CODER_PORT..."
+/opt/code-server/bin/code-server --auth=none --port $CODER_PORT &
 
 echo "Starting ttyd on internal port $TTYD_PORT..."
 
