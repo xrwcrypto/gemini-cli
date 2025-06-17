@@ -3,6 +3,13 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
+# Start the Docker daemon in the background
+echo "Starting Docker daemon..."
+dockerd > /var/log/dockerd.log 2>&1 &
+
+# Wait a moment for the Docker daemon to initialize
+sleep 3
+
 # Copy pre-installed extensions at startup if they are not already present.
 # This ensures default extensions are available without overwriting user-installed ones.
 echo "Checking for pre-installed extensions..."
