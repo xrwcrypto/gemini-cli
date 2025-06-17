@@ -5,20 +5,23 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GitService, historyDirName } from './gitService.js';
+import { GitService } from './gitService.js';
 import type * as FsPromisesModule from 'fs/promises';
 import * as fs from 'fs/promises';
+import * as crypto from 'crypto';
+import * as path from 'path';
 
 vi.mock('os', async (importOriginal) => {
-  const os = await importOriginal();
+  const os = await importOriginal<typeof import('os')>();
   return {
     ...os,
     platform: () => 'win32',
+    homedir: () => 'C:\\Users\\testuser',
   };
 });
 
 vi.mock('path', async (importOriginal) => {
-  const path = await importOriginal();
+  const path = await importOriginal<typeof import('path')>();
   return {
     ...path,
     resolve: path.win32.resolve,
@@ -46,7 +49,7 @@ describe('GitService on win32', () => {
     vi.restoreAllMocks();
   });
 
-  describe('setupHiddenGitRepository with Windows paths', () => {
+  describe('setupShadowGitRepository with Windows paths', () => {
     it('should create history directory with correct path', async () => {
       const service = new GitService(mockProjectRoot);
       // We can't easily test the whole method because of its complexity,
@@ -68,9 +71,13 @@ describe('GitService on win32', () => {
         },
       }));
 
-      await service.setupHiddenGitRepository();
+      await service.setupShadowGitRepository();
 
-      const expectedPath = `C:\\test\\project\\${historyDirName}\\repository`;
+      const hash = crypto
+        .createHash('sha256')
+        .update(path.win32.resolve(mockProjectRoot))
+        .digest('hex');
+      const expectedPath = `C:\\Users\\testuser\\.gemini\\history\\${hash}`;
       expect(mkdirSpy).toHaveBeenCalledWith(expectedPath, { recursive: true });
     });
   });

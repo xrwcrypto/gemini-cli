@@ -197,7 +197,8 @@ Use this tool when the user's query implies needing the content of several files
       parameterSchema,
     );
     this.rootDirectory = path.resolve(rootDirectory);
-    this.geminiIgnorePatterns = config.getFileService().getGeminiIgnorePatterns() || [];
+    this.geminiIgnorePatterns =
+      config.getFileService().getGeminiIgnorePatterns() || [];
   }
 
   validateParams(params: ReadManyFilesParams): string | null {

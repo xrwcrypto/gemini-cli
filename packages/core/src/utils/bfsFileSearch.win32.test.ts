@@ -10,7 +10,7 @@ import * as fs from 'fs/promises';
 import { bfsFileSearch } from './bfsFileSearch.js';
 
 vi.mock('os', async (importOriginal) => {
-  const os = await importOriginal();
+  const os = await importOriginal<typeof import('os')>();
   return {
     ...os,
     platform: () => 'win32',
@@ -18,7 +18,7 @@ vi.mock('os', async (importOriginal) => {
 });
 
 vi.mock('path', async (importOriginal) => {
-  const path = await importOriginal();
+  const path = await importOriginal<typeof import('path')>();
   return {
     ...path,
     resolve: path.win32.resolve,

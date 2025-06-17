@@ -20,9 +20,15 @@ export class FileDiscoveryService {
   private geminiIgnoreFilter: GitIgnoreFilter | null = null;
   private projectRoot: string;
 
-  constructor(projectRoot: string) {
+  constructor(
+    projectRoot: string,
+    gitIgnoreParser?: GitIgnoreFilter,
+    geminiIgnoreParser?: GitIgnoreFilter,
+  ) {
     this.projectRoot = path.resolve(projectRoot);
-    if (isGitRepository(this.projectRoot)) {
+    if (gitIgnoreParser) {
+      this.gitIgnoreFilter = gitIgnoreParser;
+    } else if (isGitRepository(this.projectRoot)) {
       const parser = new GitIgnoreParser(this.projectRoot);
       try {
         parser.loadGitRepoPatterns();
@@ -31,13 +37,18 @@ export class FileDiscoveryService {
       }
       this.gitIgnoreFilter = parser;
     }
-    const gParser = new GitIgnoreParser(this.projectRoot);
-    try {
-      gParser.loadPatterns(GEMINI_IGNORE_FILE_NAME);
-    } catch (_error) {
-      // ignore file not found
+
+    if (geminiIgnoreParser) {
+      this.geminiIgnoreFilter = geminiIgnoreParser;
+    } else {
+      const gParser = new GitIgnoreParser(this.projectRoot);
+      try {
+        gParser.loadPatterns(GEMINI_IGNORE_FILE_NAME);
+      } catch (_error) {
+        // ignore file not found
+      }
+      this.geminiIgnoreFilter = gParser;
     }
-    this.geminiIgnoreFilter = gParser;
   }
 
   /**

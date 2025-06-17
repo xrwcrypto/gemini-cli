@@ -10,6 +10,7 @@ import { Config } from '../config/config.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 
 describe('LSTool', () => {
   let lsTool: LSTool;
@@ -21,10 +22,7 @@ describe('LSTool', () => {
     mockConfig = {
       getTargetDir: () => tempDir,
       getFileFilteringRespectGitIgnore: () => true,
-      getFileService: async () => ({
-        isGitRepository: () => false,
-        shouldIgnoreFile: () => false,
-      }),
+      getFileService: () => new FileDiscoveryService(tempDir),
     } as unknown as Config;
     lsTool = new LSTool(tempDir, mockConfig);
   });
@@ -108,14 +106,13 @@ describe('LSTool', () => {
     });
 
     it('should respect gitignore rules', async () => {
-      mockConfig.getFileService = async () =>
+      mockConfig.getFileService = () =>
         ({
           isGitRepository: () => true,
-          shouldIgnoreFile: (filePath: string) => filePath.endsWith('.log'),
-        }) as unknown as {
-          isGitRepository: () => boolean;
-          shouldIgnoreFile: (filePath: string) => boolean;
-        };
+          shouldGitIgnoreFile: (filePath: string) => filePath.endsWith('.log'),
+          shouldGeminiIgnoreFile: (filePath: string) =>
+            filePath.endsWith('.log'),
+        }) as unknown as FileDiscoveryService;
       lsTool = new LSTool(tempDir, mockConfig);
 
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'hello');
@@ -157,9 +154,16 @@ describe('LSTool', () => {
       beforeEach(() => {
         tempDir = 'C:\\temp';
         vi.spyOn(os, 'platform').mockReturnValue('win32');
-        vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
-          path.win32.resolve(...paths),
+
+        // Mock path functions to behave like win32
+        vi.spyOn(path, 'relative').mockImplementation((from, to) =>
+          path.win32.relative(from, to),
         );
+        vi.spyOn(path, 'normalize').mockImplementation((p) =>
+          path.win32.normalize(p),
+        );
+        vi.spyOn(path, 'sep', 'get').mockReturnValue(path.win32.sep);
+
         vi.spyOn(fs, 'existsSync').mockReturnValue(true);
         vi.spyOn(fs, 'statSync').mockReturnValue({
           isDirectory: () => true,
@@ -168,7 +172,14 @@ describe('LSTool', () => {
         mockConfig = {
           getTargetDir: () => tempDir,
         } as unknown as Config;
-        lsTool = new LSTool(tempDir, mockConfig);
+
+        // Instantiate the tool with a dummy root and then manually
+        // set the rootDirectory to the desired Windows path.
+        // This avoids issues with path.resolve being called in the
+        // constructor on a non-Windows host.
+        lsTool = new LSTool('/', mockConfig);
+        // @ts-expect-error private property
+        lsTool.rootDirectory = tempDir;
       });
 
       it('should allow a valid windows path', () => {

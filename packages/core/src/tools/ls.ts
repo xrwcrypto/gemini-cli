@@ -9,6 +9,8 @@ import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { Config } from '../config/config.js';
 import { isWithinRoot, isAbsolute } from '../utils/fileUtils.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Parameters for the LS tool

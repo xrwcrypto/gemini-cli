@@ -4,22 +4,40 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
 import { WebFetchTool } from './web-fetch.js';
 import { Config, ApprovalMode } from '../config/config.js';
 import { ToolConfirmationOutcome } from './tools.js';
+import { GeminiClient } from '../core/client.js';
+import { GenerateContentResponse } from '@google/genai';
 
 describe('WebFetchTool', () => {
-  const mockConfig = {
-    getApprovalMode: vi.fn(),
-    setApprovalMode: vi.fn(),
-  } as unknown as Config;
+  let webFetchTool: WebFetchTool;
+  let mockConfig: Config;
+  let mockGeminiClient: GeminiClient;
+  let setApprovalMode: Mock;
+
+  beforeEach(() => {
+    mockGeminiClient = {
+      generateContent: vi.fn(),
+    } as unknown as GeminiClient;
+
+    setApprovalMode = vi.fn();
+
+    mockConfig = {
+      getApprovalMode: vi.fn().mockReturnValue(ApprovalMode.DEFAULT),
+      setApprovalMode,
+      getGeminiClient: () => mockGeminiClient,
+    } as unknown as Config;
+
+    webFetchTool = new WebFetchTool(mockConfig);
+  });
 
   describe('shouldConfirmExecute', () => {
     it('should return confirmation details with the correct prompt and urls', async () => {
-      const tool = new WebFetchTool(mockConfig);
       const params = { prompt: 'fetch https://example.com' };
-      const confirmationDetails = await tool.shouldConfirmExecute(params);
+      const confirmationDetails =
+        await webFetchTool.shouldConfirmExecute(params);
 
       expect(confirmationDetails).toEqual({
         type: 'info',
@@ -31,12 +49,12 @@ describe('WebFetchTool', () => {
     });
 
     it('should convert github urls to raw format', async () => {
-      const tool = new WebFetchTool(mockConfig);
       const params = {
         prompt:
           'fetch https://github.com/google/gemini-react/blob/main/README.md',
       };
-      const confirmationDetails = await tool.shouldConfirmExecute(params);
+      const confirmationDetails =
+        await webFetchTool.shouldConfirmExecute(params);
 
       expect(confirmationDetails).toEqual({
         type: 'info',
@@ -51,24 +69,21 @@ describe('WebFetchTool', () => {
     });
 
     it('should return false if approval mode is AUTO_EDIT', async () => {
-      const tool = new WebFetchTool({
-        ...mockConfig,
-        getApprovalMode: () => ApprovalMode.AUTO_EDIT,
-      } as unknown as Config);
+      // Override config for this specific test
+      vi.mocked(mockConfig.getApprovalMode).mockReturnValue(
+        ApprovalMode.AUTO_EDIT,
+      );
       const params = { prompt: 'fetch https://example.com' };
-      const confirmationDetails = await tool.shouldConfirmExecute(params);
+      const confirmationDetails =
+        await webFetchTool.shouldConfirmExecute(params);
 
       expect(confirmationDetails).toBe(false);
     });
 
     it('should call setApprovalMode when onConfirm is called with ProceedAlways', async () => {
-      const setApprovalMode = vi.fn();
-      const tool = new WebFetchTool({
-        ...mockConfig,
-        setApprovalMode,
-      } as unknown as Config);
       const params = { prompt: 'fetch https://example.com' };
-      const confirmationDetails = await tool.shouldConfirmExecute(params);
+      const confirmationDetails =
+        await webFetchTool.shouldConfirmExecute(params);
 
       if (
         confirmationDetails &&
@@ -82,25 +97,6 @@ describe('WebFetchTool', () => {
 
       expect(setApprovalMode).toHaveBeenCalledWith(ApprovalMode.AUTO_EDIT);
     });
-  });
-});
-
-
-describe('WebFetchTool2', () => {
-  let webFetchTool: WebFetchTool;
-  let mockConfig: Config;
-  let mockGeminiClient: GeminiClient;
-
-  beforeEach(() => {
-    mockGeminiClient = {
-      generateContent: vi.fn(),
-    } as unknown as GeminiClient;
-
-    mockConfig = {
-      getGeminiClient: () => mockGeminiClient,
-    } as unknown as Config;
-
-    webFetchTool = new WebFetchTool(mockConfig);
   });
 
   describe('validateParams', () => {
@@ -125,7 +121,9 @@ describe('WebFetchTool2', () => {
   describe('execute', () => {
     it('should call the gemini client with the correct parameters', async () => {
       const params = { prompt: 'Summarize https://example.com' };
-      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue({} as unknown as GenerateContentResponse);
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(
+        {} as unknown as GenerateContentResponse,
+      );
 
       await webFetchTool.execute(params, new AbortController().signal);
 

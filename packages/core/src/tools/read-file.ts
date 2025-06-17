@@ -91,11 +91,11 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
       return 'Parameters failed schema validation.';
     }
     params.absolute_path = path.normalize(params.absolute_path);
-    if (!path.isAbsolute(params.absolute_path)) {
+    if (!isAbsolute(params.absolute_path)) {
       return `File path must be absolute, but was relative: ${params.absolute_path}. You must provide an absolute path.`;
     }
 
-    if (!isWithinRoot(params.path, this.rootDirectory)) {
+    if (!isWithinRoot(params.absolute_path, this.rootDirectory)) {
       return `File path must be within the root directory (${this.rootDirectory}): ${params.absolute_path}`;
     }
     if (params.offset !== undefined && params.offset < 0) {

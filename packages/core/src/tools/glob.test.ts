@@ -379,11 +379,7 @@ describe('GlobTool Path Resilience', () => {
   let globTool: GlobTool;
 
   const mockConfig = {
-    getFileService: async () => {
-      const service = new FileDiscoveryService(tempRootDir);
-      await service.initialize({ respectGitIgnore: true });
-      return service;
-    },
+    getFileService: () => new FileDiscoveryService(tempRootDir),
     getFileFilteringRespectGitIgnore: () => true,
   } as Partial<Config> as Config;
 

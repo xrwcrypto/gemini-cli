@@ -6,11 +6,11 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GitIgnoreParser } from './gitIgnoreParser.js';
-import * as fs from 'fs/promises';
+import * as fs from 'fs';
 import { isGitRepository } from './gitUtils.js';
 
 vi.mock('os', async (importOriginal) => {
-  const os = await importOriginal();
+  const os = await importOriginal<typeof import('os')>();
   return {
     ...os,
     platform: () => 'win32',
@@ -18,7 +18,7 @@ vi.mock('os', async (importOriginal) => {
 });
 
 vi.mock('path', async (importOriginal) => {
-  const path = await importOriginal();
+  const path = await importOriginal<typeof import('path')>();
   return {
     ...path,
     resolve: path.win32.resolve,
@@ -29,7 +29,7 @@ vi.mock('path', async (importOriginal) => {
 });
 
 // Mock fs module
-vi.mock('fs/promises');
+vi.mock('fs');
 
 // Mock gitUtils module
 vi.mock('./gitUtils.js');
@@ -41,8 +41,10 @@ describe('GitIgnoreParser on win32', () => {
   beforeEach(() => {
     parser = new GitIgnoreParser(mockProjectRoot);
     // Reset mocks before each test
-    vi.mocked(fs.readFile).mockClear();
-    vi.mocked(fs.readFile).mockRejectedValue(new Error('ENOENT')); // Default to no file
+    vi.mocked(fs.readFileSync).mockClear();
+    vi.mocked(fs.readFileSync).mockImplementation(() => {
+      throw new Error('ENOENT');
+    }); // Default to no file
     vi.mocked(isGitRepository).mockReturnValue(true);
   });
 
@@ -51,7 +53,7 @@ describe('GitIgnoreParser on win32', () => {
   });
 
   describe('isIgnored with Windows paths', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       const gitignoreContent = `
 # Windows specific tests
 node_modules/
@@ -60,10 +62,8 @@ node_modules/
 /build/
 config.json
 `;
-      vi.mocked(fs.readFile)
-        .mockResolvedValueOnce(gitignoreContent)
-        .mockRejectedValue(new Error('ENOENT'));
-      await parser.initialize();
+      vi.mocked(fs.readFileSync).mockReturnValueOnce(gitignoreContent);
+      parser.loadGitRepoPatterns();
     });
 
     it('should ignore a directory with backslashes', () => {
