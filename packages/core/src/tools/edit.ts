@@ -86,7 +86,7 @@ export class EditTool
       'Edit',
       `Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when \`expected_replacements\` is specified. This tool requires providing significant context around the change to ensure precise targeting. Always use the ${ReadFileTool.Name} tool to examine the file's current content before attempting a text replacement.
 
-      The user has the ability to modify the proposed content. If modified, this will be stated in the tool response.
+      The user has the ability to modify the \`new_string\` content. If modified, this will be stated in the response.
 
 Expectation for required parameters:
 1. \`file_path\` MUST be an absolute path; otherwise an error will be thrown.
@@ -117,11 +117,6 @@ Expectation for required parameters:
             description:
               'Number of replacements expected. Defaults to 1 if not specified. Use when you want to replace multiple occurrences.',
             minimum: 1,
-          },
-          modified_by_user: {
-            type: 'boolean',
-            description:
-              'Whether the edit was overridden by the user. This should default to false and only be set by the tool.',
           },
         },
         required: ['file_path', 'old_string', 'new_string'],
@@ -426,12 +421,12 @@ Expectation for required parameters:
         displayResult = { fileDiff, fileName };
       }
 
-      const modfiedWarning = params.modified_by_user
-        ? " The proposed edit content was overriden by the user. This is intended and should not be corrected or reverted. When reporting the task completion, ensure to mention the user's modification."
+      const modfiedInfo = params.modified_by_user
+        ? ` User modified the \`new_string\` content to be: ${params.new_string}.`
         : '';
       const llmSuccessMessage = editData.isNewFile
         ? `Created new file: ${params.file_path} with provided content.`
-        : `Successfully edited file: ${params.file_path} (${editData.occurrences} replacements).${modfiedWarning}`;
+        : `Successfully edited file: ${params.file_path} (${editData.occurrences} replacements).${modfiedInfo}`;
 
       return {
         llmContent: llmSuccessMessage,
