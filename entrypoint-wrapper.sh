@@ -13,6 +13,8 @@ sleep 3
 # Copy pre-installed extensions at startup if they are not already present.
 # This ensures default extensions are available without overwriting user-installed ones.
 echo "Checking for pre-installed extensions..."
+mkdir -p /home/node/.local/share/code-server/User
+cp /opt/code-server/settings.json /home/node/.local/share/code-server/User/settings.json
 mkdir -p /home/node/.gemini/extensions
 for ext_source in /opt/extensions/*; do
   if [ -e "$ext_source" ]; then

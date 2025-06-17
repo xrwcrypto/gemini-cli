@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y curl procps tmux docker.io && \
 # Copy the entrypoint script and Caddyfile
 COPY entrypoint-wrapper.sh /usr/local/bin/entrypoint-wrapper.sh
 COPY .docker/webrun/Caddyfile /etc/caddy/Caddyfile
+COPY .docker/webrun/code-server/settings.json /opt/code-server/settings.json
 
 # Make script executable
 RUN chmod +x /usr/local/bin/entrypoint-wrapper.sh
