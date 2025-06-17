@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WebSearchTool } from './web-search.js';
 import { Config } from '../config/config.js';
 import { GeminiClient } from '../core/client.js';
+import { GenerateContentResponse } from '@google/genai';
 
 describe('WebSearchTool', () => {
   let webSearchTool: WebSearchTool;
@@ -41,7 +42,9 @@ describe('WebSearchTool', () => {
   describe('execute', () => {
     it('should call the gemini client with the correct parameters', async () => {
       const params = { query: 'test query' };
-      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue({} as unknown as GenerateContentResponse);
+      vi.mocked(mockGeminiClient.generateContent).mockResolvedValue(
+        {} as unknown as GenerateContentResponse,
+      );
 
       await webSearchTool.execute(params, new AbortController().signal);
 

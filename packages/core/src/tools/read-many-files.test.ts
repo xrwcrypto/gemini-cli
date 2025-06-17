@@ -35,13 +35,15 @@ describe('ReadManyFilesTool', () => {
 
   // Mock config for testing
   const mockConfig = {
-    getFileService: async () => {
-      const service = new FileDiscoveryService(tempRootDirectory);
-      await service.initialize({ respectGitIgnore: true });
-      return service;
-    },
+    getFileService: () =>
+      ({
+        shouldGitIgnoreFile: (filePath: string) => filePath.endsWith('.log'),
+        shouldGeminiIgnoreFile: (filePath: string) =>
+          filePath.endsWith('.bar') || filePath.endsWith('.quux'),
+        getGeminiIgnorePatterns: () => ['*.bar', '*.quux'],
+        filterFiles: (files: string[]) => files,
+      }) as unknown as FileDiscoveryService,
     getFileFilteringRespectGitIgnore: () => true,
-    getGeminiIgnorePatterns: () => ['**/foo.bar', 'foo.baz', 'foo.*'],
   } as Partial<Config> as Config;
 
   beforeEach(async () => {
@@ -108,6 +110,17 @@ describe('ReadManyFilesTool', () => {
       fs.rmSync(tempDirOutsideRoot, { recursive: true, force: true });
     }
   });
+
+  const createFile = (filePath: string, content = '') => {
+    const fullPath = path.join(tempRootDirectory, filePath);
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, content);
+  };
+  const createBinaryFile = (filePath: string, data: Uint8Array) => {
+    const fullPath = path.join(tempRootDirectory, filePath);
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, data);
+  };
 
   describe('validateParams', () => {
     it('should return null for valid relative paths within root', () => {
@@ -185,17 +198,6 @@ describe('ReadManyFilesTool', () => {
   });
 
   describe('execute', () => {
-    const createFile = (filePath: string, content = '') => {
-      const fullPath = path.join(tempRootDirectory, filePath);
-      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-      fs.writeFileSync(fullPath, content);
-    };
-    const createBinaryFile = (filePath: string, data: Uint8Array) => {
-      const fullPath = path.join(tempRootDirectory, filePath);
-      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-      fs.writeFileSync(fullPath, data);
-    };
-
     it('should read a single specified file', async () => {
       createFile('file1.txt', 'Content of file1');
       const params = { paths: ['file1.txt'] };
@@ -419,10 +421,10 @@ describe('ReadManyFilesTool', () => {
       const result = await tool.execute(params, new AbortController().signal);
 
       expect(result.returnDisplay).toContain(
-        'Successfully read and concatenated content from **1 file(s)**'
+        'Successfully read and concatenated content from **1 file(s)**',
       );
       expect(result.returnDisplay).toContain(
-        '**Skipped 6 item(s) (first 5 shown):**'
+        '**Skipped 6 item(s) (first 5 shown):**',
       );
       expect(result.returnDisplay).toContain('- ...and 1 more.\n');
     });
@@ -455,13 +457,26 @@ describe('ReadManyFilesTool', () => {
         // Mock the platform to simulate running on Windows
         vi.spyOn(os, 'platform').mockReturnValue('win32');
         vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
-          path.win32.resolve(...paths)
+          path.win32.resolve(...paths),
         );
         vi.spyOn(path, 'relative').mockImplementation((from, to) =>
-          path.win32.relative(from, to)
+          path.win32.relative(from, to),
         );
 
-        win32Root = 'C:\gemini-test-root';        const mockConfigInstance = {          getGeminiIgnorePatterns: () => [],          getFileService: async () => {            const service = new FileDiscoveryService(win32Root);            await service.initialize({ respectGitIgnore: true });            return service;          },        } as unknown as Config;        tool = new ReadManyFilesTool(win32Root, mockConfigInstance);
+        win32Root = 'C:\\gemini-test-root';
+        const mockConfigInstance = {
+          getGeminiIgnorePatterns: () => [],
+          getFileService: () =>
+            ({
+              shouldGitIgnoreFile: (filePath: string) =>
+                filePath.endsWith('.log'),
+              shouldGeminiIgnoreFile: (filePath: string) =>
+                filePath.endsWith('.bar') || filePath.endsWith('.quux'),
+              getGeminiIgnorePatterns: () => ['*.bar', '*.quux'],
+              filterFiles: (files: string[]) => files,
+            }) as unknown as FileDiscoveryService,
+        } as unknown as Config;
+        tool = new ReadManyFilesTool(win32Root, mockConfigInstance);
 
         // Mock isWithinRoot to use win32 logic for this test suite
         mockIsWithinRoot.mockImplementation((p: string, root: string) => {
@@ -513,81 +528,6 @@ describe('ReadManyFilesTool', () => {
         '**Skipped 6 item(s) (first 5 shown):**',
       );
       expect(result.returnDisplay).toContain('- ...and 1 more.\n');
-    });
-  });
-
-  describe('Path Resilience', () => {
-    describe('on POSIX', () => {
-      it('should allow absolute POSIX paths within the root', () => {
-        const params = { paths: [`${tempRootDirectory}/test.txt`] };
-        expect(tool.validateParams(params)).toBeNull();
-      });
-
-      it('should reject relative POSIX paths that escape the root', async () => {
-        const params = { paths: ['../test.txt'] };
-        const result = await tool.execute(params, new AbortController().signal);
-        expect(result.returnDisplay).toContain('## Security Error');
-      });
-
-      it('should reject absolute POSIX paths outside the root', async () => {
-        const params = { paths: ['/elsewhere/test.txt'] };
-        const result = await tool.execute(params, new AbortController().signal);
-        expect(result.returnDisplay).toContain('## Security Error');
-      });
-    });
-
-    describe('on Windows', () => {
-      let win32Root: string;
-
-      beforeEach(() => {
-        // Mock the platform to simulate running on Windows
-        vi.spyOn(os, 'platform').mockReturnValue('win32');
-        vi.spyOn(path, 'resolve').mockImplementation((...paths) =>
-          path.win32.resolve(...paths),
-        );
-        vi.spyOn(path, 'relative').mockImplementation((from, to) =>
-          path.win32.relative(from, to),
-        );
-
-        win32Root = 'C:\\gemini-test-root';
-        const mockConfigInstance = {
-          getGeminiIgnorePatterns: () => [],
-          getFileService: async () => {
-            const service = new FileDiscoveryService(win32Root);
-            await service.initialize({ respectGitIgnore: true });
-            return service;
-          },
-        } as unknown as Config;
-        tool = new ReadManyFilesTool(win32Root, mockConfigInstance);
-
-        // Mock isWithinRoot to use win32 logic for this test suite
-        mockIsWithinRoot.mockImplementation((p: string, root: string) => {
-          const relative = path.win32.relative(root, p);
-          return !relative.startsWith('..') && !path.win32.isAbsolute(relative);
-        });
-      });
-
-      it('should allow absolute Win32 paths within the root', () => {
-        const params = { paths: ['C:\\gemini-test-root\\test.txt'] };
-        expect(tool.validateParams(params)).toBeNull();
-      });
-
-      it('should reject relative Win32 paths that escape the root', async () => {
-        const params = { paths: ['..\\test.txt'] };
-        const result = await tool.execute(params, new AbortController().signal);
-        expect(result.returnDisplay).toContain('## Security Error');
-      });
-
-      it('should reject absolute Win32 paths outside the root', async () => {
-        const params = { paths: ['C:\\elsewhere\\test.txt'] };
-        const result = await tool.execute(params, new AbortController().signal);
-        expect(result.returnDisplay).toContain('## Security Error');
-      });
-
-      it('should handle mixed-separator paths correctly within the root', () => {
-        const params = { paths: ['C:/gemini-test-root/test.txt'] };
-        expect(tool.validateParams(params)).toBeNull();
-      });
     });
   });
 });
