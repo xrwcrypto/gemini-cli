@@ -280,14 +280,14 @@ limitations under the License.
         </header>
         <main>
           <div id="agents-container">
-            <div class="settings-card">
-              <h2 class="instances-title">Settings</h2>
+            <details class="settings-card" open>
+              <summary class="instances-title">Settings</summary>
               <form>
                 <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></p>
                 <p><label for="github-user">GitHub user name (optional): <input name="github-user" id="github-user"/></label></p>
                 <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="40"/></label></p>
               </form>
-            </div>
+            </details>
             <h2 class="agents-title">AGENTS</h2>
             <div class="service-card">
               <form>
