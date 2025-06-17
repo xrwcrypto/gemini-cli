@@ -1,9 +1,6 @@
 // Imports the Google Cloud client library
 import {Logging} from '@google-cloud/logging';
 
-export async function logUserPromptToCloud(
-  prompt: string
-) {
   const projectId = 'aipp-internal-testing';
   const logName = 'test-log-prompt';
 
