@@ -669,7 +669,7 @@ async function refreshAgentsList() {
   agentsList.innerHTML = '';
 
   if (agents.length > 0) {
-    agentsContainer.hidden = false;
+    agentsList.hidden = false;
     for (const agent of agents) {
       const agentName = agent.name.split('/').pop();
       const isJob = agent.template && agent.template.template;
@@ -750,7 +750,7 @@ async function refreshAgentsList() {
       agentsList.appendChild(card);
     }
   } else {
-    agentsContainer.hidden = true;
+    agentsList.hidden = true;
   }
 }
 
