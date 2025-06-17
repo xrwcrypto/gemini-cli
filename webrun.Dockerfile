@@ -3,7 +3,7 @@ FROM gemini-cli-sandbox:latest
 USER root
 
 # Install ttyd, Caddy, and other utilities
-RUN apt-get update && apt-get install -y curl procps tmux && \
+RUN apt-get update && apt-get install -y curl procps tmux docker.io && \
     npm install -g https://github.com/GoogleCloudPlatform/cloud-run-mcp && \
     curl -L https://github.com/tsl0922/ttyd/releases/download/1.7.4/ttyd.x86_64 -o /usr/local/bin/ttyd && \
     curl -L "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /usr/local/bin/caddy && \
@@ -17,7 +17,6 @@ COPY .docker/webrun/Caddyfile /etc/caddy/Caddyfile
 # Make script executable
 RUN chmod +x /usr/local/bin/entrypoint-wrapper.sh
 
-USER node
 
 # Set the working directory
 WORKDIR /home/node
