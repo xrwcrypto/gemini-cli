@@ -35,12 +35,12 @@ import {
   GenerateContentResponse,
   GenerateContentResponseUsageMetadata,
 } from '@google/genai';
-import { logUserPromptToCloud } from './data-collection/cloud-client-logging.js';
+import { logApiErrorToCloud, logApiRequestToCloud, logApiResponseToCloud, logSessionStartToCloud, logToolCallEventToCloud, logUserPromptToCloud } from './data-collection/cloud-client-logging.js';
 
 const shouldLogUserPrompts = (config: Config): boolean =>
   config.getTelemetryLogUserPromptsEnabled() ?? false;
 
-function getCommonAttributes(config: Config): LogAttributes {
+function getCommonAttributes(config: Config): Record<string, any> {
   return {
     'session.id': config.getSessionId(),
   };
@@ -70,10 +70,9 @@ export function getDecisionFromOutcome(
 }
 
 export function logCliConfiguration(config: Config): void {
-  if (!isTelemetrySdkInitialized()) return;
-
   const generatorConfig = config.getContentGeneratorConfig();
   const mcpServers = config.getMcpServers();
+  
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     'event.name': EVENT_CLI_CONFIG,
@@ -95,6 +94,10 @@ export function logCliConfiguration(config: Config): void {
     debug_mode: config.getDebugMode(),
     mcp_servers: mcpServers ? Object.keys(mcpServers).join(',') : '',
   };
+
+  logSessionStartToCloud(attributes);
+  if (!isTelemetrySdkInitialized()) return;
+
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
     body: 'CLI configuration loaded.',
@@ -109,10 +112,6 @@ export function logUserPrompt(
     prompt: string;
   },
 ): void {
-  logUserPromptToCloud(event.prompt)
-
-  if (!isTelemetrySdkInitialized()) return;
-
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     'event.name': EVENT_USER_PROMPT,
@@ -123,6 +122,9 @@ export function logUserPrompt(
   if (shouldLogUserPrompts(config)) {
     attributes.prompt = event.prompt;
   }
+
+  logUserPromptToCloud(attributes);
+  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -137,8 +139,6 @@ export function logToolCall(
   event: Omit<ToolCallEvent, 'event.name' | 'event.timestamp' | 'decision'>,
   outcome?: ToolConfirmationOutcome,
 ): void {
-  if (!isTelemetrySdkInitialized()) return;
-
   const decision = outcome ? getDecisionFromOutcome(outcome) : undefined;
 
   const attributes: LogAttributes = {
@@ -146,8 +146,11 @@ export function logToolCall(
     ...event,
     'event.name': EVENT_TOOL_CALL,
     'event.timestamp': new Date().toISOString(),
+    function_name: event.function_name,
     function_args: JSON.stringify(event.function_args, null, 2),
     decision,
+    success: event.success,
+    duration: event.duration_ms,
   };
   if (event.error) {
     attributes['error.message'] = event.error;
@@ -155,6 +158,10 @@ export function logToolCall(
       attributes['error.type'] = event.error_type;
     }
   }
+
+  logToolCallEventToCloud(attributes);
+  if (!isTelemetrySdkInitialized()) return;
+
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
     body: `Tool call: ${event.function_name}${decision ? `. Decision: ${decision}` : ''}. Success: ${event.success}. Duration: ${event.duration_ms}ms.`,
@@ -174,13 +181,16 @@ export function logApiRequest(
   config: Config,
   event: Omit<ApiRequestEvent, 'event.name' | 'event.timestamp'>,
 ): void {
-  if (!isTelemetrySdkInitialized()) return;
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
     'event.name': EVENT_API_REQUEST,
     'event.timestamp': new Date().toISOString(),
   };
+
+  logApiRequestToCloud(attributes);
+  if (!isTelemetrySdkInitialized()) return;
+
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
     body: `API request to ${event.model}.`,
@@ -193,13 +203,14 @@ export function logApiError(
   config: Config,
   event: Omit<ApiErrorEvent, 'event.name' | 'event.timestamp'>,
 ): void {
-  if (!isTelemetrySdkInitialized()) return;
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
     'event.name': EVENT_API_ERROR,
     'event.timestamp': new Date().toISOString(),
     ['error.message']: event.error,
+    'model_name': event.model,
+    'duration': event.duration_ms,
   };
 
   if (event.error_type) {
@@ -208,6 +219,9 @@ export function logApiError(
   if (typeof event.status_code === 'number') {
     attributes[SemanticAttributes.HTTP_STATUS_CODE] = event.status_code;
   }
+
+  logApiErrorToCloud(attributes);
+  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -228,7 +242,9 @@ export function logApiResponse(
   config: Config,
   event: Omit<ApiResponseEvent, 'event.name' | 'event.timestamp'>,
 ): void {
+  logApiResponseToCloud(event);
   if (!isTelemetrySdkInitialized()) return;
+
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
