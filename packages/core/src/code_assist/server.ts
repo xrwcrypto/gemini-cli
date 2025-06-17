@@ -28,6 +28,12 @@ import {
 } from './converter.js';
 import { PassThrough } from 'node:stream';
 
+/** HTTP options to be used in each of the requests. */
+export interface HttpOptions {
+  /** Additional HTTP headers to be sent with the request. */
+  headers?: Record<string, string>;
+}
+
 // TODO: Use production endpoint once it supports our methods.
 export const CODE_ASSIST_ENDPOINT =
   process.env.CODE_ASSIST_ENDPOINT ??
@@ -38,6 +44,7 @@ export class CodeAssistServer implements ContentGenerator {
   constructor(
     readonly auth: OAuth2Client,
     readonly projectId?: string,
+    readonly httpOptions: HttpOptions = {},
   ) {}
 
   async generateContentStream(
@@ -46,6 +53,7 @@ export class CodeAssistServer implements ContentGenerator {
     const resps = await this.streamEndpoint<CodeAssistResponse>(
       'streamGenerateContent',
       toCodeAssistRequest(req, this.projectId),
+      req.config?.abortSignal,
     );
     return (async function* (): AsyncGenerator<GenerateContentResponse> {
       for await (const resp of resps) {
@@ -60,6 +68,7 @@ export class CodeAssistServer implements ContentGenerator {
     const resp = await this.callEndpoint<CodeAssistResponse>(
       'generateContent',
       toCodeAssistRequest(req, this.projectId),
+      req.config?.abortSignal,
     );
     return fromCodeAsistResponse(resp);
   }
@@ -92,15 +101,21 @@ export class CodeAssistServer implements ContentGenerator {
     throw Error();
   }
 
-  async callEndpoint<T>(method: string, req: object): Promise<T> {
+  async callEndpoint<T>(
+    method: string,
+    req: object,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const res = await this.auth.request({
       url: `${CODE_ASSIST_ENDPOINT}/${CODE_ASSIST_API_VERSION}:${method}`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...this.httpOptions.headers,
       },
       responseType: 'json',
       body: JSON.stringify(req),
+      signal,
     });
     return res.data as T;
   }
@@ -108,6 +123,7 @@ export class CodeAssistServer implements ContentGenerator {
   async streamEndpoint<T>(
     method: string,
     req: object,
+    signal?: AbortSignal,
   ): Promise<AsyncGenerator<T>> {
     const res = await this.auth.request({
       url: `${CODE_ASSIST_ENDPOINT}/${CODE_ASSIST_API_VERSION}:${method}`,
@@ -115,9 +131,13 @@ export class CodeAssistServer implements ContentGenerator {
       params: {
         alt: 'sse',
       },
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.httpOptions.headers,
+      },
       responseType: 'stream',
       body: JSON.stringify(req),
+      signal,
     });
 
     return (async function* (): AsyncGenerator<T> {
