@@ -74,19 +74,94 @@ function generateCryptoRandomState() {
     .replace(/=+$/, '');
 }
 
-function generateServiceName() {
+function generateAgentName() {
   const consonants = 'bcdfghjklmnpqrstvwxyz';
   const vowels = 'aeiou';
   const randomConsonant = () => consonants[Math.floor(Math.random() * consonants.length)];
   const randomVowel = () => vowels[Math.floor(Math.random() * vowels.length)];
-  return `gemini-cli-${randomConsonant()}${randomVowel()}${randomConsonant()}`;
+  return `gemini-cli-${randomConsonant()}${randomVowel()}${randomConsonant()}${randomVowel()}${randomConsonant()}${randomVowel()}`;
 }
 
 
-function getCloudRunServicePayload(project, bucket) {
-  const pat = document.getElementById('pat').value;
-  const repo = document.getElementById('repo').value;
-  const githubUser = document.getElementById('github-user').value;
+function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt) {
+  const env = [
+    {
+      name: 'GOOGLE_CLOUD_PROJECT',
+      value: project
+    },
+    {
+      name: 'GOOGLE_CLOUD_LOCATION',
+      value: 'global'
+    },
+    {
+      name: 'GOOGLE_GENAI_USE_VERTEXAI',
+      value: 'true'
+    }
+  ];
+  if (pat) {
+    env.push({
+      name: 'GITHUB_PAT',
+      value: pat
+    });
+  }
+  if (githubUser) {
+    env.push({
+      name: 'GITHUB_USERNAME',
+      value: githubUser
+    });
+  }
+  const annotations = {};
+  if (repo) {
+    annotations['repo'] = repo;
+  }
+
+  const container = {
+    image: IMAGE,
+    resources: {
+      limits: {
+        "cpu": "8",
+        "memory": "32Gi"
+      },
+    },
+    env: env,
+    volumeMounts: [
+      {
+        name: 'gemini-home',
+        mountPath: '/home/node/.gemini'
+      }
+    ]
+  };
+
+  if (prompt) {
+    // Sanitize the prompt: replace newlines with spaces and escape double quotes.
+    const sanitizedPrompt = prompt.replace(/\n/g, ' ').replace(/"/g, '\"');
+    container.command = ["gemini"];
+    container.args = ["-p", `"${sanitizedPrompt}"`, "--yolo"];
+  }
+
+  return {
+    labels: {
+      'managed-by': 'gemini-dev',
+    },
+    annotations: annotations,
+    template: {
+      template: {
+        volumes: [
+          {
+            name: 'gemini-home',
+            gcs: {
+              bucket: bucket,
+            }
+          }
+        ],
+        containers: [container],
+        maxRetries: 0,
+      },
+    },
+  };
+}
+
+function getCloudRunServicePayload(project, bucket, pat, repo, githubUser) {
   const env = [
     {
       name: 'GOOGLE_CLOUD_PROJECT',
@@ -162,6 +237,7 @@ function getCloudRunServicePayload(project, bucket) {
   };
 }
 
+
 async function enableRequiredApis(token, project) {
   console.log('Enabling required APIs...');
   const response = await fetch(`https://serviceusage.googleapis.com/v1/projects/${project}/services:batchEnable`, {
@@ -211,10 +287,19 @@ function getTokenAndProject() {
 }
 
 
-async function deploy(token, project, service, bucket, validateOnly = false) {
-  console.log(`Deploying to Cloud Run: ${project} ${region} ${service}, validate only? ${validateOnly}`);
+async function deploy(token, project, name, bucket, asyncMode, pat, repo, githubUser, prompt, validateOnly = false) {
+  console.log(`Deploying to Cloud Run: ${project} ${region} ${name}, async=${asyncMode}, validate only? ${validateOnly}`);
 
-  let url = `https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services?serviceId=${service}`
+  let url;
+  let payload;
+  if (asyncMode) {
+    url = `https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/jobs?jobId=${name}`;
+    payload = getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt);
+  } else {
+    url = `https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services?serviceId=${name}`;
+    payload = getCloudRunServicePayload(project, bucket, pat, repo, githubUser);
+  }
+  
   if(validateOnly) {
     url += '&validateOnly=true';
   }
@@ -224,7 +309,7 @@ async function deploy(token, project, service, bucket, validateOnly = false) {
       'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(getCloudRunServicePayload(project, bucket))
+    body: JSON.stringify(payload)
   });
   var result = await response.json();
   console.log(result);
@@ -284,6 +369,22 @@ async function listServices(token, project) {
   return result;
 }
 
+async function listJobs(token, project) {
+  console.log(`Listing jobs in: ${project} ${region}`);
+
+  const response = await fetch(`https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/jobs`, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    }
+  });
+  const result = await response.json();
+  console.log(result);
+
+  return result;
+}
+
 async function deleteService(token, project, service) {
   console.log(`Deleting service: ${project} ${region} ${service}`);
 
@@ -300,19 +401,73 @@ async function deleteService(token, project, service) {
   return result;
 }
 
-async function deleteServiceAndRefresh(service) {
+async function deleteJob(token, project, job) {
+  console.log(`Deleting job: ${project} ${region} ${job}`);
+
+  const response = await fetch(`https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/jobs/${job}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    }
+  });
+  const result = await response.json();
+  console.log(result);
+
+  return result;
+}
+
+async function runJob(token, project, job) {
+  console.log(`Running job: ${project} ${region} ${job}`);
+
+  const response = await fetch(`https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/jobs/${job}:run`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    },
+    body: '{}'
+  });
+  const result = await response.json();
+  console.log(result);
+
+  return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+async function deleteAgentAndRefresh(agentName, isJob) {
   let {token, project} = getTokenAndProject();
   if (!token || !project) {
     return;
   }
-  const deleteResult = await deleteService(token, project, service);
+  let deleteResult;
+  if (isJob) {
+    deleteResult = await deleteJob(token, project, agentName);
+  } else {
+    deleteResult = await deleteService(token, project, agentName);
+  }
   if (deleteResult.error) {
     alert(`Error: ${deleteResult.error.message}`);
     return;
   }
   const operation = deleteResult.name;
   await waitOperation(token, project, operation);
-  await refreshServicesList();
+  await refreshAgentsList();
   showDefaultContent();
 }
 
@@ -338,30 +493,43 @@ async function deployAndWait() {
       return;
     }
 
-    const service = generateServiceName();
+    const service = generateAgentName();
+
+    const asyncMode = document.getElementById('async-mode').checked;
+    const pat = document.getElementById('pat').value;
+    const repo = document.getElementById('repo').value;
+    const githubUser = document.getElementById('github-user').value;
+    const prompt = document.getElementById('prompt').value;
 
     // Deploy
-    const deployResult = await deploy(token, project, service, bucket);
+    const deployResult = await deploy(token, project, service, bucket, asyncMode, pat, repo, githubUser, prompt);
     if(deployResult.error) {
       alert(`Error: ${deployResult.error.message}`);
       return;
     }
     const operation = deployResult.name;
     console.log(`Deployment operation: ${operation}`);
-    
-    // Get service URL
-    const serviceResult = await getService(token, project, service);
-    let url = serviceResult.urls[0];
-    const repo = document.getElementById('repo').value;
-    if (repo) {
-      url += `?repo=${repo}`;
-    }
-    console.log(`Service URL: ${url}`);
 
     // Wait for deployment to finish
     await waitOperation(token, project, operation);
     
-    await refreshServicesList();
+    if (asyncMode) {
+      const runOperation = await runJob(token, project, service);
+      await waitOperation(token, project, runOperation.name);
+    } else {
+      // Get service URL
+      const serviceResult = await getService(token, project, service);
+      if (serviceResult && serviceResult.uri) {
+        let url = serviceResult.uri;
+        const repo = document.getElementById('repo').value;
+        if (repo) {
+          url += `?repo=${repo}`;
+        }
+        console.log(`Service URL: ${url}`);
+      }
+    }
+    
+    await refreshAgentsList();
   } finally {
     document.getElementById('button-deploy').hidden = false;
     document.getElementById('waiting-message').hidden = true;
@@ -466,7 +634,7 @@ const storedProject = localStorage.getItem('project');
 if (storedProject) {
   document.getElementById('project').value = storedProject;
   if (localStorage.getItem('token')) {
-    refreshServicesList();
+    refreshAgentsList();
   }
 }
 
@@ -482,59 +650,80 @@ document.getElementById('toggle-button').addEventListener('click', () => {
   }
 });
 
-async function refreshServicesList() {
+async function refreshAgentsList() {
   let {token, project} = getTokenAndProject();
   if (!token || !project) {
     return;
   }
   const servicesResult = await listServices(token, project);
   const services = (servicesResult.services || []).filter(service => service.labels && service.labels['managed-by'] === 'gemini-dev');
-  const servicesList = document.getElementById('services-list');
-  const servicesContainer = document.getElementById('services-container');
-  servicesList.innerHTML = '';
+  
+  const jobsResult = await listJobs(token, project);
+  const jobs = (jobsResult.jobs || []).filter(job => job.labels && job.labels['managed-by'] === 'gemini-dev');
 
-  if (services.length > 0) {
-    servicesContainer.hidden = false;
-    for (const service of services) {
-      const serviceName = service.name.split('/').pop();
-      let serviceUrl = service.uri;
-      if (service.annotations && service.annotations.repo) {
-        serviceUrl += `?repo=${service.annotations.repo}`;
+  const agents = [...services, ...jobs];
+  agents.sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
+
+  const agentsList = document.getElementById('agents-list');
+  const agentsContainer = document.getElementById('agents-container');
+  agentsList.innerHTML = '';
+
+  if (agents.length > 0) {
+    agentsContainer.hidden = false;
+    for (const agent of agents) {
+      const agentName = agent.name.split('/').pop();
+      const isJob = agent.template && agent.template.template;
+      let agentUrl = isJob ? '' : agent.uri;
+      if (agent.annotations && agent.annotations.repo) {
+        if (agentUrl) {
+          agentUrl += `?repo=${agent.annotations.repo}`;
+        }
       }
 
       const card = document.createElement('div');
       card.classList.add('service-card');
-      card.dataset.url = serviceUrl;
+      card.dataset.url = agentUrl;
 
       const nameElement = document.createElement('h3');
-      nameElement.textContent = serviceName;
+      nameElement.textContent = agentName;
       card.appendChild(nameElement);
 
       const detailsElement = document.createElement('p');
-      const repo = service.annotations && service.annotations.repo ? service.annotations.repo : 'N/A';
-      detailsElement.innerHTML = `
-        <b>URI:</b> <a href="${serviceUrl}" target="_blank">${serviceUrl}</a><br>
-        <b>Repo:</b> ${repo}
-      `;
+      const repo = agent.annotations && agent.annotations.repo;
+      const createTime = new Date(agent.createTime).toLocaleString();
+      if (isJob) {
+        detailsElement.innerHTML = `
+          <b>Type:</b> Async<br>
+          ${createTime}<br>
+          ${repo ? `<b>Repo:</b> ${repo}` : '(no repo)'}
+        `;
+      } else {
+        detailsElement.innerHTML = `
+          ${createTime}<br>
+          ${repo ? `<b>Repo:</b> ${repo}` : '(no repo)'}
+        `;
+      }
       card.appendChild(detailsElement);
 
       const buttonContainer = document.createElement('div');
       buttonContainer.classList.add('card-buttons');
 
-      const openInTabButton = document.createElement('button');
-      openInTabButton.textContent = 'Open in tab';
-      openInTabButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.open(serviceUrl, '_blank');
-      });
-      buttonContainer.appendChild(openInTabButton);
+      if (!isJob) {
+        const openInTabButton = document.createElement('button');
+        openInTabButton.textContent = 'Open in tab';
+        openInTabButton.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.open(agentUrl, '_blank');
+        });
+        buttonContainer.appendChild(openInTabButton);
+      }
 
       const deleteButton = document.createElement('button');
       deleteButton.textContent = 'Delete';
       deleteButton.addEventListener('click', async (e) => {
         e.stopPropagation(); // prevent card click event
-        if (confirm(`Are you sure you want to delete "${serviceName}"?`)) {
-          await deleteServiceAndRefresh(serviceName);
+        if (confirm(`Are you sure you want to delete "${agentName}"?`)) {
+          await deleteAgentAndRefresh(agentName, isJob);
         }
       });
       buttonContainer.appendChild(deleteButton);
@@ -542,6 +731,9 @@ async function refreshServicesList() {
       card.appendChild(buttonContainer);
 
       card.addEventListener('click', () => {
+        if (isJob) {
+          return;
+        }
         // Handle card selection
         const allCards = document.querySelectorAll('.service-card');
         allCards.forEach(c => c.classList.remove('selected'));
@@ -555,9 +747,16 @@ async function refreshServicesList() {
         iframeContainer.appendChild(iframe);
       });
 
-      servicesList.appendChild(card);
+      agentsList.appendChild(card);
     }
   } else {
-    servicesContainer.hidden = true;
+    agentsContainer.hidden = true;
   }
 }
+
+
+document.getElementById('project').addEventListener('change', refreshAgentsList);
+
+document.getElementById('async-mode').addEventListener('change', (e) => {
+  document.getElementById('prompt-container').hidden = !e.target.checked;
+});

@@ -133,7 +133,7 @@ limitations under the License.
         overflow: hidden;
       }
 
-      #services-container {
+      #agents-container {
         flex-shrink: 0;
         overflow-y: auto;
         padding: 1em;
@@ -279,7 +279,7 @@ limitations under the License.
           </p>
         </header>
         <main>
-          <div id="services-container">
+          <div id="agents-container">
             <div class="settings-card">
               <h2 class="instances-title">Settings</h2>
               <form>
@@ -292,6 +292,8 @@ limitations under the License.
             <div class="service-card">
               <form>
                 <p style="margin-bottom: 8px"><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
+                <p><label><input type="checkbox" id="async-mode"> Async mode</label></p>
+                <p id="prompt-container" hidden><label for="prompt">Prompt: <textarea name="prompt" id="prompt" rows="4" style="width: 100%;"></textarea></label></p>
                 <button id="button-deploy" class="primary-button">New agent</button>
                 <span id="waiting-message" hidden>
                   <label for="deployment">Deployment in progress:</label>
@@ -299,7 +301,7 @@ limitations under the License.
                 </span>
               </form>
             </div>
-            <div id="services-list"></div>
+            <div id="agents-list"></div>
           </div>
         </main>
         <footer>
