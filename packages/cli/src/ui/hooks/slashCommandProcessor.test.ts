@@ -340,6 +340,27 @@ describe('useSlashCommandProcessor', () => {
       expect(commandResult).toBe(true);
     });
 
+    it('/clear should clear items, reset chat, and refresh static', async () => {
+      const mockResetChat = vi.fn();
+      mockConfig = {
+        ...mockConfig,
+        getGeminiClient: () => ({
+          resetChat: mockResetChat,
+        }),
+      } as unknown as Config;
+
+      const { handleSlashCommand } = getProcessor();
+      let commandResult: SlashCommandActionReturn | boolean = false;
+      await act(async () => {
+        commandResult = await handleSlashCommand('/clear');
+      });
+
+      expect(mockClearItems).toHaveBeenCalled();
+      expect(mockResetChat).toHaveBeenCalled();
+      expect(mockRefreshStatic).toHaveBeenCalled();
+      expect(commandResult).toBe(true);
+    });
+
     it('/editor should open editor dialog and return true', async () => {
       const { handleSlashCommand } = getProcessor();
       let commandResult: SlashCommandActionReturn | boolean = false;
@@ -438,6 +459,7 @@ Add any other context about the problem here.
         ...mockConfig,
         getBugCommand: vi.fn(() => bugCommand),
       } as unknown as Config;
+      process.env.CLI_VERSION = '0.1.0';
 
       const { handleSlashCommand } = getProcessor();
       const bugDescription = 'This is a custom bug';
@@ -605,8 +627,8 @@ Add any other context about the problem here.
 
       // Should only show tool1 and tool2, not the MCP tools
       const message = mockAddItem.mock.calls[1][0].text;
-      expect(message).toContain('\u001b[36mTool1\u001b[0m');
-      expect(message).toContain('\u001b[36mTool2\u001b[0m');
+      expect(message).toContain('Tool1');
+      expect(message).toContain('Tool2');
       expect(commandResult).toBe(true);
     });
 
@@ -663,9 +685,9 @@ Add any other context about the problem here.
       });
 
       const message = mockAddItem.mock.calls[1][0].text;
-      expect(message).toContain('\u001b[36mTool1\u001b[0m');
+      expect(message).toContain('Tool1');
       expect(message).toContain('Description for Tool1');
-      expect(message).toContain('\u001b[36mTool2\u001b[0m');
+      expect(message).toContain('Tool2');
       expect(message).toContain('Description for Tool2');
       expect(commandResult).toBe(true);
     });

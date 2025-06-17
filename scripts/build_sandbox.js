@@ -107,10 +107,16 @@ function buildImage(imageName, dockerfile) {
   const buildCommand =
     sandboxCommand === 'podman'
       ? `${sandboxCommand} build --authfile=<(echo '{}')`
-      : `${sandboxCommand} --config=".docker" buildx build`;
+      : `${sandboxCommand} build`;
+
+  const npmPackageVersion = JSON.parse(
+    readFileSync(join(process.cwd(), 'package.json'), 'utf-8'),
+  ).version;
 
   execSync(
-    `${buildCommand} ${process.env.BUILD_SANDBOX_FLAGS || ''} -f "${dockerfile}" -t "${imageName}" .`,
+    `${buildCommand} ${
+      process.env.BUILD_SANDBOX_FLAGS || ''
+    } --build-arg CLI_VERSION_ARG=${npmPackageVersion} -f "${dockerfile}" -t "${imageName}" .`,
     { stdio: buildStdout, shell: '/bin/bash' },
   );
   console.log(`built ${imageName}`);
