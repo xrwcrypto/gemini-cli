@@ -27,7 +27,9 @@ const REQUIRED_APIS = [
   'aiplatform.googleapis.com',
 ];
 
-const REDIRECT_URI = window.location.href.split('#')[0];
+const REDIRECT_URI = window.location.hostname === 'localhost' ?
+  `${window.location.protocol}//${window.location.host}` :
+  window.location.href.split('#')[0];
 
 const region = 'europe-west1';
 
