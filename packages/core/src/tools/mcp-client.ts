@@ -164,8 +164,6 @@ export async function discoverMcpTools(
   }
 }
 
-
-
 async function connectAndDiscover(
   mcpServerName: string,
   mcpServerConfig: MCPServerConfig,
