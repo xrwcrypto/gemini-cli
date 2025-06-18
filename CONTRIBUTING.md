@@ -140,22 +140,36 @@ This project contains two types of tests: unit tests and integration tests.
 
 #### Unit Tests
 
-To execute the unit test suite for the project:
+Unit tests are located within the packages they test (e.g., `packages/core`, `packages/cli`, `packages/web`).
+
+To run all unit tests across all workspaces:
 
 ```bash
 npm run test
 ```
 
-This will run tests located in the `packages/core` and `packages/cli` directories. Ensure tests pass before submitting any changes. For a more comprehensive check, it is recommended to run `npm run preflight`.
+To run the tests for a specific workspace, you can use the `--workspace` flag. For example, to run the tests for the web frontend:
+
+```bash
+npm test --workspace @gemini-cli/web
+```
+
+Ensure tests pass before submitting any changes. For a more comprehensive check, it is recommended to run `npm run preflight`.
 
 #### Integration Tests
 
-The integration tests are designed to validate the end-to-end functionality of the Gemini CLI. They are not run as part of the default `npm run test` command.
+The integration tests are designed to validate the end-to-end functionality of the Gemini CLI and its components, like the WebRun container. They are located in the `/integration-tests` directory and are not run as part of the default `npm run test` command.
 
-To run the integration tests, use the following command:
+To run all integration tests:
 
 ```bash
 npm run test:e2e
+```
+
+To run a specific integration test file, you can pass its name as an argument. For example, to run the tests for the WebRun container:
+
+```bash
+npm run test:e2e webrun
 ```
 
 For more detailed information on the integration testing framework, please see the [Integration Tests documentation](./docs/integration-tests.md).

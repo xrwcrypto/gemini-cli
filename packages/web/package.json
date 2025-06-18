@@ -1,0 +1,13 @@
+{
+  "name": "@gemini-cli/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "test:ci": "vitest run --reporter=junit --outputFile=junit.xml"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.1",
+    "@vitest/coverage-v8": "^3.1.1"
+  }
+}

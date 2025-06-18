@@ -349,7 +349,7 @@ function getTokenAndProject() {
 }
 
 
-async function deploy(token, project, name, bucket, asyncMode, pat, repo, githubUser, prompt, validateOnly = false) {
+export async function deploy(token, project, name, bucket, asyncMode, pat, repo, githubUser, prompt, validateOnly = false) {
   console.log(`Deploying to Cloud Run: ${project} ${region} ${name}, async=${asyncMode}, validate only? ${validateOnly}`);
 
   let url;
@@ -415,7 +415,7 @@ async function getService(token, project, service) {
   return result;
 }
 
-async function listServices(token, project) {
+export async function listServices(token, project) {
   console.log(`Listing services in: ${project} ${region}`);
 
   const response = await fetch(`https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services`, {
@@ -447,7 +447,7 @@ async function listJobs(token, project) {
   return result;
 }
 
-async function deleteService(token, project, service) {
+export async function deleteService(token, project, service) {
   console.log(`Deleting service: ${project} ${region} ${service}`);
 
   const response = await fetch(`https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services/${service}`, {
