@@ -33,5 +33,6 @@ This documentation is organized into the following sections:
   - **[Multi-File Read Tool](./tools/multi-file.md):** Using the `read_many_files` tool.
 - **[Contributing & Development Guide](../CONTRIBUTING.md):** Information for contributors and developers, including setup, building, testing, and coding conventions.
 - **[Troubleshooting Guide](./troubleshooting.md):** Find solutions to common problems and FAQs.
+- **[Web-Based Agent Runner](./webrun.md):** Learn about deploying and managing agents via a web interface.
 
 We hope this documentation helps you make the most of the Gemini CLI!
