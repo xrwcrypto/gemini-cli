@@ -1,0 +1,25 @@
+{
+  "workbench.activityBar.visible": false,
+  "workbench.activityBar.position": "hidden",
+  "window.commandCenter": false,
+  "workbench.layoutControl.enabled": false,
+  "workbench.statusBar.visible": false,
+  "editor.minimap.enabled": false,
+  "workbench.startupEditor": "none",
+  "workbench.tips.enabled": false,
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "window.menuBarVisibility": "compact",
+  "extensions.ignoreRecommendations": true,
+  "window.customMenuBarAltFocus": false,
+  "workbench.editor.showTabs": "single",
+  "window.title": "${activeEditorShort}${separator}${rootName}",
+  "workbench.colorCustomizations": {
+    "menu.border": "#424242",
+    "menu.separatorBackground": "#424242",
+    "menu.background": "#212121",
+    "menu.foreground": "#FFFFFF",
+    "menuBar.background": "#212121"
+  },
+  "workbench.menuBar.compact": true
+}
