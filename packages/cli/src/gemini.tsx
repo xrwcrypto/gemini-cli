@@ -11,7 +11,7 @@ import { loadCliConfig } from './config/config.js';
 import { resolvePromptFromFile } from './utils/prompt.js';
 import { readStdin } from './utils/readStdin.js';
 import { basename } from 'node:path';
-import { sandbox_command, start_sandbox } from './utils/sandbox.js';
+import { start_sandbox } from './utils/sandbox.js';
 import { LoadedSettings, loadSettings } from './config/settings.js';
 import { themeManager } from './ui/themes/theme-manager.js';
 import { getStartupWarnings } from './utils/startupWarnings.js';
@@ -73,9 +73,9 @@ export async function main() {
 
   // hop into sandbox if we are outside and sandboxing is enabled
   if (!process.env.SANDBOX) {
-    const sandbox = sandbox_command(config.getSandbox());
-    if (sandbox) {
-      await start_sandbox(sandbox);
+    const sandboxConfig = config.getSandbox();
+    if (sandboxConfig) {
+      await start_sandbox(sandboxConfig);
       process.exit(0);
     }
   }
