@@ -501,12 +501,14 @@ async function runJob(token, project, job) {
 
 
 
-async function deleteAgentAndRefresh(agentName, isJob) {
+async function deleteAgent(agent) {
   let {token, project} = getTokenAndProject();
   if (!token || !project) {
     return;
   }
   let deleteResult;
+  const agentName = agent.name.split('/').pop();
+  const isJob = agent.template && agent.template.template;
   if (isJob) {
     deleteResult = await deleteJob(token, project, agentName);
   } else {
@@ -518,8 +520,24 @@ async function deleteAgentAndRefresh(agentName, isJob) {
   }
   const operation = deleteResult.name;
   await waitOperation(token, project, operation);
-  await refreshAgentsList();
   showDefaultContent();
+}
+
+async function deleteAgentsAndRefresh() {
+  if (!confirm('Are you sure you want to delete all agents?')) {
+    return;
+  }
+
+  let {token, project} = getTokenAndProject();
+  if (!token || !project) {
+    return;
+  }
+
+  const agents = await listAgents(token, project);
+
+  await Promise.all(agents.map(agent => deleteAgent(agent)));
+
+  await refreshAgentsList();
 }
 
 function showDefaultContent() {
@@ -790,20 +808,15 @@ async function refreshAgentsList() {
   if (!token || !project) {
     return;
   }
-  const servicesResult = await listServices(token, project);
-  const services = (servicesResult.services || []).filter(service => service.labels && service.labels['managed-by'] === 'gemini-dev');
-  
-  const jobsResult = await listJobs(token, project);
-  const jobs = (jobsResult.jobs || []).filter(job => job.labels && job.labels['managed-by'] === 'gemini-dev');
-
-  const agents = [...services, ...jobs];
-  agents.sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
+  const agents = await listAgents(token, project);
 
   const agentsList = document.getElementById('agents-list');
   const agentsContainer = document.getElementById('agents-container');
+  const deleteAllButton = document.getElementById('delete-all-button');
   agentsList.innerHTML = '';
 
   if (agents.length > 0) {
+    deleteAllButton.hidden = false;
     agentsList.hidden = false;
     for (const agent of agents) {
       const agentName = agent.name.split('/').pop();
@@ -858,7 +871,8 @@ async function refreshAgentsList() {
       deleteButton.addEventListener('click', async (e) => {
         e.stopPropagation(); // prevent card click event
         if (confirm(`Are you sure you want to delete "${agentName}"?`)) {
-          await deleteAgentAndRefresh(agentName, isJob);
+          await deleteAgent(agent);
+          await refreshAgentsList();
         }
       });
       buttonContainer.appendChild(deleteButton);
@@ -887,6 +901,20 @@ async function refreshAgentsList() {
   } else {
     agentsList.hidden = true;
   }
+}
+
+document.getElementById('delete-all-button').addEventListener('click', deleteAgentsAndRefresh);
+
+async function listAgents(token, project) {
+  const servicesResult = await listServices(token, project);
+  const services = (servicesResult.services || []).filter(service => service.labels && service.labels['managed-by'] === 'gemini-dev');
+  
+  const jobsResult = await listJobs(token, project);
+  const jobs = (jobsResult.jobs || []).filter(job => job.labels && job.labels['managed-by'] === 'gemini-dev');
+
+  const agents = [...services, ...jobs];
+  agents.sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
+  return agents;
 }
 
 

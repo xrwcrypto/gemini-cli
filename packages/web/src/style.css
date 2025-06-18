@@ -204,6 +204,25 @@
         color: #333;
       }
 
+      .button-container-right {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .secondary-button {
+        background: none;
+        border: none;
+        color: grey;
+        cursor: pointer;
+        font-size: smaller;
+        text-decoration: none;
+      }
+
+      .secondary-button:hover {
+        text-decoration: underline;
+        color: #333;
+      }
+
       button {
         font-family: monospace;
       }
