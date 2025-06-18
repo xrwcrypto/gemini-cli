@@ -133,6 +133,7 @@ When you create a `.gemini/settings.json` file for project-specific settings, or
   - Must return function output as JSON on `stdout`, analogous to [`functionResponse.response.content`](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#functionresponse).
     - Example for `add_two_numbers` (see above): `3` (for input `{"a":1, "b":2}` on `stdin`)
 - **`promptReadyCommand`** (string, optional):
+
   - **Description:** Specifies a shell command to execute when the model is finished responding and is ready for user input. The last response from the model will be piped to the command's standard input.
   - **Default:** If not set, the CLI will play a system bell sound (ASCII character 7).
   - **Example:**
