@@ -298,7 +298,7 @@ limitations under the License.
             <details class="settings-card" open>
               <summary class="instances-title">Settings</summary>
               <form>
-                <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></p>
+                <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id" required/></label></p>
                 <p><label for="github-user">GitHub user name (optional): <input name="github-user" id="github-user"/></label></p>
                 <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="20"/></label></p>
               </form>
@@ -306,7 +306,7 @@ limitations under the License.
             <h2 class="agents-title">AGENTS</h2>
             <div class="service-card">
               <form>
-                <p style="margin-bottom: 8px"><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="40"/></label></p>
+                <p style="margin-bottom: 8px"><label for="repo">GitHub repository URL (optional): <input name="repo" id="repo" size="20"/></label></p>
                 <p><label><input type="checkbox" id="async-mode"> Async mode</label></p>
                 <p id="prompt-container" hidden><label for="prompt">Prompt: <textarea name="prompt" id="prompt" rows="4" style="width: 100%;"></textarea></label></p>
                 <button id="button-deploy" class="primary-button">New agent</button>

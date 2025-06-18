@@ -281,7 +281,6 @@ function getTokenAndProject() {
     console.error('No project ID');
     return {};
   }
-  localStorage.setItem('project', project);
 
   return {token, project};
 }
@@ -625,6 +624,18 @@ function oauth2SignIn() {
   getUserInfo();
 }
 
+document.getElementById('project').addEventListener('input', (e) => {
+  localStorage.setItem('project', e.target.value);
+});
+
+document.getElementById('github-user').addEventListener('input', (e) => {
+  localStorage.setItem('github-user', e.target.value);
+});
+
+document.getElementById('pat').addEventListener('input', (e) => {
+  localStorage.setItem('pat', e.target.value);
+});
+
 if (document.referrer) {
   const referrer = new URL(document.referrer);
   if (referrer.hostname === 'github.com') {
@@ -638,6 +649,16 @@ if (storedProject) {
   if (localStorage.getItem('token')) {
     refreshAgentsList();
   }
+}
+
+const storedGithubUser = localStorage.getItem('github-user');
+if (storedGithubUser) {
+  document.getElementById('github-user').value = storedGithubUser;
+}
+
+const storedPat = localStorage.getItem('pat');
+if (storedPat) {
+  document.getElementById('pat').value = storedPat;
 }
 
 document.getElementById('toggle-button').addEventListener('click', () => {
