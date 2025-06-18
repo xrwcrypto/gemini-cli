@@ -26,6 +26,14 @@ mkdir -p /home/$WEBRUN_USER/.config
 mkdir -p /home/$WEBRUN_USER/.local/share
 mkdir -p /home/$WEBRUN_USER/workspace
 
+# Start lsyncd
+if [ -n "$GOOGLE_CLOUD_PROJECT" ]; then
+    GCS_BUCKET="gs://${GOOGLE_CLOUD_PROJECT}-webrun"
+    sed -i "s|gcs_bucket_placeholder|$GCS_BUCKET/agents/$WEBRUN_AGENT/workspace|" /etc/lsyncd/lsyncd.conf.lua
+    mkdir -p /var/log/lsyncd
+    lsyncd /etc/lsyncd/lsyncd.conf.lua
+fi
+
 
 # Copy pre-installed extensions at startup if they are not already present.
 # This ensures default extensions are available without overwriting user-installed ones.
