@@ -43,6 +43,7 @@ EXPOSE 8080
 
 ENV GOOGLE_CLOUD_LOCATION=global
 ENV GOOGLE_GENAI_USE_VERTEXAI=true
+ENV WEBRUN_REGION=europe-west1
 
 # Start the wrapper script which launches ttyd and Caddy.
 ENTRYPOINT ["/usr/local/bin/entrypoint-wrapper.sh"]

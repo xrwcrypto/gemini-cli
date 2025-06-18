@@ -3,37 +3,34 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-# Start the Docker daemon in the background
-echo "Starting Docker daemon..."
-dockerd &
-
-# Wait a moment for the Docker daemon to initialize
-sleep 3
-
-# If we are running as root, switch to the "node" user.
+# Start privileged services as root.
 if [ "$(id -u)" = "0" ]; then
-  # The -m flag is important to preserve the environment variables
-  # from the container's runtime.
+  # Start the Docker daemon in the background
+  echo "Starting Docker daemon..."
+  dockerd &
+  sleep 3 # Wait for dockerd to initialize
+
+  # Create user directories and set permissions
+  mkdir -p /home/$WEBRUN_USER/.config
+  mkdir -p /home/$WEBRUN_USER/.local/share
+  mkdir -p /home/$WEBRUN_USER/workspace
+  chown -R $WEBRUN_USER:$WEBRUN_USER /home/$WEBRUN_USER
+
+  # Configure and start lsyncd
+  if [ -n "$GOOGLE_CLOUD_PROJECT" ]; then
+      GCS_BUCKET="gs://${GOOGLE_CLOUD_PROJECT}-${WEBRUN_REGION}-gemini-run"
+      sed -i "s|gcs_bucket_placeholder|$GCS_BUCKET/agents/$WEBRUN_AGENT/workspace|" /etc/lsyncd/lsyncd.conf.lua
+      mkdir -p /var/log/lsyncd
+      lsyncd /etc/lsyncd/lsyncd.conf.lua &
+  fi
+
+  # Switch to the "node" user for unprivileged commands.
   exec su -m $WEBRUN_USER -- "$0" "$@"
 fi
 
 # From here, we are running as the 'node' user.
 # Set HOME to the correct directory to avoid writing to /root.
 export HOME=/home/$WEBRUN_USER
-
-# Ensure config and data directories exist, to be safe.
-mkdir -p /home/$WEBRUN_USER/.config
-mkdir -p /home/$WEBRUN_USER/.local/share
-mkdir -p /home/$WEBRUN_USER/workspace
-
-# Start lsyncd
-if [ -n "$GOOGLE_CLOUD_PROJECT" ]; then
-    GCS_BUCKET="gs://${GOOGLE_CLOUD_PROJECT}-webrun"
-    sed -i "s|gcs_bucket_placeholder|$GCS_BUCKET/agents/$WEBRUN_AGENT/workspace|" /etc/lsyncd/lsyncd.conf.lua
-    mkdir -p /var/log/lsyncd
-    lsyncd /etc/lsyncd/lsyncd.conf.lua
-fi
-
 
 # Copy pre-installed extensions at startup if they are not already present.
 # This ensures default extensions are available without overwriting user-installed ones.

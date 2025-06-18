@@ -101,6 +101,10 @@ function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt, a
     {
       name: 'GOOGLE_GENAI_USE_VERTEXAI',
       value: 'true'
+    },
+    {
+      name: 'WEBRUN_AGENT',
+      value: agentName
     }
   ];
   if (pat) {
@@ -204,6 +208,10 @@ function getCloudRunServicePayload(project, bucket, pat, repo, githubUser, agent
     {
       name: 'GOOGLE_GENAI_USE_VERTEXAI',
       value: 'true'
+    },
+    {
+      name: 'WEBRUN_AGENT',
+      value: agentName
     }
   ];
   if (pat) {
