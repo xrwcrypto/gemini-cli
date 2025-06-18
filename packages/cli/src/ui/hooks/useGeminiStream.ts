@@ -157,11 +157,8 @@ export const useGeminiStream = (
           ((tc.status === 'success' ||
             tc.status === 'error' ||
             tc.status === 'cancelled') &&
-            !(
-              tc as
-                | TrackedCompletedToolCall
-                | TrackedCancelledToolCall
-            ).responseSubmittedToGemini),
+            !(tc as TrackedCompletedToolCall | TrackedCancelledToolCall)
+              .responseSubmittedToGemini),
       )
     ) {
       return StreamingState.Responding;
