@@ -16,7 +16,7 @@ import { ShellTool } from '../tools/shell.js';
 import { WriteFileTool } from '../tools/write-file.js';
 import process from 'node:process';
 import { isGitRepository } from '../utils/gitUtils.js';
-import { isIdeConnected } from '../utils/ipc.js';
+import { isIdeConnected } from '../tools/ide.js';
 import { MemoryTool, GEMINI_CONFIG_DIR } from '../tools/memoryTool.js';
 
 export function getCoreSystemPrompt(userMemory?: string): string {
