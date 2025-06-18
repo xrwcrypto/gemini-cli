@@ -83,7 +83,7 @@ function generateAgentName() {
 }
 
 
-function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt) {
+function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt, agentName) {
   const env = [
     {
       name: 'GOOGLE_CLOUD_PROJECT',
@@ -128,13 +128,21 @@ function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt) {
       {
         name: 'gemini-home',
         mountPath: '/home/node/.gemini'
+      },
+      {
+        name: 'agent-workspace',
+        mountPath: '/home/node/.workspace'
+      },
+      {
+        name: 'agent-gemini-in-workspace',
+        mountPath: '/home/node/workspace/.gemini'
       }
     ]
   };
 
   if (prompt) {
     // Sanitize the prompt: replace newlines with spaces and escape double quotes.
-    const sanitizedPrompt = prompt.replace(/\n/g, ' ').replace(/"/g, '\"');
+    const sanitizedPrompt = prompt.replace(/\n/g, ' ').replace(/"/g, '"');
     container.command = ["gemini"];
     container.args = ["-p", `"${sanitizedPrompt}"`, "--yolo"];
   }
@@ -151,6 +159,24 @@ function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt) {
             name: 'gemini-home',
             gcs: {
               bucket: bucket,
+              mountOptions: [
+                '--only-dir',
+                '.gemini'
+              ]
+            }
+          },
+          {
+            name: 'agent-workspace',
+            gcs: {
+              bucket: bucket,
+              mountOptions: ['--only-dir', `agents/${agentName}/workspace`]
+            }
+          },
+          {
+            name: 'agent-gemini-in-workspace',
+            gcs: {
+              bucket: bucket,
+              mountOptions: ['--only-dir', `agents/${agentName}/.gemini`]
             }
           }
         ],
@@ -161,7 +187,7 @@ function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt) {
   };
 }
 
-function getCloudRunServicePayload(project, bucket, pat, repo, githubUser) {
+function getCloudRunServicePayload(project, bucket, pat, repo, githubUser, agentName) {
   const env = [
     {
       name: 'GOOGLE_CLOUD_PROJECT',
@@ -209,6 +235,24 @@ function getCloudRunServicePayload(project, bucket, pat, repo, githubUser) {
           name: 'gemini-home',
           gcs: {
             bucket: bucket,
+            mountOptions: [
+              '--only-dir',
+              '.gemini'
+            ]
+          }
+        },
+        {
+          name: 'agent-workspace',
+          gcs: {
+            bucket: bucket,
+            mountOptions: ['--only-dir', `agents/${agentName}/workspace`]
+          }
+        },
+        {
+          name: 'agent-gemini-in-workspace',
+          gcs: {
+            bucket: bucket,
+            mountOptions: ['--only-dir', `agents/${agentName}/.gemini`]
           }
         }
       ],
@@ -226,6 +270,14 @@ function getCloudRunServicePayload(project, bucket, pat, repo, githubUser) {
             {
               name: 'gemini-home',
               mountPath: '/home/node/.gemini'
+            },
+            {
+              name: 'agent-workspace',
+              mountPath: '/home/node/.workspace'
+            },
+            {
+              name: 'agent-gemini-in-workspace',
+              mountPath: '/home/node/workspace/.gemini'
             }
           ]
         }
@@ -293,10 +345,10 @@ async function deploy(token, project, name, bucket, asyncMode, pat, repo, github
   let payload;
   if (asyncMode) {
     url = `https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/jobs?jobId=${name}`;
-    payload = getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt);
+    payload = getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt, name);
   } else {
     url = `https://${region}-run.googleapis.com/v2/projects/${project}/locations/${region}/services?serviceId=${name}`;
-    payload = getCloudRunServicePayload(project, bucket, pat, repo, githubUser);
+    payload = getCloudRunServicePayload(project, bucket, pat, repo, githubUser, name);
   }
   
   if(validateOnly) {
@@ -493,6 +545,18 @@ async function deployAndWait() {
     }
 
     const service = generateAgentName();
+    const agentFolder = `agents/${service}/`;
+    const workspaceFolder = `${agentFolder}workspace/`;
+    const geminiFolder = `${agentFolder}.gemini/`;
+
+    if (!await ensureGcsFolderExists(token, bucket, agentFolder) ||
+        !await ensureGcsFolderExists(token, bucket, workspaceFolder) ||
+        !await ensureGcsFolderExists(token, bucket, geminiFolder)) {
+      // Stop if any folder creation fails. The helper function already shows an alert.
+      document.getElementById('button-deploy').hidden = false;
+      document.getElementById('waiting-message').hidden = true;
+      return;
+    }
 
     const asyncMode = document.getElementById('async-mode').checked;
     const pat = document.getElementById('pat').value;
@@ -535,21 +599,66 @@ async function deployAndWait() {
   }
 }
 
+async function gcsFolderExists(token, bucket, folderName) {
+  const response = await fetch(`https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(folderName)}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+    }
+  });
+  return response.ok;
+}
+
+async function createGcsFolder(token, bucket, folderName) {
+  const response = await fetch(`https://storage.googleapis.com/upload/storage/v1/b/${bucket}/o?uploadType=media&name=${encodeURIComponent(folderName)}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Length': '0'
+    },
+    body: ''
+  });
+  return response.ok;
+}
+
+async function ensureGcsFolderExists(token, bucket, folderName) {
+    const folderExists = await gcsFolderExists(token, bucket, folderName);
+    if (!folderExists) {
+        console.log(`Folder ${folderName} does not exist in bucket ${bucket}, creating...`);
+        const folderCreated = await createGcsFolder(token, bucket, folderName);
+        if (folderCreated) {
+            console.log(`Folder ${folderName} created`);
+            return true;
+        } else {
+            alert(`Error creating folder ${folderName} in bucket ${bucket}`);
+            return false;
+        }
+    } else {
+        console.log(`Folder ${folderName} already exists in bucket ${bucket}`);
+        return true;
+    }
+}
+
 async function getOrCreateGcsBucket(token, project) {
   const bucket = `${project}-${region}-gemini-run`;
-  const exists = await gcsBucketExists(token, bucket);
-  if (exists) {
+  const bucketExists = await gcsBucketExists(token, bucket);
+  if (!bucketExists) {
+    console.log(`Bucket ${bucket} does not exist, creating...`);
+    const created = await createGcsBucket(token, project, bucket, region);
+    if (created) {
+      console.log(`Bucket ${bucket} created`);
+    } else {
+      alert(`Error creating bucket ${bucket}`);
+      return null;
+    }
+  } else {
     console.log(`Bucket ${bucket} already exists`);
-    return bucket;
   }
-  console.log(`Bucket ${bucket} does not exist, creating...`);
-  const created = await createGcsBucket(token, project, bucket, region);
-  if (created) {
-    console.log(`Bucket ${bucket} created`);
-    return bucket;
-  }
-  alert(`Error creating bucket ${bucket}`);
-  return null;
+
+  if (!await ensureGcsFolderExists(token, bucket, '.gemini/')) return null;
+  if (!await ensureGcsFolderExists(token, bucket, 'agents/')) return null;
+
+  return bucket;
 }
 
 async function gcsBucketExists(token, bucket) {
@@ -572,6 +681,9 @@ async function createGcsBucket(token, project, bucket, location) {
     body: JSON.stringify({
       name: bucket,
       location: location,
+      hierarchicalNamespace: {
+        enabled: true,
+      },
     })
   });
   return response.ok;
