@@ -583,6 +583,7 @@ document.getElementById('button-deploy').addEventListener('click', async (e) => 
   const { token } = getTokenAndProject();
   if (token) {
     await deployAndWait();
+    await getUserInfo();
   } else {
     oauth2SignIn();
   }
@@ -604,7 +605,7 @@ function oauth2SignIn() {
   // Parameters to pass to OAuth 2.0 endpoint.
   var params = {'client_id': CLIENT_ID,
                 'redirect_uri': REDIRECT_URI,
-                'scope': 'https://www.googleapis.com/auth/cloud-platform',
+                'scope': 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile',
                 'state': state,
                 'include_granted_scopes': 'true',
                 'response_type': 'token'};
@@ -621,6 +622,7 @@ function oauth2SignIn() {
   // Add form to page and submit it to open the OAuth 2.0 endpoint.
   document.body.appendChild(form);
   form.submit();
+  getUserInfo();
 }
 
 if (document.referrer) {
@@ -760,3 +762,43 @@ document.getElementById('project').addEventListener('change', refreshAgentsList)
 document.getElementById('async-mode').addEventListener('change', (e) => {
   document.getElementById('prompt-container').hidden = !e.target.checked;
 });
+
+getUserInfo();
+
+async function getUserInfo() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    showUnauthenticatedState();
+    return;
+  }
+
+  const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (response.ok) {
+    const userInfo = await response.json();
+    const userInfoContainer = document.getElementById('user-info');
+    userInfoContainer.innerHTML = `<img src="${userInfo.picture}" alt="User avatar">`;
+    showAuthenticatedState();
+  } else if (response.status === 401) {
+    showUnauthenticatedState();
+  }
+}
+
+function showAuthenticatedState() {
+  document.getElementById('signin-button').hidden = true;
+  document.getElementById('agents-container').classList.remove('disabled');
+  document.getElementById('button-deploy').classList.remove('disabled');
+}
+
+function showUnauthenticatedState() {
+  document.getElementById('signin-button').hidden = false;
+  document.getElementById('agents-container').classList.add('disabled');
+  document.getElementById('button-deploy').classList.add('disabled');
+  document.getElementById('user-info').innerHTML = '';
+}
+
+document.getElementById('signin-button').addEventListener('click', oauth2SignIn);

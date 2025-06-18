@@ -259,6 +259,24 @@ limitations under the License.
           color: #fff;
         }
       }
+
+      .disabled {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      #user-info {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1;
+      }
+
+      #user-info img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+      }
     
     </style>    
   </head>
@@ -270,12 +288,9 @@ limitations under the License.
           <p>
             Get Gemini CLI in the cloud in your own Google Cloud project. 
           </p>
+          <button id="signin-button" class="primary-button" hidden style="margin-bottom: 1em;">Sign In</button>
           <p class="important-text">
             <b>Important: This demo will not work with google.com corp accounts yet, you must use a gmail.com account and ask steren@google.com or jmahood@google.com to add you as a test user.</b>
-          </p>
-          <p class="important-text">
-            This is a <b>client-side</b> web app, the deployment is done from your browser to Cloud Run in your own Google Cloud project. <br>
-            <a href="https://cloud.google.com/run">Google Cloud Run</a> is a serverless runtime that scales to zero and starts fast.
           </p>
         </header>
         <main>
@@ -285,7 +300,7 @@ limitations under the License.
               <form>
                 <p><label for="project">Google Cloud project ID: <input name="project" id="project" placeholder="my-gcp-project-id"/></label></p>
                 <p><label for="github-user">GitHub user name (optional): <input name="github-user" id="github-user"/></label></p>
-                <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="40"/></label></p>
+                <p><label for="pat">GitHub Personal Access Token (optional): <input type="password" name="pat" id="pat" size="20"/></label></p>
               </form>
             </details>
             <h2 class="agents-title">AGENTS</h2>
@@ -305,6 +320,10 @@ limitations under the License.
           </div>
         </main>
         <footer>
+          <p class="important-text">
+            This is a <b>client-side</b> web app, the deployment is done from your browser to Cloud Run in your own Google Cloud project. <br>
+            <a href="https://cloud.google.com/run">Google Cloud Run</a> is a serverless runtime that scales to zero and starts fast.
+          </p>
         </footer>
       </div>
     </div>
@@ -314,6 +333,7 @@ limitations under the License.
     <div id="iframe-container">
       <div class="default-content">$</div>
     </div>
+    <div id="user-info"></div>
 
     <script type="module" src="script.js"></script>
   </body>
