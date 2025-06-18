@@ -14,28 +14,29 @@ sleep 3
 if [ "$(id -u)" = "0" ]; then
   # The -m flag is important to preserve the environment variables
   # from the container's runtime.
-  exec su -m node -- "$0" "$@"
+  exec su -m $WEBRUN_USER -- "$0" "$@"
 fi
 
 # From here, we are running as the 'node' user.
 # Set HOME to the correct directory to avoid writing to /root.
-export HOME=/home/node
+export HOME=/home/$WEBRUN_USER
 
 # Ensure config and data directories exist, to be safe.
-mkdir -p /home/node/.config
-mkdir -p /home/node/.local/share
+mkdir -p /home/$WEBRUN_USER/.config
+mkdir -p /home/$WEBRUN_USER/.local/share
+mkdir -p /home/$WEBRUN_USER/workspace
 
 
 # Copy pre-installed extensions at startup if they are not already present.
 # This ensures default extensions are available without overwriting user-installed ones.
 echo "Checking for pre-installed extensions..."
-mkdir -p /home/node/.local/share/code-server/User
-cp /opt/code-server/settings.json /home/node/.local/share/code-server/User/settings.json
-mkdir -p /home/node/.gemini/extensions
+mkdir -p /home/$WEBRUN_USER/.local/share/code-server/User
+cp /opt/code-server/settings.json /home/$WEBRUN_USER/.local/share/code-server/User/settings.json
+mkdir -p /home/$WEBRUN_USER/.gemini/extensions
 for ext_source in /opt/extensions/*; do
   if [ -e "$ext_source" ]; then
     ext_name=$(basename "$ext_source")
-    ext_dest="/home/node/.gemini/extensions/$ext_name"
+    ext_dest="/home/$WEBRUN_USER/.gemini/extensions/$ext_name"
     if [ ! -e "$ext_dest" ]; then
       echo "Installing default extension: $ext_name"
       cp -r "$ext_source" "$ext_dest"
@@ -49,7 +50,7 @@ export CODER_PORT=3000
 export PUBLIC_PORT=${PORT:-8080}
 
 echo "Starting code-server on internal port $CODER_PORT..."
-/opt/code-server/bin/code-server --auth=none --port $CODER_PORT &
+/opt/code-server/bin/code-server --auth=none --port $CODER_PORT /home/$WEBRUN_USER/workspace &
 
 echo "Starting ttyd on internal port $TTYD_PORT..."
 
@@ -60,12 +61,12 @@ ttyd -p "$TTYD_PORT" -W -a tmux new-session -A -s gemini -- bash -c '
 
 # The repo URL is passed as the first argument ($1) from ttyd.
 REPO_URL="$0"
-TARGET_DIR="/home/node"
+TARGET_DIR="/home/$WEBRUN_USER/workspace"
 
 if [ -n "$REPO_URL" ]; then
   echo "Received repository URL: $REPO_URL"
   if [[ "$REPO_URL" =~ ^https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+(\.git)?/?$ ]]; then
-    CLONE_DIR="/home/node/workspace"
+    CLONE_DIR="/home/$WEBRUN_USER/workspace"
     echo "Preparing workspace..."
     rm -rf "$CLONE_DIR" && mkdir -p "$CLONE_DIR"
     echo "Cloning repository..."

@@ -2,6 +2,9 @@ FROM gemini-cli-sandbox:latest
 
 USER root
 
+ARG USERNAME=node
+ENV WEBRUN_USER=$USERNAME
+
 # Install ttyd, Caddy, and other utilities
 RUN apt-get update && apt-get install -y curl procps tmux docker.io && \
     npm install -g https://github.com/GoogleCloudPlatform/cloud-run-mcp && \
@@ -12,7 +15,7 @@ RUN apt-get update && apt-get install -y curl procps tmux docker.io && \
     mv /opt/code-server-4.100.3-linux-amd64 /opt/code-server && \
     rm /tmp/code-server.tar.gz && \
     chmod +x /usr/local/bin/ttyd /usr/local/bin/caddy && \
-    usermod -aG docker node && \
+    usermod -aG docker $USERNAME && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the entrypoint script and Caddyfile
@@ -25,10 +28,11 @@ RUN chmod +x /usr/local/bin/entrypoint-wrapper.sh && chmod 644 /etc/caddy/Caddyf
 
 
 # Set the working directory
-WORKDIR /home/node
+WORKDIR /home/$USERNAME
 
 # preinstall extensions
 COPY .docker/webrun/extensions/ /opt/extensions/
+
 
 # Expose the port Caddy will run on.
 EXPOSE 8080
