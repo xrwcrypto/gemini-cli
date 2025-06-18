@@ -28,6 +28,7 @@ limitations under the License.
             Get Gemini CLI in the cloud in your own Google Cloud project. 
           </p>
           <button id="signin-button" class="primary-button" hidden style="margin-bottom: 1em;">Sign In</button>
+          <button id="signout-button" class="primary-button" hidden>Sign Out</button>
           <p class="important-text">
             <b>Important: This demo will not work with google.com corp accounts yet, you must use a gmail.com account and ask steren@google.com or jmahood@google.com to add you as a test user.</b>
           </p>
@@ -76,6 +77,10 @@ limitations under the License.
       <div class="default-content">$</div>
     </div>
     <div id="user-info"></div>
+    <div id="user-menu" class="user-menu" hidden>
+      <div id="user-menu-info"></div>
+      <button id="user-menu-signout" class="primary-button">Sign Out</button>
+    </div>
 
     <script type="module" src="script.js"></script>
   </body>

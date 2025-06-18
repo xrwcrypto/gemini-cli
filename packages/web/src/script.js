@@ -734,7 +734,7 @@ function oauth2SignIn() {
   // Parameters to pass to OAuth 2.0 endpoint.
   var params = {'client_id': CLIENT_ID,
                 'redirect_uri': REDIRECT_URI,
-                'scope': 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile',
+                'scope': 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
                 'state': state,
                 'include_granted_scopes': 'true',
                 'response_type': 'token'};
@@ -942,7 +942,17 @@ async function getUserInfo() {
   if (response.ok) {
     const userInfo = await response.json();
     const userInfoContainer = document.getElementById('user-info');
-    userInfoContainer.innerHTML = `<img src="${userInfo.picture}" alt="User avatar">`;
+    const userMenu = document.getElementById('user-menu');
+    const userMenuInfo = document.getElementById('user-menu-info');
+
+    userInfoContainer.innerHTML = `<img src="${userInfo.picture}" alt="User avatar" referrerpolicy="no-referrer">`;
+    userMenuInfo.innerHTML = `<strong>${userInfo.name}</strong><br>${userInfo.email}`;
+    
+    userInfoContainer.addEventListener('click', (e) => {
+      e.stopPropagation();
+      userMenu.hidden = !userMenu.hidden;
+    });
+
     showAuthenticatedState();
   } else if (response.status === 401) {
     showUnauthenticatedState();
@@ -951,15 +961,48 @@ async function getUserInfo() {
 
 function showAuthenticatedState() {
   document.getElementById('signin-button').hidden = true;
+  document.getElementById('signout-button').hidden = true;
   document.getElementById('agents-container').classList.remove('disabled');
   document.getElementById('button-deploy').classList.remove('disabled');
 }
 
 function showUnauthenticatedState() {
   document.getElementById('signin-button').hidden = false;
+  document.getElementById('signout-button').hidden = true;
   document.getElementById('agents-container').classList.add('disabled');
   document.getElementById('button-deploy').classList.add('disabled');
   document.getElementById('user-info').innerHTML = '';
+  document.getElementById('user-menu').hidden = true;
+}
+
+function signOut() {
+  const token = localStorage.getItem('token');
+  if (token) {
+    // Revoke the token to sign the user out.
+    fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/x-www-form-urlencoded'
+      }
+    }).finally(() => {
+      // Always clear local storage, even if revocation fails.
+      localStorage.removeItem('token');
+      localStorage.removeItem('token_expiration');
+      localStorage.removeItem('oauth2-params');
+      showUnauthenticatedState();
+      console.log('User signed out.');
+    });
+  }
 }
 
 document.getElementById('signin-button').addEventListener('click', oauth2SignIn);
+document.getElementById('signout-button').addEventListener('click', signOut);
+document.getElementById('user-menu-signout').addEventListener('click', signOut);
+
+window.addEventListener('click', (e) => {
+  const userMenu = document.getElementById('user-menu');
+  const userInfo = document.getElementById('user-info');
+  if (!userMenu.hidden && !userInfo.contains(e.target) && !userMenu.contains(e.target)) {
+    userMenu.hidden = true;
+  }
+});
