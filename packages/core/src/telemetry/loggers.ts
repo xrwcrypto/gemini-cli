@@ -36,6 +36,7 @@ import {
   GenerateContentResponseUsageMetadata,
 } from '@google/genai';
 import { logApiErrorToCloud, logApiRequestToCloud, logApiResponseToCloud, logSessionStartToCloud, logToolCallEventToCloud, logUserPromptToCloud } from './data-collection/cloud-client-logging.js';
+import { postTestLogMessage } from './data-collection/clearcut-logging.js';
 
 const shouldLogUserPrompts = (config: Config): boolean =>
   config.getTelemetryLogUserPromptsEnabled() ?? false;
@@ -95,6 +96,7 @@ export function logCliConfiguration(config: Config): void {
     mcp_servers: mcpServers ? Object.keys(mcpServers).join(',') : '',
   };
 
+  postTestLogMessage();
   logSessionStartToCloud(attributes);
   if (!isTelemetrySdkInitialized()) return;
 
