@@ -42,6 +42,10 @@ const argv = yargs(hideBin(process.argv))
     type: 'string',
     description: 'Custom Gemini CLI webrun container image.',
   })
+  .option('dev', {
+    type: 'boolean',
+    description: 'Deploy the dev version of the container.',
+  })
   .help().argv;
 
 const project = argv.project || process.env.GOOGLE_CLOUD_PROJECT;
@@ -56,9 +60,12 @@ if (!project) {
 const name = argv.name;
 const region = argv.region;
 const makePublicFlag = '--allow-unauthenticated'; // "--no-invoker-iam-check";
+const tag = argv.dev ? 'dev' : 'latest';
 
 // TODO: replace the default with publicly hosted webrun image
-const imageUri = argv.image || `us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:latest`;
+const imageUri =
+  argv.image ||
+  `us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:${tag}`;
 
 const deployCommand = `gcloud alpha run deploy ${name} --image ${imageUri} --max 1 --cpu 8 --memory 32Gi ${makePublicFlag} --set-env-vars GOOGLE_CLOUD_PROJECT=${project},GOOGLE_CLOUD_LOCATION=global,GOOGLE_GENAI_USE_VERTEXAI=true --region ${region} --project ${project}`;
 
