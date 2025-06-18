@@ -19,7 +19,10 @@
 
 
 const CLIENT_ID = '1023788818871-58e670siqp41sm92idla4k3octbhp4tj.apps.googleusercontent.com';
-const IMAGE = 'us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:latest';
+const useDevContainer = new URLSearchParams(window.location.search).has('dev');
+const IMAGE = useDevContainer
+  ? 'us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:dev'
+  : 'us-west1-docker.pkg.dev/gemini-run/containers/gemini-cli-webrun:latest';
 
 const REQUIRED_APIS = [
   'storage.googleapis.com',
