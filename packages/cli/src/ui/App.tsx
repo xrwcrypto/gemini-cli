@@ -51,6 +51,7 @@ import {
   isEditorAvailable,
   EditorType,
 } from '@gemini-cli/core';
+import { spawn } from 'child_process';
 import { useLogger } from './hooks/useLogger.js';
 import { StreamingContext } from './contexts/StreamingContext.js';
 import {
@@ -373,8 +374,47 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     };
     fetchUserMessages();
   }, [history, logger]);
-
   const isInputActive = streamingState === StreamingState.Idle && !initError;
+  const prevStreamingState = useRef<StreamingState>(streamingState);
+
+  useEffect(() => {
+    const wasStreaming =
+      prevStreamingState.current === StreamingState.Responding;
+    const isNowIdle = streamingState === StreamingState.Idle;
+    const wasIdle = prevStreamingState.current === StreamingState.Idle;
+    const isNowWaiting =
+      streamingState === StreamingState.WaitingForConfirmation;
+
+    if (wasStreaming && !wasIdle && (isNowIdle || isNowWaiting)) {
+      const promptReadyCommand = config.getPromptReadyCommand();
+      if (promptReadyCommand) {
+        let lastResponse = '';
+        for (let i = history.length - 1; i >= 0; i--) {
+          const item = history[i];
+          if (item.type === 'gemini' || item.type === 'gemini_content') {
+            if ('text' in item && item.text) {
+              lastResponse = item.text + lastResponse;
+            }
+          } else {
+            break;
+          }
+        }
+
+        if (lastResponse) {
+          const child = spawn(promptReadyCommand, {
+            shell: true,
+            stdio: 'pipe',
+          });
+          child.stdin.write(lastResponse);
+          child.stdin.end();
+        }
+      } else {
+        process.stdout.write('\x07');
+      }
+    }
+
+    prevStreamingState.current = streamingState;
+  }, [streamingState, config, history]);
 
   const handleClearScreen = useCallback(() => {
     clearItems();

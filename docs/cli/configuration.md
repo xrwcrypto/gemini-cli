@@ -132,6 +132,21 @@ When you create a `.gemini/settings.json` file for project-specific settings, or
     - Example for `add_two_numbers` (see above): `{"a":1, "b":2}`
   - Must return function output as JSON on `stdout`, analogous to [`functionResponse.response.content`](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#functionresponse).
     - Example for `add_two_numbers` (see above): `3` (for input `{"a":1, "b":2}` on `stdin`)
+- **`promptReadyCommand`** (string, optional):
+  - **Description:** Specifies a shell command to execute when the model is finished responding and is ready for user input. The last response from the model will be piped to the command's standard input.
+  - **Default:** If not set, the CLI will play a system bell sound (ASCII character 7).
+  - **Example:**
+    ```json
+    "promptReadyCommand": "my-notification-script.sh"
+    ```
+  - Your script can then read the model's response from stdin:
+    ```bash
+    #!/bin/bash
+    LAST_RESPONSE=$(cat)
+    # Example: show a desktop notification on macOS
+    osascript -e "display notification \"${LAST_RESPONSE:0:100}...\" with title \"Gemini Ready\""
+    ```
+
 - **`mcpServers`** (object, advanced):
   - Configures connections to one or more Model-Context Protocol (MCP) servers for discovering and using custom tools.
   - This is an object where each key is a unique server name (alias) and the value is an object defining that server's parameters:

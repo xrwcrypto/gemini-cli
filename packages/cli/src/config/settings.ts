@@ -37,6 +37,7 @@ export interface Settings {
   excludeTools?: string[];
   toolDiscoveryCommand?: string;
   toolCallCommand?: string;
+  promptReadyCommand?: string;
   mcpServerCommand?: string;
   mcpServers?: Record<string, MCPServerConfig>;
   showMemoryUsage?: boolean;
