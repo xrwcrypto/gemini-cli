@@ -713,6 +713,11 @@ async function createGcsBucket(token, project, bucket, location) {
       hierarchicalNamespace: {
         enabled: true,
       },
+      iamConfiguration: {
+        uniformBucketLevelAccess: {
+          enabled: true,
+        },
+      },
     })
   });
   return response.ok;
