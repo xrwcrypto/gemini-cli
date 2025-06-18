@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y curl procps tmux docker.io && \
     mv /opt/code-server-4.100.3-linux-amd64 /opt/code-server && \
     rm /tmp/code-server.tar.gz && \
     chmod +x /usr/local/bin/ttyd /usr/local/bin/caddy && \
+    usermod -aG docker node && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the entrypoint script and Caddyfile
@@ -20,7 +21,7 @@ COPY .docker/webrun/Caddyfile /etc/caddy/Caddyfile
 COPY .docker/webrun/code-server/settings.json /opt/code-server/settings.json
 
 # Make script executable
-RUN chmod +x /usr/local/bin/entrypoint-wrapper.sh
+RUN chmod +x /usr/local/bin/entrypoint-wrapper.sh && chmod 644 /etc/caddy/Caddyfile
 
 
 # Set the working directory

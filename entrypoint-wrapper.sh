@@ -5,10 +5,26 @@ set -e
 
 # Start the Docker daemon in the background
 echo "Starting Docker daemon..."
-dockerd > /var/log/dockerd.log 2>&1 &
+dockerd &
 
 # Wait a moment for the Docker daemon to initialize
 sleep 3
+
+# If we are running as root, switch to the "node" user.
+if [ "$(id -u)" = "0" ]; then
+  # The -m flag is important to preserve the environment variables
+  # from the container's runtime.
+  exec su -m node -- "$0" "$@"
+fi
+
+# From here, we are running as the 'node' user.
+# Set HOME to the correct directory to avoid writing to /root.
+export HOME=/home/node
+
+# Ensure config and data directories exist, to be safe.
+mkdir -p /home/node/.config
+mkdir -p /home/node/.local/share
+
 
 # Copy pre-installed extensions at startup if they are not already present.
 # This ensures default extensions are available without overwriting user-installed ones.
