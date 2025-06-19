@@ -638,7 +638,7 @@ export const useGeminiStream = (
 
   useEffect(() => {
     const saveRestorableToolCalls = async () => {
-      if (!config.getCheckpointEnabled()) {
+      if (!config.getCheckpointingEnabled()) {
         return;
       }
       const restorableToolCalls = toolCalls.filter(
