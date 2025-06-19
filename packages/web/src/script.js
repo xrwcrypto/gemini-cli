@@ -107,6 +107,12 @@ function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt, a
       value: agentName
     }
   ];
+  if (repo) {
+    env.push({
+      name: 'REPO',
+      value: repo
+    });
+  }
   if (pat) {
     env.push({
       name: 'GITHUB_PAT',
@@ -126,6 +132,7 @@ function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt, a
 
   const container = {
     image: IMAGE,
+    command: ["/usr/local/bin/entrypoint-wrapper.sh"],
     resources: {
       limits: {
         "cpu": "8",
@@ -150,10 +157,10 @@ function getCloudRunJobPayload(project, bucket, pat, repo, githubUser, prompt, a
   };
 
   if (prompt) {
-    // Sanitize the prompt: replace newlines with spaces and escape double quotes.
-    const sanitizedPrompt = prompt.replace(/\n/g, ' ').replace(/"/g, '"');
-    container.command = ["gemini"];
-    container.args = ["-p", `"${sanitizedPrompt}"`, "--yolo"];
+    env.push({
+      name: 'PROMPT',
+      value: prompt
+    });
   }
 
   return {
@@ -214,6 +221,12 @@ function getCloudRunServicePayload(project, bucket, pat, repo, githubUser, agent
       value: agentName
     }
   ];
+  if (repo) {
+    env.push({
+      name: 'REPO',
+      value: repo
+    });
+  }
   if (pat) {
     env.push({
       name: 'GITHUB_PAT',
