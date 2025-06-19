@@ -805,7 +805,7 @@ Add any other context about the problem here.
       },
     ];
 
-    if (config?.getCheckpointEnabled()) {
+    if (config?.getCheckpointingEnabled()) {
       commands.push({
         name: 'restore',
         description:
