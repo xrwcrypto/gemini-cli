@@ -71,7 +71,7 @@ export class EditTool
   extends BaseTool<EditToolParams, ToolResult>
   implements ModifiableTool<EditToolParams>
 {
-  static readonly Name = 'edit_file';
+  static readonly Name = 'replace';
   private readonly config: Config;
   private readonly rootDirectory: string;
   private readonly client: GeminiClient;
@@ -99,7 +99,7 @@ Expectation for required parameters:
         properties: {
           file_path: {
             description:
-              "The absolute path to the file to edit. Must start with '/'.",
+              "The absolute path to the file to modify. Must start with '/'.",
             type: 'string',
           },
           old_string: {
@@ -426,7 +426,7 @@ Expectation for required parameters:
         : '';
       const llmSuccessMessage = editData.isNewFile
         ? `Created new file: ${params.file_path} with provided content.`
-        : `Successfully edited file: ${params.file_path} (${editData.occurrences} replacements).${modfiedInfo}`;
+        : `Successfully modified file: ${params.file_path} (${editData.occurrences} replacements).${modfiedInfo}`;
 
       return {
         llmContent: llmSuccessMessage,

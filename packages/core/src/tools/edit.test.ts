@@ -432,7 +432,7 @@ describe('EditTool', () => {
 
       (tool as any).shouldAlwaysEdit = false; // Reset for other tests
 
-      expect(result.llmContent).toMatch(/Successfully edited file/);
+      expect(result.llmContent).toMatch(/Successfully modified file/);
       expect(fs.readFileSync(filePath, 'utf8')).toBe(newContent);
       const display = result.returnDisplay as FileDiff;
       expect(display.fileDiff).toMatch(initialContent);
@@ -511,7 +511,7 @@ describe('EditTool', () => {
 
       (tool as any).shouldAlwaysEdit = false; // Reset for other tests
 
-      expect(result.llmContent).toMatch(/Successfully edited file/);
+      expect(result.llmContent).toMatch(/Successfully modified file/);
       expect(fs.readFileSync(filePath, 'utf8')).toBe(
         'new text new text new text',
       );
