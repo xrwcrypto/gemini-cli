@@ -5,10 +5,13 @@
  */
 
 import path from 'node:path';
+import os from 'node:os';
+import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { Content } from '@google/genai';
 
 const GEMINI_DIR = '.gemini';
+const TMP_DIR_NAME = 'tmp';
 const LOG_FILE_NAME = 'logs.json';
 const CHECKPOINT_FILE_NAME = 'checkpoint.json';
 
@@ -95,7 +98,18 @@ export class Logger {
     if (this.initialized) {
       return;
     }
-    this.geminiDir = path.resolve(process.cwd(), GEMINI_DIR);
+
+    const projectHash = crypto
+      .createHash('sha256')
+      .update(process.cwd())
+      .digest('hex');
+
+    this.geminiDir = path.join(
+      os.homedir(),
+      GEMINI_DIR,
+      TMP_DIR_NAME,
+      projectHash,
+    );
     this.logFilePath = path.join(this.geminiDir, LOG_FILE_NAME);
     this.checkpointFilePath = path.join(this.geminiDir, CHECKPOINT_FILE_NAME);
 
@@ -191,7 +205,7 @@ export class Logger {
     }
   }
 
-  async getPreviousUserMessages(): Promise<string[]> {
+  getPreviousUserMessages(): string[] {
     if (!this.initialized) return [];
     return this.logs
       .filter((entry) => entry.type === MessageSenderType.USER)
@@ -252,7 +266,7 @@ export class Logger {
     }
     const path = this._checkpointPath(tag);
     try {
-      await fs.writeFile(path, JSON.stringify(conversation, null), 'utf-8');
+      await fs.writeFile(path, JSON.stringify(conversation, null, 2), 'utf-8');
     } catch (error) {
       console.error('Error writing to checkpoint file:', error);
     }
