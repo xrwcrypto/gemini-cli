@@ -12,6 +12,7 @@ import {
   ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
   ToolEditConfirmationDetails,
+  ToolIdeConfirmationDetails,
   ToolResult,
   ToolResultDisplay,
 } from './tools.js';
@@ -24,6 +25,7 @@ import { ensureCorrectEdit } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { ReadFileTool } from './read-file.js';
 import { ModifiableTool, ModifyContext } from './modifiable-tool.js';
+import { showDiff, isIdeConnected } from './ide.js';
 
 /**
  * Parameters for the Edit tool
@@ -310,6 +312,21 @@ Expectation for required parameters:
     if (editData.error) {
       console.log(`Error: ${editData.error.display}`);
       return false;
+    }
+
+    if (isIdeConnected()) {
+      const confirmationDetails: ToolIdeConfirmationDetails = {
+        type: 'ide',
+        title: 'Confirm Write in IDE',
+        onConfirm: async (outcome: ToolConfirmationOutcome) => {
+        if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+        }
+      },
+        fileName: params.file_path,
+        updatedContents: editData.newContent,
+      };
+      return confirmationDetails;
     }
 
     const fileName = path.basename(params.file_path);

@@ -230,11 +230,22 @@ export interface ToolInfoConfirmationDetails {
   urls?: string[];
 }
 
+export interface ToolIdeConfirmationDetails {
+  type: 'ide';
+  title: string;
+  // todo- do something with this
+  onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
+  fileName: string;
+  updatedContents: string;
+  isWaiting?: boolean;
+}
+
 export type ToolCallConfirmationDetails =
   | ToolEditConfirmationDetails
   | ToolExecuteConfirmationDetails
   | ToolMcpConfirmationDetails
-  | ToolInfoConfirmationDetails;
+  | ToolInfoConfirmationDetails
+  | ToolIdeConfirmationDetails;
 
 export enum ToolConfirmationOutcome {
   ProceedOnce = 'proceed_once',

@@ -15,6 +15,7 @@ import {
   ToolEditConfirmationDetails,
   ToolConfirmationOutcome,
   ToolCallConfirmationDetails,
+  ToolIdeConfirmationDetails,
 } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
@@ -27,6 +28,7 @@ import { GeminiClient } from '../core/client.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { ModifiableTool, ModifyContext } from './modifiable-tool.js';
 import { getSpecificMimeType } from '../utils/fileUtils.js';
+import { showDiff, isIdeConnected } from './ide.js';
 import {
   recordFileOperationMetric,
   FileOperation,
@@ -176,11 +178,27 @@ export class WriteFileTool
     }
 
     const { originalContent, correctedContent } = correctedContentResult;
+
     const relativePath = makeRelative(
       params.file_path,
       this.config.getTargetDir(),
     );
     const fileName = path.basename(params.file_path);
+
+    if (isIdeConnected()) {
+      const confirmationDetails: ToolIdeConfirmationDetails = {
+        type: 'ide',
+        title: 'Confirm Write in IDE',
+        fileName: params.file_path,
+        updatedContents: correctedContent,
+        onConfirm: async (outcome: ToolConfirmationOutcome) => {
+        if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+        }
+      },
+      };
+      return confirmationDetails;
+    }
 
     const fileDiff = Diff.createPatch(
       fileName,

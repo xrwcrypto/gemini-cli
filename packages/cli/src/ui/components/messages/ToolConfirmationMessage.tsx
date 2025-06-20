@@ -147,6 +147,32 @@ export const ToolConfirmationMessage: React.FC<
       },
       { label: 'No (esc)', value: ToolConfirmationOutcome.Cancel },
     );
+  } else if (confirmationDetails.type === 'ide') {
+    // not actually used
+    question = `Allow execution?`;
+    options.push(
+      {
+        label: 'Yes, allow once',
+        value: ToolConfirmationOutcome.ProceedOnce,
+      },
+    )
+    if (confirmationDetails.isWaiting) {
+      return (
+        <Box
+          minWidth="90%"
+          borderStyle="round"
+          borderColor={Colors.Gray}
+          justifyContent="space-around"
+          padding={1}
+          overflow="hidden"
+        >
+          <Text>Modify in progress: </Text>
+          <Text color={Colors.AccentGreen}>
+            Save and close external editor to continue
+          </Text>
+        </Box>
+      );
+    }
   } else {
     // mcp tool confirmation
     const mcpProps = confirmationDetails as ToolMcpConfirmationDetails;

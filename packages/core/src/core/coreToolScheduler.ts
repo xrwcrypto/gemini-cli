@@ -24,6 +24,7 @@ import {
   ModifyContext,
   modifyWithEditor,
 } from '../tools/modifiable-tool.js';
+import { showDiff } from '../tools/ide.js';
 
 export type ValidatingToolCall = {
   status: 'validating';
@@ -463,22 +464,45 @@ export class CoreToolScheduler {
           );
 
           if (confirmationDetails) {
-            const originalOnConfirm = confirmationDetails.onConfirm;
-            const wrappedConfirmationDetails: ToolCallConfirmationDetails = {
+            if (
+              confirmationDetails.type === 'ide' &&
+              'fileName' in confirmationDetails &&
+              'updatedContents' in confirmationDetails
+            ) {
+              this.setStatusInternal(reqInfo.callId, 'awaiting_approval', {
               ...confirmationDetails,
-              onConfirm: (outcome: ToolConfirmationOutcome) =>
-                this.handleConfirmationResponse(
-                  reqInfo.callId,
-                  originalOnConfirm,
-                  outcome,
-                  signal,
-                ),
+              isWaiting: true,
+            } as ToolCallConfirmationDetails);
+              await showDiff(
+                this.config,
+                confirmationDetails.fileName,
+                confirmationDetails.updatedContents,
+              );
+              const successResponse: ToolCallResponseInfo = {
+              callId: reqInfo.callId,
+              responseParts: [],
+              resultDisplay: "Successfully saved changes",
+              error: undefined,
             };
-            this.setStatusInternal(
-              reqInfo.callId,
-              'awaiting_approval',
-              wrappedConfirmationDetails,
-            );
+            this.setStatusInternal(reqInfo.callId, 'success', successResponse);
+            } else {
+              const originalOnConfirm = confirmationDetails.onConfirm;
+              const wrappedConfirmationDetails: ToolCallConfirmationDetails = {
+                ...confirmationDetails,
+                onConfirm: (outcome: ToolConfirmationOutcome) =>
+                  this.handleConfirmationResponse(
+                    reqInfo.callId,
+                    originalOnConfirm,
+                    outcome,
+                    signal,
+                  ),
+              };
+              this.setStatusInternal(
+                reqInfo.callId,
+                'awaiting_approval',
+                wrappedConfirmationDetails,
+              );
+            }
           } else {
             this.setStatusInternal(reqInfo.callId, 'scheduled');
           }
