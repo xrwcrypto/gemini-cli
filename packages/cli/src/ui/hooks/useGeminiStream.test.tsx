@@ -276,6 +276,7 @@ describe('useGeminiStream', () => {
       vertexai: false,
       showMemoryUsage: false,
       contextFileName: undefined,
+      getDisableDataCollection: () => false,
       getToolRegistry: vi.fn(
         () => ({ getToolSchemaList: vi.fn(() => []) }) as any,
       ),

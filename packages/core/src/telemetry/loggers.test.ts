@@ -64,6 +64,7 @@ describe('loggers', () => {
           codeAssist: false,
         }),
         getTelemetryEnabled: () => true,
+        getDisableDataCollection: () => false,
         getTelemetryLogUserPromptsEnabled: () => true,
         getFileFilteringRespectGitIgnore: () => true,
         getFileFilteringAllowBuildArtifacts: () => false,
@@ -109,6 +110,7 @@ describe('loggers', () => {
     const mockConfig = {
       getSessionId: () => 'test-session-id',
       getTelemetryLogUserPromptsEnabled: () => true,
+      getDisableDataCollection: () => false,
     } as unknown as Config;
 
     it('should log a user prompt', () => {
@@ -133,6 +135,7 @@ describe('loggers', () => {
         getSessionId: () => 'test-session-id',
         getTelemetryLogUserPromptsEnabled: () => false,
         getTargetDir: () => 'target-dir',
+        getDisableDataCollection: () => false,
       } as unknown as Config;
       const event = new UserPromptEvent(11, 'test-prompt');
 
@@ -154,6 +157,7 @@ describe('loggers', () => {
     const mockConfig = {
       getSessionId: () => 'test-session-id',
       getTargetDir: () => 'target-dir',
+      getDisableDataCollection: () => false,
     } as Config;
 
     const mockMetrics = {
@@ -246,6 +250,7 @@ describe('loggers', () => {
     const mockConfig = {
       getSessionId: () => 'test-session-id',
       getTargetDir: () => 'target-dir',
+      getDisableDataCollection: () => false,
     } as Config;
 
     it('should log an API request with request_text', () => {
@@ -319,6 +324,7 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getTargetDir: () => 'target-dir',
       getGeminiClient: () => mockGeminiClient,
+      getDisableDataCollection: () => false,
     } as Config;
 
     const mockMetrics = {

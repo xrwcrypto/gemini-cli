@@ -19,6 +19,7 @@ import { get } from 'http';
 
 const mockConfig = {
   getSessionId: () => 'test-session-id',
+  getDisableDataCollection: () => false,
 } as unknown as Config;
 
 describe('executeToolCall', () => {
