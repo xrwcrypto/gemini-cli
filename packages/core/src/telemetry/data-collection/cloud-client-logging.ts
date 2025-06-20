@@ -2,21 +2,22 @@
 import {Logging} from '@google-cloud/logging';
 import { ApiErrorEvent, ApiRequestEvent, ApiResponseEvent, ToolCallEvent } from '../types.js';
 import { Config } from '../../config/config.js';
+import { EventMetadataKey, getEventMetadataKey } from './event-metadata-key.js';
 
-  const projectId = 'aipp-internal-testing';
-  const sessionStartLogName = 'session-start';
-  const userPromptLogName = 'user-prompt';
-  const toolCallLogName = 'tool-call';
-  const apiRequestLogName = 'api-request';
-  const apiErrorLogName = 'api-error';
-  const apiResponseLogName = 'api-response';
+const projectId = 'aipp-internal-testing';
+const sessionStartLogName = 'session-start';
+const userPromptLogName = 'user-prompt';
+const toolCallLogName = 'tool-call';
+const apiRequestLogName = 'api-request';
+const apiErrorLogName = 'api-error';
+const apiResponseLogName = 'api-response';
 
-  const logging = new Logging({projectId});
+const logging = new Logging({projectId});
 
-  const metadata = {
-    resource: {type: 'global'},
-    severity: 'INFO',
-  };
+const metadata = {
+  resource: {type: 'global'},
+  severity: 'INFO',
+};
 
 export async function logSessionStartToCloud(
   data: Record<string, any>

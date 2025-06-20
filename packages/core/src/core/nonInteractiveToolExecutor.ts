@@ -6,6 +6,7 @@
 
 import {
   logToolCall,
+  ToolCallEvent,
   ToolCallRequestInfo,
   ToolCallResponseInfo,
   ToolRegistry,
@@ -33,6 +34,8 @@ export async function executeToolCall(
     );
     const durationMs = Date.now() - startTime;
     logToolCall(config, {
+      'event.name': 'tool_call',
+      'event.timestamp': new Date().toISOString(),
       function_name: toolCallRequest.name,
       function_args: toolCallRequest.args,
       duration_ms: durationMs,
@@ -67,6 +70,8 @@ export async function executeToolCall(
 
     const durationMs = Date.now() - startTime;
     logToolCall(config, {
+      'event.name': 'tool_call',
+      'event.timestamp': new Date().toISOString(),
       function_name: toolCallRequest.name,
       function_args: toolCallRequest.args,
       duration_ms: durationMs,
@@ -89,6 +94,8 @@ export async function executeToolCall(
     const error = e instanceof Error ? e : new Error(String(e));
     const durationMs = Date.now() - startTime;
     logToolCall(config, {
+      'event.name': 'tool_call',
+      'event.timestamp': new Date().toISOString(),
       function_name: toolCallRequest.name,
       function_args: toolCallRequest.args,
       duration_ms: durationMs,

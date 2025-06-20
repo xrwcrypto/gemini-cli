@@ -19,6 +19,8 @@ export {
   combinedUsageMetadata,
 } from './loggers.js';
 export {
+  StartSessionEvent,
+  EndSessionEvent,
   UserPromptEvent,
   ToolCallEvent,
   ApiRequestEvent,

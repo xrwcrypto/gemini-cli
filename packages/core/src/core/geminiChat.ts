@@ -30,6 +30,7 @@ import {
   getResponseText,
   getResponseTextFromParts,
 } from '../utils/generateContentResponseUtilities.js';
+import { ApiErrorEvent, ApiRequestEvent, ApiResponseEvent, UserPromptEvent } from '../telemetry/types.js';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -156,10 +157,7 @@ export class GeminiChat {
       config.getTelemetryLogUserPromptsEnabled() ?? false;
 
     const requestText = this._getRequestTextFromContents(contents);
-    logApiRequest(this.config, {
-      model,
-      request_text: shouldLogUserPrompts(this.config) ? requestText : undefined,
-    });
+    logApiRequest(this.config, new ApiRequestEvent(model, requestText));
   }
 
   private async _logApiResponse(
@@ -167,17 +165,7 @@ export class GeminiChat {
     usageMetadata?: GenerateContentResponseUsageMetadata,
     responseText?: string,
   ): Promise<void> {
-    logApiResponse(this.config, {
-      model: this.model,
-      duration_ms: durationMs,
-      status_code: 200, // Assuming 200 for success
-      input_token_count: usageMetadata?.promptTokenCount ?? 0,
-      output_token_count: usageMetadata?.candidatesTokenCount ?? 0,
-      cached_content_token_count: usageMetadata?.cachedContentTokenCount ?? 0,
-      thoughts_token_count: usageMetadata?.thoughtsTokenCount ?? 0,
-      tool_token_count: usageMetadata?.toolUsePromptTokenCount ?? 0,
-      response_text: responseText,
-    });
+    logApiResponse(this.config, new ApiResponseEvent(this.model, durationMs, usageMetadata, responseText));
   }
 
   private _logApiError(durationMs: number, error: unknown): void {
@@ -185,13 +173,7 @@ export class GeminiChat {
     const errorType = error instanceof Error ? error.name : 'unknown';
     const statusCode = 'unknown';
 
-    logApiError(this.config, {
-      model: this.model,
-      error: errorMessage,
-      status_code: statusCode,
-      error_type: errorType,
-      duration_ms: durationMs,
-    });
+    logApiError(this.config, new ApiErrorEvent(this.model, errorMessage, durationMs, errorType));
   }
 
   /**

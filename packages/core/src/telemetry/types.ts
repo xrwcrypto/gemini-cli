@@ -4,13 +4,79 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ToolCallDecision } from './loggers.js';
+import { GenerateContentResponseUsageMetadata } from '@google/genai';
+import { Config } from '../config/config.js';
+import { CompletedToolCall } from '../core/coreToolScheduler.js';
+import { ToolConfirmationOutcome } from '../tools/tools.js';
+
+export enum ToolCallDecision {
+  ACCEPT = 'accept',
+  REJECT = 'reject',
+  MODIFY = 'modify',
+}
+
+function getDecisionFromOutcome(
+  outcome: ToolConfirmationOutcome,
+): ToolCallDecision {
+  switch (outcome) {
+    case ToolConfirmationOutcome.ProceedOnce:
+    case ToolConfirmationOutcome.ProceedAlways:
+    case ToolConfirmationOutcome.ProceedAlwaysServer:
+    case ToolConfirmationOutcome.ProceedAlwaysTool:
+      return ToolCallDecision.ACCEPT;
+    case ToolConfirmationOutcome.ModifyWithEditor:
+      return ToolCallDecision.MODIFY;
+    case ToolConfirmationOutcome.Cancel:
+    default:
+      return ToolCallDecision.REJECT;
+  }
+}
+
+export interface StartSessionEvent {
+  'event.name': 'start_session';
+  'event.timestamp': string; // ISO 8601
+  config: Config;
+}
+
+export class StartSessionEvent {
+  constructor(config: Config) {
+    this['event.name'] = 'start_session';
+    this['event.timestamp'] = new Date().toISOString();
+    this.config = config;
+  }
+}
+
+export interface EndSessionEvent {
+  'event.name': 'end_session';
+  'event.timestamp': string; // ISO 8601
+  config: Config;
+}
+
+export class EndSessionEvent {
+  constructor(config: Config) {
+    this['event.name'] = 'end_session';
+    this['event.timestamp'] = new Date().toISOString();
+    this.config = config;
+  }
+}
 
 export interface UserPromptEvent {
   'event.name': 'user_prompt';
   'event.timestamp': string; // ISO 8601
   prompt_length: number;
   prompt?: string;
+}
+
+export class UserPromptEvent {
+  constructor(
+    prompt_length: number,
+    prompt?: string,
+  ) {
+    this['event.name'] = 'user_prompt';
+    this['event.timestamp'] = new Date().toISOString();
+    this.prompt_length = prompt_length;
+    this.prompt = prompt;
+  }
 }
 
 export interface ToolCallEvent {
@@ -25,11 +91,37 @@ export interface ToolCallEvent {
   error_type?: string;
 }
 
+export class ToolCallEvent {
+  constructor(call: CompletedToolCall) {
+    this['event.name'] = 'tool_call';
+    this['event.timestamp'] = new Date().toISOString();
+    this.function_name = call.request.name;
+    this.function_args = call.request.args;
+    this.duration_ms = call.durationMs ?? 0;
+    this.success = call.status === 'success';
+    this.decision = call.outcome ? getDecisionFromOutcome(call.outcome) : undefined;
+    this.error = call.response.error?.message;
+    this.error_type = call.response.error?.name;
+  }
+}
+
 export interface ApiRequestEvent {
   'event.name': 'api_request';
   'event.timestamp': string; // ISO 8601
   model: string;
   request_text?: string;
+}
+
+export class ApiRequestEvent {
+  constructor(
+    model: string,
+    request_text?: string,
+  ) {
+    this['event.name'] = 'api_request';
+    this['event.timestamp'] = new Date().toISOString();
+    this.model = model;
+    this.request_text = request_text;
+  }
 }
 
 export interface ApiErrorEvent {
@@ -40,6 +132,24 @@ export interface ApiErrorEvent {
   error_type?: string;
   status_code?: number | string;
   duration_ms: number;
+}
+
+export class ApiErrorEvent {
+  constructor(
+    model: string,
+    error: string,
+    duration_ms: number,
+    error_type?: string,
+    status_code?: number | string,    
+  ) {
+    this['event.name'] = 'api_error';
+    this['event.timestamp'] = new Date().toISOString();
+    this.model = model;
+    this.error = error;
+    this.error_type = error_type;
+    this.status_code = status_code;
+    this.duration_ms = duration_ms;
+  }
 }
 
 export interface ApiResponseEvent {
@@ -57,6 +167,29 @@ export interface ApiResponseEvent {
   response_text?: string;
 }
 
+export class ApiResponseEvent {
+  constructor(
+    model: string,
+    duration_ms: number,
+    usage_data?: GenerateContentResponseUsageMetadata,
+    response_text?: string,
+    error?: string,
+  ) {
+    this['event.name'] = 'api_response';
+    this['event.timestamp'] = new Date().toISOString();
+    this.model = model;
+    this.duration_ms = duration_ms;
+    this.status_code = 200;
+    this.input_token_count = usage_data?.promptTokenCount ?? 0;
+    this.output_token_count = usage_data?.candidatesTokenCount ?? 0;
+    this.cached_content_token_count = usage_data?.cachedContentTokenCount ?? 0;
+    this.thoughts_token_count = usage_data?.thoughtsTokenCount ?? 0;
+    this.tool_token_count = usage_data?.toolUsePromptTokenCount ?? 0;
+    this.response_text = response_text;
+    this.error = error;
+  }
+}
+
 export interface CliConfigEvent {
   'event.name': 'cli_config';
   'event.timestamp': string; // ISO 8601
@@ -70,7 +203,33 @@ export interface CliConfigEvent {
   file_filtering_allow_build_artifacts: boolean;
 }
 
+export class CliConfigEvent {
+  constructor(
+    model: string,
+    sandbox_enabled: boolean,
+    core_tools_enabled: string,
+    approval_mode: string,
+    vertex_ai_enabled: boolean,
+    log_user_prompts_enabled: boolean,
+    file_filtering_respect_git_ignore: boolean,
+    file_filtering_allow_build_artifacts: boolean,
+  ) {
+    this['event.name'] = 'cli_config';
+    this['event.timestamp'] = new Date().toISOString();
+    this.model = model;
+    this.sandbox_enabled = sandbox_enabled;
+    this.core_tools_enabled = core_tools_enabled;
+    this.approval_mode = approval_mode;
+    this.vertex_ai_enabled = vertex_ai_enabled;
+    this.log_user_prompts_enabled = log_user_prompts_enabled;
+    this.file_filtering_respect_git_ignore = file_filtering_respect_git_ignore;
+    this.file_filtering_allow_build_artifacts = file_filtering_allow_build_artifacts;
+  }
+}
+
 export type TelemetryEvent =
+  | StartSessionEvent
+  | EndSessionEvent
   | UserPromptEvent
   | ToolCallEvent
   | ApiRequestEvent

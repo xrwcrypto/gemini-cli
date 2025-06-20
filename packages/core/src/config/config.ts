@@ -23,8 +23,9 @@ import { GeminiClient } from '../core/client.js';
 import { GEMINI_CONFIG_DIR as GEMINI_DIR } from '../tools/memoryTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
-import { initializeTelemetry } from '../telemetry/index.js';
+import { initializeTelemetry, StartSessionEvent } from '../telemetry/index.js';
 import { DEFAULT_GEMINI_EMBEDDING_MODEL } from './models.js';
+import { ClearcutLogger } from '../telemetry/data-collection/clearcut-logging.js';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -83,6 +84,7 @@ export interface ConfigParameters {
   checkpoint?: boolean;
   proxy?: string;
   cwd: string;
+  disableDataCollection?: boolean;
 }
 
 export class Config {
@@ -118,6 +120,7 @@ export class Config {
   private readonly checkpoint: boolean;
   private readonly proxy: string | undefined;
   private readonly cwd: string;
+  private readonly disableDataCollection: boolean = false;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -151,6 +154,7 @@ export class Config {
     this.checkpoint = params.checkpoint ?? false;
     this.proxy = params.proxy;
     this.cwd = params.cwd ?? process.cwd();
+    this.disableDataCollection = params.disableDataCollection ?? false;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -164,6 +168,10 @@ export class Config {
 
     if (this.telemetry) {
       initializeTelemetry(this);
+    }
+
+    if (!this.disableDataCollection) {
+      ClearcutLogger.getInstance(this).enqueueLogEvent(new StartSessionEvent(this));
     }
   }
 

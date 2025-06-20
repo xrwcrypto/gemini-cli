@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ToolConfirmationOutcome } from '../index.js';
+import { CompletedToolCall, EditTool, ErroredToolCall, ToolConfirmationOutcome } from '../index.js';
 import { logs } from '@opentelemetry/api-logs';
 import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
 import { Config } from '../config/config.js';
@@ -19,11 +19,12 @@ import {
   logCliConfiguration,
   logUserPrompt,
   logToolCall,
-  ToolCallDecision,
 } from './loggers.js';
+import { ApiRequestEvent, ApiResponseEvent, StartSessionEvent, ToolCallDecision, ToolCallEvent, UserPromptEvent } from './types.js';
 import * as metrics from './metrics.js';
 import * as sdk from './sdk.js';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
+import { GenerateContentResponseUsageMetadata } from '@google/genai';
 
 vi.mock('@gemini-cli/cli/dist/src/utils/version', () => ({
   getCliVersion: () => 'test-version',
@@ -72,7 +73,8 @@ describe('loggers', () => {
         getQuestion: () => 'test-question',
       } as unknown as Config;
 
-      logCliConfiguration(mockConfig);
+      const startSessionEvent = new StartSessionEvent(mockConfig)
+      logCliConfiguration(startSessionEvent);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'CLI configuration loaded.',
@@ -105,10 +107,7 @@ describe('loggers', () => {
     } as unknown as Config;
 
     it('should log a user prompt', () => {
-      const event = {
-        prompt: 'test-prompt',
-        prompt_length: 11,
-      };
+      const event = new UserPromptEvent(11, 'test-prompt');
 
       logUserPrompt(mockConfig, event);
 
@@ -129,10 +128,7 @@ describe('loggers', () => {
         getSessionId: () => 'test-session-id',
         getTelemetryLogUserPromptsEnabled: () => false,
       } as unknown as Config;
-      const event = {
-        prompt: 'test-prompt',
-        prompt_length: 11,
-      };
+      const event = new UserPromptEvent(11, 'test-prompt');
 
       logUserPrompt(mockConfig, event);
 
@@ -168,17 +164,14 @@ describe('loggers', () => {
     });
 
     it('should log an API response with all fields', () => {
-      const event = {
-        model: 'test-model',
-        status_code: 200,
-        duration_ms: 100,
-        input_token_count: 17,
-        output_token_count: 50,
-        cached_content_token_count: 10,
-        thoughts_token_count: 5,
-        tool_token_count: 2,
-        response_text: 'test-response',
-      };
+      const usageData: GenerateContentResponseUsageMetadata = {
+        promptTokenCount: 17,
+        candidatesTokenCount: 50,
+        cachedContentTokenCount: 10,
+        thoughtsTokenCount: 5,
+        toolUsePromptTokenCount: 2,
+      }
+      const event = new ApiResponseEvent('test-model', 100, usageData, 'test-response');
 
       logApiResponse(mockConfig, event);
 
@@ -218,17 +211,14 @@ describe('loggers', () => {
     });
 
     it('should log an API response with an error', () => {
-      const event = {
-        model: 'test-model',
-        duration_ms: 100,
-        error: 'test-error',
-        input_token_count: 17,
-        output_token_count: 50,
-        cached_content_token_count: 10,
-        thoughts_token_count: 5,
-        tool_token_count: 2,
-        response_text: 'test-response',
-      };
+      const usageData: GenerateContentResponseUsageMetadata = {
+        promptTokenCount: 17,
+        candidatesTokenCount: 50,
+        cachedContentTokenCount: 10,
+        thoughtsTokenCount: 5,
+        toolUsePromptTokenCount: 2,
+      }
+      const event = new ApiResponseEvent('test-model', 100, usageData, 'test-response', 'test-error');
 
       logApiResponse(mockConfig, event);
 
@@ -251,10 +241,7 @@ describe('loggers', () => {
     } as Config;
 
     it('should log an API request with request_text', () => {
-      const event = {
-        model: 'test-model',
-        request_text: 'This is a test request',
-      };
+      const event = new ApiRequestEvent('test-model', 'This is a test request');
 
       logApiRequest(mockConfig, event);
 
@@ -271,9 +258,7 @@ describe('loggers', () => {
     });
 
     it('should log an API request without request_text', () => {
-      const event = {
-        model: 'test-model',
-      };
+      const event = new ApiRequestEvent('test-model');
 
       logApiRequest(mockConfig, event);
 
@@ -306,15 +291,26 @@ describe('loggers', () => {
     });
 
     it('should log a tool call with all fields', () => {
-      const event = {
-        function_name: 'test-function',
-        function_args: {
-          arg1: 'value1',
-          arg2: 2,
+      const call: CompletedToolCall = {
+        status: 'success',
+        request: {
+          name: 'test-function',
+          args: {
+            arg1: 'value1',
+            arg2: 2,
+          },
+          callId: 'test-call-id',
         },
-        duration_ms: 100,
-        success: true,
+        response: {
+          callId: "test-call-id",
+            responseParts: "test-response",
+            resultDisplay: undefined,
+            error: undefined,
+        },
+        tool: new EditTool(mockConfig),
+        durationMs: 100,
       };
+      const event = new ToolCallEvent(call);
 
       logToolCall(mockConfig, event, ToolConfirmationOutcome.ProceedOnce);
 
@@ -348,15 +344,25 @@ describe('loggers', () => {
       );
     });
     it('should log a tool call with a reject decision', () => {
-      const event = {
-        function_name: 'test-function',
-        function_args: {
-          arg1: 'value1',
-          arg2: 2,
+      const call: ErroredToolCall = {
+        status: 'error',
+        request: {
+          name: 'test-function',
+          args: {
+            arg1: 'value1',
+            arg2: 2,
+          },
+          callId: 'test-call-id',
         },
-        duration_ms: 100,
-        success: false,
+        response: {
+          callId: "test-call-id",
+            responseParts: "test-response",
+            resultDisplay: undefined,
+            error: undefined,
+        },
+        durationMs: 100,
       };
+      const event = new ToolCallEvent(call);
 
       logToolCall(mockConfig, event, ToolConfirmationOutcome.Cancel);
 
@@ -391,15 +397,26 @@ describe('loggers', () => {
     });
 
     it('should log a tool call with a modify decision', () => {
-      const event = {
-        function_name: 'test-function',
-        function_args: {
-          arg1: 'value1',
-          arg2: 2,
+      const call: CompletedToolCall = {
+        status: 'success',
+        request: {
+          name: 'test-function',
+          args: {
+            arg1: 'value1',
+            arg2: 2,
+          },
+          callId: 'test-call-id',
         },
-        duration_ms: 100,
-        success: true,
+        response: {
+          callId: "test-call-id",
+            responseParts: "test-response",
+            resultDisplay: undefined,
+            error: undefined,
+        },
+        tool: new EditTool(mockConfig),
+        durationMs: 100,
       };
+      const event = new ToolCallEvent(call);
 
       logToolCall(mockConfig, event, ToolConfirmationOutcome.ModifyWithEditor);
 
@@ -434,15 +451,26 @@ describe('loggers', () => {
     });
 
     it('should log a tool call without a decision', () => {
-      const event = {
-        function_name: 'test-function',
-        function_args: {
-          arg1: 'value1',
-          arg2: 2,
+      const call: CompletedToolCall = {
+        status: 'success',
+        request: {
+          name: 'test-function',
+          args: {
+            arg1: 'value1',
+            arg2: 2,
+          },
+          callId: 'test-call-id',
         },
-        duration_ms: 100,
-        success: true,
+        response: {
+          callId: "test-call-id",
+            responseParts: "test-response",
+            resultDisplay: undefined,
+            error: undefined,
+        },
+        tool: new EditTool(mockConfig),
+        durationMs: 100,
       };
+      const event = new ToolCallEvent(call);
 
       logToolCall(mockConfig, event);
 
@@ -476,17 +504,28 @@ describe('loggers', () => {
     });
 
     it('should log a failed tool call with an error', () => {
-      const event = {
-        function_name: 'test-function',
-        function_args: {
-          arg1: 'value1',
-          arg2: 2,
+      const call: ErroredToolCall = {
+        status: 'error',
+        request: {
+          name: 'test-function',
+          args: {
+            arg1: 'value1',
+            arg2: 2,
+          },
+          callId: 'test-call-id',
         },
-        duration_ms: 100,
-        success: false,
-        error: 'test-error',
-        error_type: 'test-error-type',
+        response: {
+          callId: "test-call-id",
+            responseParts: "test-response",
+            resultDisplay: undefined,
+            error: {
+              name: 'test-error-type',
+              message: 'test-error',
+            },
+        },
+        durationMs: 100,
       };
+      const event = new ToolCallEvent(call);
 
       logToolCall(mockConfig, event);
 

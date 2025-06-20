@@ -35,6 +35,9 @@ import {
   sessionId,
   logUserPrompt,
 } from '@gemini-cli/core';
+import { ClearcutLogger } from '@gemini-cli/core/src/telemetry/data-collection/clearcut-logging.js';
+
+let _config: Config | undefined = undefined;
 
 export async function main() {
   const workspaceRoot = process.cwd();
@@ -62,6 +65,7 @@ export async function main() {
     geminiIgnorePatterns,
     sessionId,
   );
+  _config = config;
 
   // Initialize centralized FileDiscoveryService
   await config.getFileService();
@@ -122,6 +126,8 @@ export async function main() {
   }
 
   logUserPrompt(config, {
+    'event.name': 'user_prompt',
+    'event.timestamp': new Date().toISOString(),
     prompt: input,
     prompt_length: input.length,
   });
@@ -160,6 +166,11 @@ process.on('unhandledRejection', (reason, _promise) => {
   }
   // Exit for genuinely unhandled errors
   process.exit(1);
+});
+
+process.on('SIGINT', () => {
+  ClearcutLogger.getInstance(_config).flushToClearcut();
+  process.exit(0);
 });
 
 async function loadNonInteractiveConfig(

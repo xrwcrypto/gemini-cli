@@ -20,6 +20,7 @@ import {
   ApiErrorEvent,
   ApiRequestEvent,
   ApiResponseEvent,
+  StartSessionEvent,
   ToolCallEvent,
   UserPromptEvent,
 } from './types.js';
@@ -36,10 +37,12 @@ import {
   GenerateContentResponseUsageMetadata,
 } from '@google/genai';
 import { logApiErrorToCloud, logApiRequestToCloud, logApiResponseToCloud, logSessionStartToCloud, logToolCallEventToCloud, logUserPromptToCloud } from './data-collection/cloud-client-logging.js';
-import { postTestLogMessage } from './data-collection/clearcut-logging.js';
+import { ClearcutLogger } from './data-collection/clearcut-logging.js';
 
 const shouldLogUserPrompts = (config: Config): boolean =>
   config.getTelemetryLogUserPromptsEnabled() ?? false;
+
+let clearcutLogger : ClearcutLogger | undefined = undefined;
 
 function getCommonAttributes(config: Config): Record<string, any> {
   return {
@@ -47,30 +50,9 @@ function getCommonAttributes(config: Config): Record<string, any> {
   };
 }
 
-export enum ToolCallDecision {
-  ACCEPT = 'accept',
-  REJECT = 'reject',
-  MODIFY = 'modify',
-}
+export function logCliConfiguration(startSessionEvent: StartSessionEvent): void {
+  const config = startSessionEvent.config;
 
-export function getDecisionFromOutcome(
-  outcome: ToolConfirmationOutcome,
-): ToolCallDecision {
-  switch (outcome) {
-    case ToolConfirmationOutcome.ProceedOnce:
-    case ToolConfirmationOutcome.ProceedAlways:
-    case ToolConfirmationOutcome.ProceedAlwaysServer:
-    case ToolConfirmationOutcome.ProceedAlwaysTool:
-      return ToolCallDecision.ACCEPT;
-    case ToolConfirmationOutcome.ModifyWithEditor:
-      return ToolCallDecision.MODIFY;
-    case ToolConfirmationOutcome.Cancel:
-    default:
-      return ToolCallDecision.REJECT;
-  }
-}
-
-export function logCliConfiguration(config: Config): void {
   const generatorConfig = config.getContentGeneratorConfig();
   const mcpServers = config.getMcpServers();
   
@@ -96,8 +78,8 @@ export function logCliConfiguration(config: Config): void {
     mcp_servers: mcpServers ? Object.keys(mcpServers).join(',') : '',
   };
 
-  postTestLogMessage();
-  logSessionStartToCloud(attributes);
+  clearcutLogger?.logStartSessionEvent(startSessionEvent);
+  
   if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
@@ -110,9 +92,7 @@ export function logCliConfiguration(config: Config): void {
 
 export function logUserPrompt(
   config: Config,
-  event: Omit<UserPromptEvent, 'event.name' | 'event.timestamp' | 'prompt'> & {
-    prompt: string;
-  },
+  event: UserPromptEvent,
 ): void {
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
@@ -125,6 +105,7 @@ export function logUserPrompt(
     attributes.prompt = event.prompt;
   }
 
+  clearcutLogger?.logNewPromptEvent(event);
   logUserPromptToCloud(attributes);
   if (!isTelemetrySdkInitialized()) return;
 
@@ -138,11 +119,9 @@ export function logUserPrompt(
 
 export function logToolCall(
   config: Config,
-  event: Omit<ToolCallEvent, 'event.name' | 'event.timestamp' | 'decision'>,
+  event: ToolCallEvent,
   outcome?: ToolConfirmationOutcome,
 ): void {
-  const decision = outcome ? getDecisionFromOutcome(outcome) : undefined;
-
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
@@ -150,7 +129,7 @@ export function logToolCall(
     'event.timestamp': new Date().toISOString(),
     function_name: event.function_name,
     function_args: JSON.stringify(event.function_args, null, 2),
-    decision,
+    decision: event.decision,
     success: event.success,
     duration: event.duration_ms,
   };
@@ -161,12 +140,12 @@ export function logToolCall(
     }
   }
 
-  logToolCallEventToCloud(attributes);
+  clearcutLogger?.logToolCallEvent(event);
   if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
-    body: `Tool call: ${event.function_name}${decision ? `. Decision: ${decision}` : ''}. Success: ${event.success}. Duration: ${event.duration_ms}ms.`,
+    body: `Tool call: ${event.function_name}${event.decision ? `. Decision: ${event.decision}` : ''}. Success: ${event.success}. Duration: ${event.duration_ms}ms.`,
     attributes,
   };
   logger.emit(logRecord);
@@ -175,13 +154,13 @@ export function logToolCall(
     event.function_name,
     event.duration_ms,
     event.success,
-    decision,
+    event.decision,
   );
 }
 
 export function logApiRequest(
   config: Config,
-  event: Omit<ApiRequestEvent, 'event.name' | 'event.timestamp'>,
+  event: ApiRequestEvent
 ): void {
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
@@ -190,7 +169,7 @@ export function logApiRequest(
     'event.timestamp': new Date().toISOString(),
   };
 
-  logApiRequestToCloud(attributes);
+  clearcutLogger?.logApiRequestEvent(event);
   if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
@@ -203,7 +182,7 @@ export function logApiRequest(
 
 export function logApiError(
   config: Config,
-  event: Omit<ApiErrorEvent, 'event.name' | 'event.timestamp'>,
+  event: ApiErrorEvent
 ): void {
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
@@ -222,7 +201,7 @@ export function logApiError(
     attributes[SemanticAttributes.HTTP_STATUS_CODE] = event.status_code;
   }
 
-  logApiErrorToCloud(attributes);
+  clearcutLogger?.logApiErrorEvent(event);
   if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
@@ -242,11 +221,8 @@ export function logApiError(
 
 export function logApiResponse(
   config: Config,
-  event: Omit<ApiResponseEvent, 'event.name' | 'event.timestamp'>,
+  event: ApiResponseEvent,
 ): void {
-  logApiResponseToCloud(event);
-  if (!isTelemetrySdkInitialized()) return;
-
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
@@ -263,6 +239,9 @@ export function logApiResponse(
       attributes[SemanticAttributes.HTTP_STATUS_CODE] = event.status_code;
     }
   }
+
+  clearcutLogger?.logApiResponseEvent(event);
+  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
