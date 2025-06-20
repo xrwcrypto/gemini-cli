@@ -113,7 +113,6 @@ export interface ConfigParameters {
 }
 
 export class Config {
-  private toolRegistry: Promise<ToolRegistry>;
   private readonly sessionId: string;
   private contentGeneratorConfig!: ContentGeneratorConfig;
   private readonly embeddingModel: string;
@@ -134,7 +133,9 @@ export class Config {
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
   private readonly telemetrySettings: TelemetrySettings;
-  private geminiClient!: GeminiClient;
+  private authMethod?: AuthType;
+  private toolRegistry?: ToolRegistry;
+  private geminiClient?: GeminiClient;
   private readonly fileFilteringRespectGitIgnore: boolean;
   private fileDiscoveryService: FileDiscoveryService | null = null;
   private gitService: GitService | undefined = undefined;
@@ -184,32 +185,19 @@ export class Config {
       setGeminiMdFilename(params.contextFileName);
     }
 
-    this.toolRegistry = createToolRegistry(this);
-
     if (this.telemetrySettings.enabled) {
       initializeTelemetry(this);
     }
   }
 
-  async refreshAuth(authMethod: AuthType) {
-    const contentConfig = await createContentGeneratorConfig(
-      this.getModel(),
-      authMethod,
-    );
-
-    const gc = new GeminiClient(this);
-    await gc.initialize(contentConfig);
-
-    this.contentGeneratorConfig = contentConfig;
-    this.geminiClient = gc;
+  setAuthMethod(authMethod: AuthType) {
+    this.authMethod = authMethod;
+    this.geminiClient = undefined;
+    this.toolRegistry = undefined;
   }
 
   getSessionId(): string {
     return this.sessionId;
-  }
-
-  getContentGeneratorConfig(): ContentGeneratorConfig {
-    return this.contentGeneratorConfig;
   }
 
   getModel(): string {
@@ -233,7 +221,8 @@ export class Config {
   }
 
   async getToolRegistry(): Promise<ToolRegistry> {
-    return this.toolRegistry;
+    await this.ensureClientAndToolRegistry();
+    return this.toolRegistry!;
   }
 
   getDebugMode(): boolean {
@@ -319,8 +308,25 @@ export class Config {
     return this.telemetrySettings.target ?? DEFAULT_TELEMETRY_TARGET;
   }
 
-  getGeminiClient(): GeminiClient {
-    return this.geminiClient;
+  async getOrCreateGeminiClient(): Promise<GeminiClient> {
+    await this.ensureClientAndToolRegistry();
+    return this.geminiClient!;
+  }
+
+  private async ensureClientAndToolRegistry() {
+    if (!this.geminiClient || !this.toolRegistry) {
+      if (!this.authMethod) {
+        throw new Error('Auth method not set');
+      }
+
+      const contentConfig = await createContentGeneratorConfig(
+        this.getModel(),
+        this.authMethod,
+      );
+      this.geminiClient = new GeminiClient(this);
+      await this.geminiClient.initialize(contentConfig);
+      this.toolRegistry = await this.getToolRegistry();
+    }
   }
 
   getGeminiDir(): string {

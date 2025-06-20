@@ -186,7 +186,7 @@ export const useSlashCommandProcessor = (
         action: async (_mainCommand, _subCommand, _args) => {
           onDebugMessage('Clearing terminal and resetting chat.');
           clearItems();
-          await config?.getGeminiClient()?.resetChat();
+          await (await config?.getOrCreateGeminiClient())?.resetChat();
           console.clear();
           refreshStatic();
         },
@@ -624,7 +624,7 @@ Add any other context about the problem here.
           const tag = (subCommand || '').trim();
           const logger = new Logger(config?.getSessionId() || '');
           await logger.initialize();
-          const chat = await config?.getGeminiClient()?.getChat();
+          const chat = await (await config?.getOrCreateGeminiClient())?.getChat();
           const history = chat?.getHistory() || [];
           if (history.length > 0) {
             await logger.saveCheckpoint(chat?.getHistory() || [], tag);
@@ -678,7 +678,7 @@ Add any other context about the problem here.
             });
             return;
           }
-          const chat = await config?.getGeminiClient()?.getChat();
+          const chat = await (await config?.getOrCreateGeminiClient())?.getChat();
           if (!chat) {
             addMessage({
               type: MessageType.ERROR,
@@ -773,9 +773,8 @@ Add any other context about the problem here.
             },
           });
           try {
-            const compressed = await config!
-              .getGeminiClient()!
-              .tryCompressChat(true);
+            const compressed =
+              await (await config!.getOrCreateGeminiClient())!.tryCompressChat(true);
             if (compressed) {
               addMessage({
                 type: MessageType.COMPRESSION,
@@ -878,9 +877,9 @@ Add any other context about the problem here.
             }
 
             if (toolCallData.clientHistory) {
-              await config
-                ?.getGeminiClient()
-                ?.setHistory(toolCallData.clientHistory);
+              await (
+                await config?.getOrCreateGeminiClient()
+              )?.setHistory(toolCallData.clientHistory);
             }
 
             if (toolCallData.commitHash) {

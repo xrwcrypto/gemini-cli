@@ -330,7 +330,7 @@ describe('useGeminiStream', () => {
       mockMarkToolsAsSubmitted,
     ]);
 
-    const client = geminiClient || mockConfig.getGeminiClient();
+    const client = geminiClient || mockConfig.getOrCreateGeminiClient();
 
     const { result, rerender } = renderHook(
       (props: {

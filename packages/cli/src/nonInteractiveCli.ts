@@ -45,7 +45,7 @@ export async function runNonInteractive(
   config: Config,
   input: string,
 ): Promise<void> {
-  const geminiClient = config.getGeminiClient();
+  const geminiClient = await config.getOrCreateGeminiClient();
   const toolRegistry: ToolRegistry = await config.getToolRegistry();
 
   const chat = await geminiClient.getChat();

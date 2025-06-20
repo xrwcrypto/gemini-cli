@@ -78,7 +78,7 @@ export async function main() {
           console.error(err);
           process.exit(1);
         }
-        await config.refreshAuth(settings.merged.selectedAuthType);
+        await config.setAuthMethod(settings.merged.selectedAuthType);
       }
       await start_sandbox(sandboxConfig);
       process.exit(0);
@@ -211,6 +211,6 @@ async function validateNonInterActiveAuth(
     process.exit(1);
   }
 
-  await nonInteractiveConfig.refreshAuth(selectedAuthType);
+  await nonInteractiveConfig.setAuthMethod(selectedAuthType);
   return nonInteractiveConfig;
 }

@@ -59,9 +59,10 @@ interface GetCorrectedFileContentResult {
  */
 export class WriteFileTool
   extends BaseTool<WriteFileToolParams, ToolResult>
-  implements ModifiableTool<WriteFileToolParams> {
+  implements ModifiableTool<WriteFileToolParams>
+{
   static readonly Name: string = 'write_file';
-  private readonly client: GeminiClient;
+  private readonly client: Promise<GeminiClient>;
 
   constructor(private readonly config: Config) {
     super(
@@ -85,7 +86,7 @@ export class WriteFileTool
       },
     );
 
-    this.client = this.config.getGeminiClient();
+    this.client = this.config.getOrCreateGeminiClient();
 
     if (!this.client) {
       const error = new Error('WF: GeminiClient is null.');
@@ -357,7 +358,7 @@ export class WriteFileTool
           new_string: proposedContent,
           file_path: filePath,
         },
-        this.client,
+        await this.client,
         abortSignal,
       );
       correctedContent = correctedParams.new_string;
@@ -365,7 +366,7 @@ export class WriteFileTool
       // This implies new file (ENOENT)
       correctedContent = await ensureCorrectFileContent(
         proposedContent,
-        this.client,
+        await this.client,
         abortSignal,
       );
     }

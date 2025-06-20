@@ -69,7 +69,7 @@ export class EditTool
   static readonly Name = 'replace';
   private readonly config: Config;
   private readonly rootDirectory: string;
-  private readonly client: GeminiClient;
+  private readonly client: Promise<GeminiClient>;
 
   /**
    * Creates a new instance of the EditLogic
@@ -118,7 +118,7 @@ Expectation for required parameters:
     );
     this.config = config;
     this.rootDirectory = path.resolve(this.config.getTargetDir());
-    this.client = config.getGeminiClient();
+    this.client = config.getOrCreateGeminiClient();
   }
 
   /**
@@ -231,7 +231,7 @@ Expectation for required parameters:
       const correctedEdit = await ensureCorrectEdit(
         currentContent,
         params,
-        this.client,
+        await this.client,
         abortSignal,
       );
       finalOldString = correctedEdit.params.old_string;

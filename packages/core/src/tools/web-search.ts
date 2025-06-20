@@ -112,7 +112,7 @@ export class WebSearchTool extends BaseTool<
         returnDisplay: validationError,
       };
     }
-    const geminiClient = this.config.getGeminiClient();
+    const geminiClient = await this.config.getOrCreateGeminiClient();
 
     try {
       const response = await geminiClient.generateContent(

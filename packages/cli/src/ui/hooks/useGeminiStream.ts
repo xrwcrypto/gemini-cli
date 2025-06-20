@@ -75,7 +75,7 @@ enum StreamProcessingStatus {
  * API interaction, and tool call lifecycle.
  */
 export const useGeminiStream = (
-  geminiClient: GeminiClient,
+  geminiClient: Promise<GeminiClient>,
   history: HistoryItem[],
   addItem: UseHistoryManagerReturn['addItem'],
   setShowHelp: React.Dispatch<React.SetStateAction<boolean>>,
@@ -482,7 +482,10 @@ export const useGeminiStream = (
       setInitError(null);
 
       try {
-        const stream = geminiClient.sendMessageStream(queryToSend, abortSignal);
+        const stream = (await geminiClient).sendMessageStream(
+          queryToSend,
+          abortSignal,
+        );
         const processingStatus = await processGeminiStreamEvents(
           stream,
           userMessageTimestamp,
@@ -538,84 +541,87 @@ export const useGeminiStream = (
    * is not already generating a response.
    */
   useEffect(() => {
-    if (isResponding) {
-      return;
-    }
-
-    const completedAndReadyToSubmitTools = toolCalls.filter(
-      (
-        tc: TrackedToolCall,
-      ): tc is TrackedCompletedToolCall | TrackedCancelledToolCall => {
-        const isTerminalState =
-          tc.status === 'success' ||
-          tc.status === 'error' ||
-          tc.status === 'cancelled';
-
-        if (isTerminalState) {
-          const completedOrCancelledCall = tc as
-            | TrackedCompletedToolCall
-            | TrackedCancelledToolCall;
-          return (
-            !completedOrCancelledCall.responseSubmittedToGemini &&
-            completedOrCancelledCall.response?.responseParts !== undefined
-          );
-        }
-        return false;
-      },
-    );
-
-    if (
-      completedAndReadyToSubmitTools.length > 0 &&
-      completedAndReadyToSubmitTools.length === toolCalls.length
-    ) {
-      // If all the tools were cancelled, don't submit a response to Gemini.
-      const allToolsCancelled = completedAndReadyToSubmitTools.every(
-        (tc) => tc.status === 'cancelled',
-      );
-
-      if (allToolsCancelled) {
-        if (geminiClient) {
-          // We need to manually add the function responses to the history
-          // so the model knows the tools were cancelled.
-          const responsesToAdd = completedAndReadyToSubmitTools.flatMap(
-            (toolCall) => toolCall.response.responseParts,
-          );
-          for (const response of responsesToAdd) {
-            let parts: Part[];
-            if (Array.isArray(response)) {
-              parts = response;
-            } else if (typeof response === 'string') {
-              parts = [{ text: response }];
-            } else {
-              parts = [response];
-            }
-            geminiClient.addHistory({
-              role: 'user',
-              parts,
-            });
-          }
-        }
-
-        const callIdsToMarkAsSubmitted = completedAndReadyToSubmitTools.map(
-          (toolCall) => toolCall.request.callId,
-        );
-        markToolsAsSubmitted(callIdsToMarkAsSubmitted);
+    const fn = async () => {
+      if (isResponding) {
         return;
       }
 
-      const responsesToSend: PartListUnion[] =
-        completedAndReadyToSubmitTools.map(
-          (toolCall) => toolCall.response.responseParts,
-        );
-      const callIdsToMarkAsSubmitted = completedAndReadyToSubmitTools.map(
-        (toolCall) => toolCall.request.callId,
+      const completedAndReadyToSubmitTools = toolCalls.filter(
+        (
+          tc: TrackedToolCall,
+        ): tc is TrackedCompletedToolCall | TrackedCancelledToolCall => {
+          const isTerminalState =
+            tc.status === 'success' ||
+            tc.status === 'error' ||
+            tc.status === 'cancelled';
+
+          if (isTerminalState) {
+            const completedOrCancelledCall = tc as
+              | TrackedCompletedToolCall
+              | TrackedCancelledToolCall;
+            return (
+              !completedOrCancelledCall.responseSubmittedToGemini &&
+              completedOrCancelledCall.response?.responseParts !== undefined
+            );
+          }
+          return false;
+        },
       );
 
-      markToolsAsSubmitted(callIdsToMarkAsSubmitted);
-      submitQuery(mergePartListUnions(responsesToSend), {
-        isContinuation: true,
-      });
-    }
+      if (
+        completedAndReadyToSubmitTools.length > 0 &&
+        completedAndReadyToSubmitTools.length === toolCalls.length
+      ) {
+        // If all the tools were cancelled, don't submit a response to Gemini.
+        const allToolsCancelled = completedAndReadyToSubmitTools.every(
+          (tc) => tc.status === 'cancelled',
+        );
+
+        if (allToolsCancelled) {
+          if (geminiClient) {
+            // We need to manually add the function responses to the history
+            // so the model knows the tools were cancelled.
+            const responsesToAdd = completedAndReadyToSubmitTools.flatMap(
+              (toolCall) => toolCall.response.responseParts,
+            );
+            for (const response of responsesToAdd) {
+              let parts: Part[];
+              if (Array.isArray(response)) {
+                parts = response;
+              } else if (typeof response === 'string') {
+                parts = [{ text: response }];
+              } else {
+                parts = [response];
+              }
+              (await geminiClient).addHistory({
+                role: 'user',
+                parts,
+              });
+            }
+          }
+
+          const callIdsToMarkAsSubmitted = completedAndReadyToSubmitTools.map(
+            (toolCall) => toolCall.request.callId,
+          );
+          markToolsAsSubmitted(callIdsToMarkAsSubmitted);
+          return;
+        }
+
+        const responsesToSend: PartListUnion[] =
+          completedAndReadyToSubmitTools.map(
+            (toolCall) => toolCall.response.responseParts,
+          );
+        const callIdsToMarkAsSubmitted = completedAndReadyToSubmitTools.map(
+          (toolCall) => toolCall.request.callId,
+        );
+
+        markToolsAsSubmitted(callIdsToMarkAsSubmitted);
+        submitQuery(mergePartListUnions(responsesToSend), {
+          isContinuation: true,
+        });
+      }
+    };
+    fn();
   }, [
     toolCalls,
     isResponding,
@@ -694,7 +700,7 @@ export const useGeminiStream = (
             const toolName = toolCall.request.name;
             const fileName = path.basename(filePath);
             const toolCallWithSnapshotFileName = `${timestamp}-${fileName}-${toolName}.json`;
-            const clientHistory = await geminiClient?.getHistory();
+            const clientHistory = await (await geminiClient)?.getHistory();
             const toolCallWithSnapshotFilePath = path.join(
               checkpointDir,
               toolCallWithSnapshotFileName,

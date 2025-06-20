@@ -340,7 +340,7 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     pendingHistoryItems: pendingGeminiHistoryItems,
     thought,
   } = useGeminiStream(
-    config.getGeminiClient(),
+    config.getOrCreateGeminiClient(),
     history,
     addItem,
     setShowHelp,

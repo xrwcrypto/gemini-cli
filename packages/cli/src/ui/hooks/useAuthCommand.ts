@@ -9,7 +9,7 @@ import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { AuthType, Config, clearCachedCredentialFile } from '@gemini-cli/core';
 
 async function performAuthFlow(authMethod: AuthType, config: Config) {
-  await config.refreshAuth(authMethod);
+  config.setAuthMethod(authMethod);
   console.log(`Authenticated via "${authMethod}".`);
 }
 

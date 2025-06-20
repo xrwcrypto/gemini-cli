@@ -172,8 +172,8 @@ function executeShellCommand(
   });
 }
 
-function addShellCommandToGeminiHistory(
-  geminiClient: GeminiClient,
+async function addShellCommandToGeminiHistory(
+  geminiClient: Promise<GeminiClient>,
   rawQuery: string,
   resultText: string,
 ) {
@@ -182,7 +182,7 @@ function addShellCommandToGeminiHistory(
       ? resultText.substring(0, MAX_OUTPUT_LENGTH) + '\n... (truncated)'
       : resultText;
 
-  geminiClient.addHistory({
+  (await geminiClient).addHistory({
     role: 'user',
     parts: [
       {
@@ -212,7 +212,7 @@ export const useShellCommandProcessor = (
   onExec: (command: Promise<void>) => void,
   onDebugMessage: (message: string) => void,
   config: Config,
-  geminiClient: GeminiClient,
+  geminiClient: Promise<GeminiClient>,
 ) => {
   const handleShellCommand = useCallback(
     (rawQuery: PartListUnion, abortSignal: AbortSignal): boolean => {
