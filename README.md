@@ -27,7 +27,6 @@ When you login with your Google account, you get up to 60 model requests per min
 5. [Get an API key from Google AI Studio](https://aistudio.google.com/apikey).
 6. Set the API key in your shell using the following command, replacing `YOUR_API_KEY` with the API key you obtained: `export GEMINI_API_KEY="YOUR_API_KEY"`.
 
-
 ## Examples
 
 Once the CLI is running, you can start interacting with Gemini from your shell.
