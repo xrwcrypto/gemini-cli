@@ -59,8 +59,7 @@ interface GetCorrectedFileContentResult {
  */
 export class WriteFileTool
   extends BaseTool<WriteFileToolParams, ToolResult>
-  implements ModifiableTool<WriteFileToolParams>
-{
+  implements ModifiableTool<WriteFileToolParams> {
   static readonly Name: string = 'write_file';
   private readonly client: GeminiClient;
 
@@ -87,6 +86,12 @@ export class WriteFileTool
     );
 
     this.client = this.config.getGeminiClient();
+
+    if (!this.client) {
+      const error = new Error('WF: GeminiClient is null.');
+      console.error(error.stack);
+      throw error;
+    }
   }
 
   private isWithinRoot(pathToCheck: string): boolean {
