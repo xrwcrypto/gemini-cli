@@ -171,7 +171,7 @@ export class Config {
     }
 
     if (!this.disableDataCollection) {
-      ClearcutLogger.getInstance(this).enqueueLogEvent(new StartSessionEvent(this));
+      ClearcutLogger.getInstance(this)?.enqueueLogEvent(new StartSessionEvent(this));
     }
   }
 
@@ -316,6 +316,10 @@ export class Config {
 
   getWorkingDir(): string {
     return this.cwd;
+  }
+
+  getDisableDataCollection(): boolean {
+    return this.disableDataCollection;
   }
 
   async getFileService(): Promise<FileDiscoveryService> {

@@ -168,7 +168,7 @@ export function initializeTelemetry(config: Config): void {
 }
 
 export async function shutdownTelemetry(): Promise<void> {
-  ClearcutLogger.getInstance().shutdown();
+  ClearcutLogger.getInstance()?.shutdown();
   if (!telemetryInitialized || !sdk) {
     return;
   }

@@ -29,7 +29,8 @@ export class ClearcutLogger {
     this.config = config;
   }
 
-  public static getInstance(config?: Config): ClearcutLogger {
+  public static getInstance(config?: Config): ClearcutLogger | undefined {
+    if (config == undefined || config?.getDisableDataCollection()) return undefined;
     if (!ClearcutLogger.instance) {
         ClearcutLogger.instance = new ClearcutLogger(config);
     }

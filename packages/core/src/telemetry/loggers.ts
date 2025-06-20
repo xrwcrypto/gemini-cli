@@ -38,13 +38,10 @@ import {
   GenerateContentResponse,
   GenerateContentResponseUsageMetadata,
 } from '@google/genai';
-import { logApiErrorToCloud, logApiRequestToCloud, logApiResponseToCloud, logSessionStartToCloud, logToolCallEventToCloud, logUserPromptToCloud } from './data-collection/cloud-client-logging.js';
 import { ClearcutLogger } from './data-collection/clearcut-logging.js';
 
 const shouldLogUserPrompts = (config: Config): boolean =>
   config.getTelemetryLogUserPromptsEnabled() ?? false;
-
-let clearcutLogger : ClearcutLogger | undefined = undefined;
 
 function getCommonAttributes(config: Config): Record<string, any> {
   return {
@@ -53,7 +50,7 @@ function getCommonAttributes(config: Config): Record<string, any> {
 }
 
 export function logCliConfiguration(config: Config, event: StartSessionEvent): void {
-  clearcutLogger?.logStartSessionEvent(event);
+  ClearcutLogger.getInstance(config)?.logStartSessionEvent(event);
   if (!isTelemetrySdkInitialized()) return;
 
   const attributes: LogAttributes = {
@@ -89,6 +86,9 @@ export function logUserPrompt(
   config: Config,
   event: UserPromptEvent,
 ): void {
+  ClearcutLogger.getInstance(config)?.logNewPromptEvent(event);
+  if (!isTelemetrySdkInitialized()) return;
+
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     'event.name': EVENT_USER_PROMPT,
@@ -99,10 +99,6 @@ export function logUserPrompt(
   if (shouldLogUserPrompts(config)) {
     attributes.prompt = event.prompt;
   }
-
-  clearcutLogger?.logNewPromptEvent(event);
-  logUserPromptToCloud(attributes);
-  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -116,6 +112,9 @@ export function logToolCall(
   config: Config,
   event: ToolCallEvent,
 ): void {
+  ClearcutLogger.getInstance(config)?.logToolCallEvent(event);
+  if (!isTelemetrySdkInitialized()) return;
+
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
@@ -129,9 +128,6 @@ export function logToolCall(
       attributes['error.type'] = event.error_type;
     }
   }
-
-  clearcutLogger?.logToolCallEvent(event);
-  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -152,15 +148,15 @@ export function logApiRequest(
   config: Config,
   event: ApiRequestEvent
 ): void {
+  ClearcutLogger.getInstance(config)?.logApiRequestEvent(event);
+  if (!isTelemetrySdkInitialized()) return;
+
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
     'event.name': EVENT_API_REQUEST,
     'event.timestamp': new Date().toISOString(),
   };
-
-  clearcutLogger?.logApiRequestEvent(event);
-  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -174,6 +170,9 @@ export function logApiError(
   config: Config,
   event: ApiErrorEvent
 ): void {
+  ClearcutLogger.getInstance(config)?.logApiErrorEvent(event);
+  if (!isTelemetrySdkInitialized()) return;
+
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
@@ -190,9 +189,6 @@ export function logApiError(
   if (typeof event.status_code === 'number') {
     attributes[SemanticAttributes.HTTP_STATUS_CODE] = event.status_code;
   }
-
-  clearcutLogger?.logApiErrorEvent(event);
-  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -213,6 +209,8 @@ export function logApiResponse(
   config: Config,
   event: ApiResponseEvent,
 ): void {
+  ClearcutLogger.getInstance(config)?.logApiResponseEvent(event);
+  if (!isTelemetrySdkInitialized()) return;
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
@@ -229,9 +227,6 @@ export function logApiResponse(
       attributes[SemanticAttributes.HTTP_STATUS_CODE] = event.status_code;
     }
   }
-
-  clearcutLogger?.logApiResponseEvent(event);
-  if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
