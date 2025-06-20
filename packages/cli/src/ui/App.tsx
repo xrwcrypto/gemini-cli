@@ -84,7 +84,7 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    checkForUpdates().then(setUpdateMessage);
+    checkForUpdates().then(setUpdateMessage).catch(e => console.log('ERROR: ' + e));
   }, []);
 
   const { history, addItem, clearItems, loadHistory } = useHistory();
