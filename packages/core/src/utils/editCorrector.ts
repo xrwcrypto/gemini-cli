@@ -62,10 +62,15 @@ export interface CorrectedEditResult {
  */
 export async function ensureCorrectEdit(
   currentContent: string,
-  originalParams: EditToolParams, // This is the EditToolParams from edit.ts, without \'corrected\'
+  originalParams: EditToolParams, // This is the EditToolParams from edit.ts, without 'corrected'
   client: GeminiClient,
   abortSignal: AbortSignal,
 ): Promise<CorrectedEditResult> {
+  if (!client) {
+    const error = new Error('GeminiClient is null.');
+    console.error(error.stack);
+    throw error;
+  }
   const cacheKey = `${currentContent}---${originalParams.old_string}---${originalParams.new_string}`;
   const cachedResult = editCorrectionCache.get(cacheKey);
   if (cachedResult) {
