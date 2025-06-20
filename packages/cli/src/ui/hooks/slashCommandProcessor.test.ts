@@ -48,7 +48,7 @@ vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn(),
 }));
 
-const mockGetCliVersionFn = vi.fn(() => '0.1.0');
+const mockGetCliVersionFn = vi.fn(() => Promise.resolve('0.1.0'));
 vi.mock('../../utils/version.js', () => ({
   getCliVersion: (...args: []) => mockGetCliVersionFn(...args),
 }));
@@ -103,6 +103,7 @@ describe('useSlashCommandProcessor', () => {
   let mockSetShowHelp: ReturnType<typeof vi.fn>;
   let mockOnDebugMessage: ReturnType<typeof vi.fn>;
   let mockOpenThemeDialog: ReturnType<typeof vi.fn>;
+  let mockOpenAuthDialog: ReturnType<typeof vi.fn>;
   let mockOpenEditorDialog: ReturnType<typeof vi.fn>;
   let mockPerformMemoryRefresh: ReturnType<typeof vi.fn>;
   let mockSetQuittingMessages: ReturnType<typeof vi.fn>;
@@ -120,6 +121,7 @@ describe('useSlashCommandProcessor', () => {
     mockSetShowHelp = vi.fn();
     mockOnDebugMessage = vi.fn();
     mockOpenThemeDialog = vi.fn();
+    mockOpenAuthDialog = vi.fn();
     mockOpenEditorDialog = vi.fn();
     mockPerformMemoryRefresh = vi.fn().mockResolvedValue(undefined);
     mockSetQuittingMessages = vi.fn();
@@ -159,8 +161,8 @@ describe('useSlashCommandProcessor', () => {
     process.env = { ...globalThis.process.env };
   });
 
-  const getProcessor = (showToolDescriptions: boolean = false) => {
-    const { result } = renderHook(() =>
+  const getProcessorHook = (showToolDescriptions: boolean = false) =>
+    renderHook(() =>
       useSlashCommandProcessor(
         mockConfig,
         [],
@@ -171,6 +173,7 @@ describe('useSlashCommandProcessor', () => {
         mockSetShowHelp,
         mockOnDebugMessage,
         mockOpenThemeDialog,
+        mockOpenAuthDialog,
         mockOpenEditorDialog,
         mockPerformMemoryRefresh,
         mockCorgiMode,
@@ -178,8 +181,9 @@ describe('useSlashCommandProcessor', () => {
         mockSetQuittingMessages,
       ),
     );
-    return result.current;
-  };
+
+  const getProcessor = (showToolDescriptions: boolean = false) =>
+    getProcessorHook(showToolDescriptions).result.current;
 
   describe('/memory add', () => {
     it('should return tool scheduling info on valid input', async () => {
@@ -376,7 +380,7 @@ describe('useSlashCommandProcessor', () => {
     const originalEnv = process.env;
     beforeEach(() => {
       vi.resetModules();
-      mockGetCliVersionFn.mockReturnValue('0.1.0');
+      mockGetCliVersionFn.mockResolvedValue('0.1.0');
       process.env = { ...originalEnv };
     });
 
@@ -426,7 +430,7 @@ Add any other context about the problem here.
     };
 
     it('should call open with the correct GitHub issue URL and return true', async () => {
-      mockGetCliVersionFn.mockReturnValue('test-version');
+      mockGetCliVersionFn.mockResolvedValue('test-version');
       process.env.SANDBOX = 'gemini-sandbox';
       process.env.SEATBELT_PROFILE = 'test_profile';
       const { handleSlashCommand } = getProcessor();
@@ -1132,10 +1136,20 @@ Add any other context about the problem here.
 
   describe('/compress command', () => {
     it('should call tryCompressChat(true)', async () => {
-      const { handleSlashCommand } = getProcessor();
+      const hook = getProcessorHook();
       mockTryCompressChat.mockImplementationOnce(async (force?: boolean) => {
-        // TODO: Check that we have a pending compression item in the history.
         expect(force).toBe(true);
+        await act(async () => {
+          hook.rerender();
+        });
+        expect(hook.result.current.pendingHistoryItems).toContainEqual({
+          type: MessageType.COMPRESSION,
+          compression: {
+            isPending: true,
+            originalTokenCount: null,
+            newTokenCount: null,
+          },
+        });
         return {
           originalTokenCount: 100,
           newTokenCount: 50,
@@ -1143,8 +1157,12 @@ Add any other context about the problem here.
       });
 
       await act(async () => {
-        handleSlashCommand('/compress');
+        hook.result.current.handleSlashCommand('/compress');
       });
+      await act(async () => {
+        hook.rerender();
+      });
+      expect(hook.result.current.pendingHistoryItems).toEqual([]);
       expect(mockGeminiClient.tryCompressChat).toHaveBeenCalledWith(true);
       expect(mockAddItem).toHaveBeenNthCalledWith(
         2,

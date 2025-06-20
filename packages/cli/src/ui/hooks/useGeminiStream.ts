@@ -22,6 +22,7 @@ import {
   GitService,
   EditorType,
   ThoughtSummary,
+  isAuthError,
 } from '@gemini-cli/core';
 import { type Part, type PartListUnion } from '@google/genai';
 import {
@@ -87,6 +88,7 @@ export const useGeminiStream = (
   >,
   shellModeActive: boolean,
   getPreferredEditor: () => EditorType | undefined,
+  onAuthError: () => void,
 ) => {
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -153,7 +155,12 @@ export const useGeminiStream = (
         (tc) =>
           tc.status === 'executing' ||
           tc.status === 'scheduled' ||
-          tc.status === 'validating',
+          tc.status === 'validating' ||
+          ((tc.status === 'success' ||
+            tc.status === 'error' ||
+            tc.status === 'cancelled') &&
+            !(tc as TrackedCompletedToolCall | TrackedCancelledToolCall)
+              .responseSubmittedToGemini),
       )
     ) {
       return StreamingState.Responding;
@@ -379,7 +386,8 @@ export const useGeminiStream = (
           text:
             `IMPORTANT: This conversation approached the input token limit for ${config.getModel()}. ` +
             `A compressed context will be sent for future messages (compressed from: ` +
-            `${eventValue.originalTokenCount} to ${eventValue.newTokenCount} tokens).`,
+            `${eventValue?.originalTokenCount ?? 'unknown'} to ` +
+            `${eventValue?.newTokenCount ?? 'unknown'} tokens).`,
         },
         Date.now(),
       ),
@@ -450,8 +458,9 @@ export const useGeminiStream = (
   const submitQuery = useCallback(
     async (query: PartListUnion, options?: { isContinuation: boolean }) => {
       if (
-        streamingState === StreamingState.Responding ||
-        streamingState === StreamingState.WaitingForConfirmation
+        (streamingState === StreamingState.Responding ||
+          streamingState === StreamingState.WaitingForConfirmation) &&
+        !options?.isContinuation
       )
         return;
 
@@ -495,7 +504,9 @@ export const useGeminiStream = (
           setPendingHistoryItem(null);
         }
       } catch (error: unknown) {
-        if (!isNodeError(error) || error.name !== 'AbortError') {
+        if (isAuthError(error)) {
+          onAuthError();
+        } else if (!isNodeError(error) || error.name !== 'AbortError') {
           addItem(
             {
               type: MessageType.ERROR,
@@ -521,6 +532,7 @@ export const useGeminiStream = (
       setInitError,
       geminiClient,
       startNewTurn,
+      onAuthError,
     ],
   );
 

@@ -68,6 +68,7 @@ export const useSlashCommandProcessor = (
   setShowHelp: React.Dispatch<React.SetStateAction<boolean>>,
   onDebugMessage: (message: string) => void,
   openThemeDialog: () => void,
+  openAuthDialog: () => void,
   openEditorDialog: () => void,
   performMemoryRefresh: () => Promise<void>,
   toggleCorgiMode: () => void,
@@ -195,6 +196,13 @@ export const useSlashCommandProcessor = (
         description: 'change the theme',
         action: (_mainCommand, _subCommand, _args) => {
           openThemeDialog();
+        },
+      },
+      {
+        name: 'auth',
+        description: 'change the auth method',
+        action: (_mainCommand, _subCommand, _args) => {
+          openAuthDialog();
         },
       },
       {
@@ -518,7 +526,7 @@ export const useSlashCommandProcessor = (
       {
         name: 'about',
         description: 'show version info',
-        action: (_mainCommand, _subCommand, _args) => {
+        action: async (_mainCommand, _subCommand, _args) => {
           const osVersion = process.platform;
           let sandboxEnv = 'no sandbox';
           if (process.env.SANDBOX && process.env.SANDBOX !== 'sandbox-exec') {
@@ -529,7 +537,7 @@ export const useSlashCommandProcessor = (
             })`;
           }
           const modelVersion = config?.getModel() || 'Unknown';
-          const cliVersion = getCliVersion();
+          const cliVersion = await getCliVersion();
           addMessage({
             type: MessageType.ABOUT,
             timestamp: new Date(),
@@ -543,7 +551,7 @@ export const useSlashCommandProcessor = (
       {
         name: 'bug',
         description: 'submit a bug report',
-        action: (_mainCommand, _subCommand, args) => {
+        action: async (_mainCommand, _subCommand, args) => {
           let bugDescription = _subCommand || '';
           if (args) {
             bugDescription += ` ${args}`;
@@ -560,8 +568,8 @@ export const useSlashCommandProcessor = (
             })`;
           }
           const modelVersion = config?.getModel() || 'Unknown';
+          const cliVersion = await getCliVersion();
           const memoryUsage = formatMemoryUsage(process.memoryUsage().rss);
-          const cliVersion = getCliVersion();
 
           const diagnosticInfo = `
 ## Describe the bug
@@ -760,6 +768,8 @@ Add any other context about the problem here.
             type: MessageType.COMPRESSION,
             compression: {
               isPending: true,
+              originalTokenCount: null,
+              newTokenCount: null,
             },
           });
           try {
@@ -905,6 +915,7 @@ Add any other context about the problem here.
     setShowHelp,
     refreshStatic,
     openThemeDialog,
+    openAuthDialog,
     openEditorDialog,
     clearItems,
     performMemoryRefresh,

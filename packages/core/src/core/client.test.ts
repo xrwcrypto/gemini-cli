@@ -13,7 +13,7 @@ import {
   GoogleGenAI,
 } from '@google/genai';
 import { GeminiClient } from './client.js';
-import { ContentGenerator } from './contentGenerator.js';
+import { AuthType, ContentGenerator } from './contentGenerator.js';
 import { GeminiChat } from './geminiChat.js';
 import { Config } from '../config/config.js';
 import { Turn } from './turn.js';
@@ -65,7 +65,7 @@ vi.mock('../telemetry/index.js', () => ({
 
 describe('Gemini Client (client.ts)', () => {
   let client: GeminiClient;
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetAllMocks();
 
     // Set up the mock for GoogleGenAI constructor and its methods
@@ -102,13 +102,17 @@ describe('Gemini Client (client.ts)', () => {
     };
     const fileService = new FileDiscoveryService('/test/dir');
     const MockedConfig = vi.mocked(Config, true);
+    const contentGeneratorConfig = {
+      model: 'test-model',
+      apiKey: 'test-key',
+      vertexai: false,
+      authType: AuthType.USE_GEMINI,
+    };
     MockedConfig.mockImplementation(() => {
       const mock = {
-        getContentGeneratorConfig: vi.fn().mockReturnValue({
-          model: 'test-model',
-          apiKey: 'test-key',
-          vertexai: false,
-        }),
+        getContentGeneratorConfig: vi
+          .fn()
+          .mockReturnValue(contentGeneratorConfig),
         getToolRegistry: vi.fn().mockResolvedValue(mockToolRegistry),
         getModel: vi.fn().mockReturnValue('test-model'),
         getEmbeddingModel: vi.fn().mockReturnValue('test-embedding-model'),
@@ -131,6 +135,7 @@ describe('Gemini Client (client.ts)', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockConfig = new Config({} as any);
     client = new GeminiClient(mockConfig);
+    await client.initialize(contentGeneratorConfig);
   });
 
   afterEach(() => {
@@ -262,9 +267,7 @@ describe('Gemini Client (client.ts)', () => {
         countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
         generateContent: mockGenerateContentFn,
       };
-      client['contentGenerator'] = Promise.resolve(
-        mockGenerator as ContentGenerator,
-      );
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
 
       await client.generateContent(contents, generationConfig, abortSignal);
 
@@ -292,9 +295,7 @@ describe('Gemini Client (client.ts)', () => {
         countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
         generateContent: mockGenerateContentFn,
       };
-      client['contentGenerator'] = Promise.resolve(
-        mockGenerator as ContentGenerator,
-      );
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
 
       await client.generateJson(contents, schema, abortSignal);
 
@@ -319,7 +320,7 @@ describe('Gemini Client (client.ts)', () => {
         addHistory: vi.fn(),
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      client['chat'] = Promise.resolve(mockChat as any);
+      client['chat'] = mockChat as any;
 
       const newContent = {
         role: 'user',
@@ -371,14 +372,12 @@ describe('Gemini Client (client.ts)', () => {
         addHistory: vi.fn(),
         getHistory: vi.fn().mockReturnValue([]),
       };
-      client['chat'] = Promise.resolve(mockChat as GeminiChat);
+      client['chat'] = mockChat as GeminiChat;
 
       const mockGenerator: Partial<ContentGenerator> = {
         countTokens: vi.fn().mockResolvedValue({ totalTokens: 0 }),
       };
-      client['contentGenerator'] = Promise.resolve(
-        mockGenerator as ContentGenerator,
-      );
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
 
       // Act
       const stream = client.sendMessageStream(

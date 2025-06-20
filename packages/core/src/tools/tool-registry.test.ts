@@ -125,13 +125,9 @@ class MockTool extends BaseTool<{ param: string }, ToolResult> {
 
 const baseConfigParams: ConfigParameters = {
   cwd: '/tmp',
-  contentGeneratorConfig: {
-    model: 'test-model',
-    apiKey: 'test-api-key',
-    vertexai: false,
-  },
+  model: 'test-model',
   embeddingModel: 'test-embedding-model',
-  sandbox: false,
+  sandbox: undefined,
   targetDir: '/test/dir',
   debugMode: false,
   userMemory: '',

@@ -7,8 +7,8 @@
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { Content } from '@google/genai';
+import { getProjectTempDir } from '../utils/paths.js';
 
-const GEMINI_DIR = '.gemini';
 const LOG_FILE_NAME = 'logs.json';
 const CHECKPOINT_FILE_NAME = 'checkpoint.json';
 
@@ -95,7 +95,8 @@ export class Logger {
     if (this.initialized) {
       return;
     }
-    this.geminiDir = path.resolve(process.cwd(), GEMINI_DIR);
+
+    this.geminiDir = getProjectTempDir(process.cwd());
     this.logFilePath = path.join(this.geminiDir, LOG_FILE_NAME);
     this.checkpointFilePath = path.join(this.geminiDir, CHECKPOINT_FILE_NAME);
 
