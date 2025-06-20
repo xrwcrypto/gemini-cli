@@ -20,7 +20,9 @@ import {
   ApiErrorEvent,
   ApiRequestEvent,
   ApiResponseEvent,
+  getDecisionFromOutcome,
   StartSessionEvent,
+  ToolCallDecision,
   ToolCallEvent,
   UserPromptEvent,
 } from './types.js';
@@ -50,37 +52,30 @@ function getCommonAttributes(config: Config): Record<string, any> {
   };
 }
 
-export function logCliConfiguration(startSessionEvent: StartSessionEvent): void {
-  const config = startSessionEvent.config;
+export function logCliConfiguration(config: Config, event: StartSessionEvent): void {
+  clearcutLogger?.logStartSessionEvent(event);
+  if (!isTelemetrySdkInitialized()) return;
 
-  const generatorConfig = config.getContentGeneratorConfig();
-  const mcpServers = config.getMcpServers();
-  
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     'event.name': EVENT_CLI_CONFIG,
     'event.timestamp': new Date().toISOString(),
-    model: config.getModel(),
-    embedding_model: config.getEmbeddingModel(),
-    sandbox_enabled:
-      typeof config.getSandbox() === 'string' ? true : config.getSandbox(),
-    core_tools_enabled: (config.getCoreTools() ?? []).join(','),
-    approval_mode: config.getApprovalMode(),
-    api_key_enabled: !!generatorConfig.apiKey,
-    vertex_ai_enabled: !!generatorConfig.vertexai,
-    code_assist_enabled: !!generatorConfig.codeAssist,
-    log_user_prompts_enabled: config.getTelemetryLogUserPromptsEnabled(),
+    model: event.model,
+    embedding_model: event.embedding_model,
+    sandbox_enabled: event.sandbox_enabled,
+    core_tools_enabled: event.core_tools_enabled,
+    approval_mode: event.approval_mode,
+    api_key_enabled: event.api_key_enabled,
+    vertex_ai_enabled: event.vertex_ai_enabled,
+    code_assist_enabled: event.code_assist_enabled,
+    log_user_prompts_enabled: event.telemetry_log_user_prompts_enabled,
     file_filtering_respect_git_ignore:
-      config.getFileFilteringRespectGitIgnore(),
+      event.file_filtering_respect_git_ignore,
     file_filtering_allow_build_artifacts:
-      config.getFileFilteringAllowBuildArtifacts(),
-    debug_mode: config.getDebugMode(),
-    mcp_servers: mcpServers ? Object.keys(mcpServers).join(',') : '',
-  };
-
-  clearcutLogger?.logStartSessionEvent(startSessionEvent);
-  
-  if (!isTelemetrySdkInitialized()) return;
+      event.file_filtering_allow_build_artifacts,
+    debug_mode: event.debug_enabled,
+    mcp_servers: event.mcp_servers,
+  };  
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -120,18 +115,13 @@ export function logUserPrompt(
 export function logToolCall(
   config: Config,
   event: ToolCallEvent,
-  outcome?: ToolConfirmationOutcome,
 ): void {
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
     ...event,
     'event.name': EVENT_TOOL_CALL,
     'event.timestamp': new Date().toISOString(),
-    function_name: event.function_name,
     function_args: JSON.stringify(event.function_args, null, 2),
-    decision: event.decision,
-    success: event.success,
-    duration: event.duration_ms,
   };
   if (event.error) {
     attributes['error.message'] = event.error;

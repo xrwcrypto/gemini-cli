@@ -29,7 +29,8 @@ import { Config } from '../config/config.js';
 import { SERVICE_NAME } from './constants.js';
 import { initializeMetrics } from './metrics.js';
 import { logCliConfiguration } from './loggers.js';
-import { CliConfigEvent, StartSessionEvent } from './types.js';
+import { StartSessionEvent } from './types.js';
+import { ClearcutLogger } from './data-collection/clearcut-logging.js';
 
 // For troubleshooting, set the log level to DiagLogLevel.DEBUG
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
@@ -157,7 +158,7 @@ export function initializeTelemetry(config: Config): void {
     console.log('OpenTelemetry SDK started successfully.');
     telemetryInitialized = true;
     initializeMetrics(config);
-    logCliConfiguration(new StartSessionEvent(config));
+    logCliConfiguration(config, new StartSessionEvent(config));
   } catch (error) {
     console.error('Error starting OpenTelemetry SDK:', error);
   }
@@ -167,6 +168,7 @@ export function initializeTelemetry(config: Config): void {
 }
 
 export async function shutdownTelemetry(): Promise<void> {
+  ClearcutLogger.getInstance().shutdown();
   if (!telemetryInitialized || !sdk) {
     return;
   }

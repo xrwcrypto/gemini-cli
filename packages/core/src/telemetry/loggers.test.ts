@@ -4,13 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CompletedToolCall, EditTool, ErroredToolCall, ToolConfirmationOutcome } from '../index.js';
+import { CompletedToolCall, ContentGeneratorConfig, EditTool, ErroredToolCall, GeminiClient, ToolConfirmationOutcome, ToolRegistry } from '../index.js';
 import { logs } from '@opentelemetry/api-logs';
 import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
 import { Config } from '../config/config.js';
 import {
   EVENT_API_REQUEST,
   EVENT_API_RESPONSE,
+  EVENT_CLI_CONFIG,
+  EVENT_TOOL_CALL,
   EVENT_USER_PROMPT,
 } from './constants.js';
 import {
@@ -61,6 +63,7 @@ describe('loggers', () => {
           vertexai: true,
           codeAssist: false,
         }),
+        getTelemetryEnabled: () => true,
         getTelemetryLogUserPromptsEnabled: () => true,
         getFileFilteringRespectGitIgnore: () => true,
         getFileFilteringAllowBuildArtifacts: () => false,
@@ -71,16 +74,18 @@ describe('loggers', () => {
           },
         }),
         getQuestion: () => 'test-question',
+        getTargetDir: () => 'target-dir',
+        getProxy: () => 'http://test.proxy.com:8080',
       } as unknown as Config;
 
       const startSessionEvent = new StartSessionEvent(mockConfig)
-      logCliConfiguration(startSessionEvent);
+      logCliConfiguration(mockConfig, startSessionEvent);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'CLI configuration loaded.',
         attributes: {
           'session.id': 'test-session-id',
-          'event.name': 'gemini_cli.config',
+          'event.name': EVENT_CLI_CONFIG,
           'event.timestamp': '2025-01-01T00:00:00.000Z',
           model: 'test-model',
           embedding_model: 'test-embedding-model',
@@ -127,6 +132,7 @@ describe('loggers', () => {
       const mockConfig = {
         getSessionId: () => 'test-session-id',
         getTelemetryLogUserPromptsEnabled: () => false,
+        getTargetDir: () => 'target-dir',
       } as unknown as Config;
       const event = new UserPromptEvent(11, 'test-prompt');
 
@@ -147,6 +153,7 @@ describe('loggers', () => {
   describe('logApiResponse', () => {
     const mockConfig = {
       getSessionId: () => 'test-session-id',
+      getTargetDir: () => 'target-dir',
     } as Config;
 
     const mockMetrics = {
@@ -223,7 +230,7 @@ describe('loggers', () => {
       logApiResponse(mockConfig, event);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
-        body: 'API response from test-model. Status: N/A. Duration: 100ms.',
+        body: 'API response from test-model. Status: 200. Duration: 100ms.',
         attributes: {
           'session.id': 'test-session-id',
           ...event,
@@ -238,6 +245,7 @@ describe('loggers', () => {
   describe('logApiRequest', () => {
     const mockConfig = {
       getSessionId: () => 'test-session-id',
+      getTargetDir: () => 'target-dir',
     } as Config;
 
     it('should log an API request with request_text', () => {
@@ -275,8 +283,42 @@ describe('loggers', () => {
   });
 
   describe('logToolCall', () => {
+    const cfg1 = {
+      getSessionId: () => 'test-session-id',
+      getTargetDir: () => 'target-dir',
+      getGeminiClient: () => mockGeminiClient,
+    } as Config;
+    const cfg2 = {
+      getSessionId: () => 'test-session-id',
+      getTargetDir: () => 'target-dir',
+      getProxy: () => 'http://test.proxy.com:8080',
+      getContentGeneratorConfig: () => ({ model: "test-model" }) as ContentGeneratorConfig,
+      getModel: () => "test-model",
+      getEmbeddingModel: () => "test-embedding-model",
+      getWorkingDir: () => "test-working-dir",
+      getSandbox: () => true,
+      getCoreTools: () => ['ls', 'read-file'],
+      getApprovalMode: () => 'default',
+      getTelemetryLogUserPromptsEnabled: () => true,
+      getFileFilteringRespectGitIgnore: () => true,
+      getFileFilteringAllowBuildArtifacts: () => false,
+      getDebugMode: () => true,
+      getMcpServers: () => ({
+        'test-server': {
+          command: 'test-command',
+        },
+      }),
+      getQuestion: () => 'test-question',
+      getToolRegistry: () => new ToolRegistry(cfg1),
+      getFullContext: () => false,
+      getUserMemory: () => 'user-memory',
+    } as unknown as Config;
+
+    const mockGeminiClient = new GeminiClient(cfg2);
     const mockConfig = {
       getSessionId: () => 'test-session-id',
+      getTargetDir: () => 'target-dir',
+      getGeminiClient: () => mockGeminiClient,
     } as Config;
 
     const mockMetrics = {
@@ -309,16 +351,17 @@ describe('loggers', () => {
         },
         tool: new EditTool(mockConfig),
         durationMs: 100,
+        outcome: ToolConfirmationOutcome.ProceedOnce,
       };
       const event = new ToolCallEvent(call);
 
-      logToolCall(mockConfig, event, ToolConfirmationOutcome.ProceedOnce);
+      logToolCall(mockConfig, event);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'Tool call: test-function. Decision: accept. Success: true. Duration: 100ms.',
         attributes: {
           'session.id': 'test-session-id',
-          'event.name': 'gemini_cli.tool_call',
+          'event.name': EVENT_TOOL_CALL,
           'event.timestamp': '2025-01-01T00:00:00.000Z',
           function_name: 'test-function',
           function_args: JSON.stringify(
@@ -361,16 +404,17 @@ describe('loggers', () => {
             error: undefined,
         },
         durationMs: 100,
+        outcome: ToolConfirmationOutcome.Cancel,
       };
       const event = new ToolCallEvent(call);
 
-      logToolCall(mockConfig, event, ToolConfirmationOutcome.Cancel);
+      logToolCall(mockConfig, event);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'Tool call: test-function. Decision: reject. Success: false. Duration: 100ms.',
         attributes: {
           'session.id': 'test-session-id',
-          'event.name': 'gemini_cli.tool_call',
+          'event.name': EVENT_TOOL_CALL,
           'event.timestamp': '2025-01-01T00:00:00.000Z',
           function_name: 'test-function',
           function_args: JSON.stringify(
@@ -409,22 +453,23 @@ describe('loggers', () => {
         },
         response: {
           callId: "test-call-id",
-            responseParts: "test-response",
-            resultDisplay: undefined,
-            error: undefined,
+          responseParts: "test-response",
+          resultDisplay: undefined,
+          error: undefined,
         },
+        outcome: ToolConfirmationOutcome.ModifyWithEditor,
         tool: new EditTool(mockConfig),
         durationMs: 100,
       };
       const event = new ToolCallEvent(call);
 
-      logToolCall(mockConfig, event, ToolConfirmationOutcome.ModifyWithEditor);
+      logToolCall(mockConfig, event);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'Tool call: test-function. Decision: modify. Success: true. Duration: 100ms.',
         attributes: {
           'session.id': 'test-session-id',
-          'event.name': 'gemini_cli.tool_call',
+          'event.name': EVENT_TOOL_CALL,
           'event.timestamp': '2025-01-01T00:00:00.000Z',
           function_name: 'test-function',
           function_args: JSON.stringify(
@@ -478,7 +523,7 @@ describe('loggers', () => {
         body: 'Tool call: test-function. Success: true. Duration: 100ms.',
         attributes: {
           'session.id': 'test-session-id',
-          'event.name': 'gemini_cli.tool_call',
+          'event.name': EVENT_TOOL_CALL,
           'event.timestamp': '2025-01-01T00:00:00.000Z',
           function_name: 'test-function',
           function_args: JSON.stringify(
@@ -516,12 +561,12 @@ describe('loggers', () => {
         },
         response: {
           callId: "test-call-id",
-            responseParts: "test-response",
-            resultDisplay: undefined,
-            error: {
-              name: 'test-error-type',
-              message: 'test-error',
-            },
+          responseParts: "test-response",
+          resultDisplay: undefined,
+          error: {
+            name: 'test-error-type',
+            message: 'test-error',
+          },
         },
         durationMs: 100,
       };
@@ -533,7 +578,7 @@ describe('loggers', () => {
         body: 'Tool call: test-function. Success: false. Duration: 100ms.',
         attributes: {
           'session.id': 'test-session-id',
-          'event.name': 'gemini_cli.tool_call',
+          'event.name': EVENT_TOOL_CALL,
           'event.timestamp': '2025-01-01T00:00:00.000Z',
           function_name: 'test-function',
           function_args: JSON.stringify(

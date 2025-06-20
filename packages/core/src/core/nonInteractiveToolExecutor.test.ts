@@ -15,8 +15,11 @@ import {
   Config,
 } from '../index.js';
 import { Part, Type } from '@google/genai';
+import { get } from 'http';
 
-const mockConfig = {} as unknown as Config;
+const mockConfig = {
+  getSessionId: () => 'test-session-id',
+} as unknown as Config;
 
 describe('executeToolCall', () => {
   let mockToolRegistry: ToolRegistry;

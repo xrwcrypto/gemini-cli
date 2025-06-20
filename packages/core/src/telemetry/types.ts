@@ -15,7 +15,7 @@ export enum ToolCallDecision {
   MODIFY = 'modify',
 }
 
-function getDecisionFromOutcome(
+export function getDecisionFromOutcome(
   outcome: ToolConfirmationOutcome,
 ): ToolCallDecision {
   switch (outcome) {
@@ -33,30 +33,59 @@ function getDecisionFromOutcome(
 }
 
 export interface StartSessionEvent {
-  'event.name': 'start_session';
+  'event.name': 'cli_config';
   'event.timestamp': string; // ISO 8601
-  config: Config;
+  model: string;
+  embedding_model: string;
+  sandbox_enabled: boolean;
+  core_tools_enabled: string;
+  approval_mode: string;
+  api_key_enabled: boolean;
+  vertex_ai_enabled: boolean;
+  code_assist_enabled: boolean;
+  debug_enabled: boolean;
+  mcp_servers: string;
+  telemetry_enabled: boolean;
+  telemetry_log_user_prompts_enabled: boolean;
+  file_filtering_respect_git_ignore: boolean;
+  file_filtering_allow_build_artifacts: boolean;
 }
 
 export class StartSessionEvent {
   constructor(config: Config) {
-    this['event.name'] = 'start_session';
+    const generatorConfig = config.getContentGeneratorConfig();
+    const mcpServers = config.getMcpServers();
+
+    this['event.name'] = 'cli_config';
     this['event.timestamp'] = new Date().toISOString();
-    this.config = config;
+    this.model = config.getModel();
+    this.embedding_model = config.getEmbeddingModel();
+    this.sandbox_enabled = typeof config.getSandbox() === 'string' || !!config.getSandbox();
+    this.core_tools_enabled = (config.getCoreTools() ?? []).join(',');
+    this.approval_mode = config.getApprovalMode();
+    this.api_key_enabled = !!generatorConfig.apiKey;
+    this.vertex_ai_enabled = generatorConfig.vertexai ?? false;
+    this.code_assist_enabled = !!generatorConfig.codeAssist;
+    this.debug_enabled = config.getDebugMode();
+    this.mcp_servers = mcpServers ? Object.keys(mcpServers).join(',') : '';
+    this.telemetry_enabled = config.getTelemetryEnabled();
+    this.telemetry_log_user_prompts_enabled = config.getTelemetryLogUserPromptsEnabled();
+    this.file_filtering_respect_git_ignore = config.getFileFilteringRespectGitIgnore();
+    this.file_filtering_allow_build_artifacts = config.getFileFilteringAllowBuildArtifacts();
   }
 }
 
 export interface EndSessionEvent {
   'event.name': 'end_session';
   'event.timestamp': string; // ISO 8601
-  config: Config;
+  session_id?: string;
 }
 
 export class EndSessionEvent {
-  constructor(config: Config) {
+  constructor(config?: Config, session_duration_sec?: number) {
     this['event.name'] = 'end_session';
     this['event.timestamp'] = new Date().toISOString();
-    this.config = config;
+    this.session_id = config?.getSessionId();
   }
 }
 
@@ -190,43 +219,6 @@ export class ApiResponseEvent {
   }
 }
 
-export interface CliConfigEvent {
-  'event.name': 'cli_config';
-  'event.timestamp': string; // ISO 8601
-  model: string;
-  sandbox_enabled: boolean;
-  core_tools_enabled: string;
-  approval_mode: string;
-  vertex_ai_enabled: boolean;
-  log_user_prompts_enabled: boolean;
-  file_filtering_respect_git_ignore: boolean;
-  file_filtering_allow_build_artifacts: boolean;
-}
-
-export class CliConfigEvent {
-  constructor(
-    model: string,
-    sandbox_enabled: boolean,
-    core_tools_enabled: string,
-    approval_mode: string,
-    vertex_ai_enabled: boolean,
-    log_user_prompts_enabled: boolean,
-    file_filtering_respect_git_ignore: boolean,
-    file_filtering_allow_build_artifacts: boolean,
-  ) {
-    this['event.name'] = 'cli_config';
-    this['event.timestamp'] = new Date().toISOString();
-    this.model = model;
-    this.sandbox_enabled = sandbox_enabled;
-    this.core_tools_enabled = core_tools_enabled;
-    this.approval_mode = approval_mode;
-    this.vertex_ai_enabled = vertex_ai_enabled;
-    this.log_user_prompts_enabled = log_user_prompts_enabled;
-    this.file_filtering_respect_git_ignore = file_filtering_respect_git_ignore;
-    this.file_filtering_allow_build_artifacts = file_filtering_allow_build_artifacts;
-  }
-}
-
 export type TelemetryEvent =
   | StartSessionEvent
   | EndSessionEvent
@@ -234,5 +226,4 @@ export type TelemetryEvent =
   | ToolCallEvent
   | ApiRequestEvent
   | ApiErrorEvent
-  | ApiResponseEvent
-  | CliConfigEvent;
+  | ApiResponseEvent;

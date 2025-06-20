@@ -26,7 +26,6 @@ export {
   ApiRequestEvent,
   ApiErrorEvent,
   ApiResponseEvent,
-  CliConfigEvent,
   TelemetryEvent,
 } from './types.js';
 export { SpanStatusCode, ValueType } from '@opentelemetry/api';
