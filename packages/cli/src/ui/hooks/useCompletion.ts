@@ -4,17 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { glob } from 'glob';
+import { Worker } from 'worker_threads';
 import {
   isNodeError,
   escapePath,
   unescapePath,
   getErrorMessage,
   Config,
-  FileDiscoveryService,
 } from '@gemini-cli/core';
 import {
   MAX_SUGGESTIONS_TO_SHOW,
@@ -35,6 +34,13 @@ export interface UseCompletionReturn {
   navigateDown: () => void;
 }
 
+// The worker needs to be bundled separately.
+// The path is relative to the built output directory.
+const FILE_SEARCH_WORKER_PATH = new URL(
+  './fileSearch.worker.js',
+  import.meta.url,
+).pathname;
+
 export function useCompletion(
   query: string,
   cwd: string,
@@ -50,6 +56,94 @@ export function useCompletion(
   const [isLoadingSuggestions, setIsLoadingSuggestions] =
     useState<boolean>(false);
 
+  const workerRef = useRef<Worker | null>(null);
+  const latestQueryRef = useRef<string>('');
+
+  useEffect(() => {
+    // Update the ref on every query change
+    latestQueryRef.current = query;
+  }, [query]);
+
+  useEffect(() => {
+    // Initialize and terminate the worker
+    workerRef.current = new Worker(FILE_SEARCH_WORKER_PATH);
+
+    workerRef.current.on(
+      'message',
+      (msg: { query: string; files: string[]; error?: string }) => {
+        // Prevent race conditions by checking if the result is for the latest query
+        if (msg.query !== latestQueryRef.current) {
+          return;
+        }
+
+        if (msg.error) {
+          console.error(
+            `Error from file search worker for query "${msg.query}": ${msg.error}`,
+          );
+          resetCompletionState();
+          setIsLoadingSuggestions(false);
+          return;
+        }
+
+        const fileDiscoveryService = config?.getFileService();
+
+        const suggestions: Suggestion[] = msg.files
+          .map((file: string) => {
+            const relativePath = path.relative(cwd, file);
+            return {
+              label: relativePath,
+              value: escapePath(relativePath),
+            };
+          })
+          .filter((s) => {
+            if (fileDiscoveryService) {
+              return !fileDiscoveryService.shouldGitIgnoreFile(s.label);
+            }
+            return true;
+          })
+          .slice(0, 50); // Limit results here
+
+        // Sort by depth, then directories first, then alphabetically
+        suggestions.sort((a, b) => {
+          const depthA = (a.label.match(/\//g) || []).length;
+          const depthB = (b.label.match(/\//g) || []).length;
+
+          if (depthA !== depthB) {
+            return depthA - depthB;
+          }
+
+          const aIsDir = a.label.endsWith('/');
+          const bIsDir = b.label.endsWith('/');
+          if (aIsDir && !bIsDir) return -1;
+          if (!aIsDir && bIsDir) return 1;
+
+          return a.label.localeCompare(b.label);
+        });
+
+        setSuggestions(suggestions);
+        setShowSuggestions(suggestions.length > 0);
+        setActiveSuggestionIndex(suggestions.length > 0 ? 0 : -1);
+        setVisibleStartIndex(0);
+        setIsLoadingSuggestions(false);
+      },
+    );
+
+    workerRef.current.on('error', (err) => {
+      console.error('File search worker error:', err);
+      setIsLoadingSuggestions(false);
+    });
+
+    workerRef.current.on('exit', (code) => {
+      if (code !== 0) {
+        console.error(`File search worker stopped with exit code ${code}`);
+      }
+    });
+
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []); // Empty array ensures this runs only once on mount/unmount
+
   const resetCompletionState = useCallback(() => {
     setSuggestions([]);
     setActiveSuggestionIndex(-1);
@@ -62,24 +156,19 @@ export function useCompletion(
     if (suggestions.length === 0) return;
 
     setActiveSuggestionIndex((prevActiveIndex) => {
-      // Calculate new active index, handling wrap-around
       const newActiveIndex =
         prevActiveIndex <= 0 ? suggestions.length - 1 : prevActiveIndex - 1;
 
-      // Adjust scroll position based on the new active index
       setVisibleStartIndex((prevVisibleStart) => {
-        // Case 1: Wrapped around to the last item
         if (
           newActiveIndex === suggestions.length - 1 &&
           suggestions.length > MAX_SUGGESTIONS_TO_SHOW
         ) {
           return Math.max(0, suggestions.length - MAX_SUGGESTIONS_TO_SHOW);
         }
-        // Case 2: Scrolled above the current visible window
         if (newActiveIndex < prevVisibleStart) {
           return newActiveIndex;
         }
-        // Otherwise, keep the current scroll position
         return prevVisibleStart;
       });
 
@@ -91,25 +180,20 @@ export function useCompletion(
     if (suggestions.length === 0) return;
 
     setActiveSuggestionIndex((prevActiveIndex) => {
-      // Calculate new active index, handling wrap-around
       const newActiveIndex =
         prevActiveIndex >= suggestions.length - 1 ? 0 : prevActiveIndex + 1;
 
-      // Adjust scroll position based on the new active index
       setVisibleStartIndex((prevVisibleStart) => {
-        // Case 1: Wrapped around to the first item
         if (
           newActiveIndex === 0 &&
           suggestions.length > MAX_SUGGESTIONS_TO_SHOW
         ) {
           return 0;
         }
-        // Case 2: Scrolled below the current visible window
         const visibleEndIndex = prevVisibleStart + MAX_SUGGESTIONS_TO_SHOW;
         if (newActiveIndex >= visibleEndIndex) {
           return newActiveIndex - MAX_SUGGESTIONS_TO_SHOW + 1;
         }
-        // Otherwise, keep the current scroll position
         return prevVisibleStart;
       });
 
@@ -123,10 +207,11 @@ export function useCompletion(
       return;
     }
 
-    const trimmedQuery = query.trimStart(); // Trim leading whitespace
+    const trimmedQuery = query.trimStart();
 
     // --- Handle Slash Command Completion ---
     if (trimmedQuery.startsWith('/')) {
+      // (Keep existing slash command logic, it's synchronous)
       const parts = trimmedQuery.substring(1).split(' ');
       const commandName = parts[0];
       const subCommand = parts.slice(1).join(' ');
@@ -162,12 +247,11 @@ export function useCompletion(
             cmd.name.startsWith(partialCommand) ||
             cmd.altName?.startsWith(partialCommand),
         )
-        // Filter out ? and any other single character commands unless it's the only char
         .filter((cmd) => {
           const nameMatch = cmd.name.startsWith(partialCommand);
           const altNameMatch = cmd.altName?.startsWith(partialCommand);
           if (partialCommand.length === 1) {
-            return nameMatch || altNameMatch; // Allow single char match if query is single char
+            return nameMatch || altNameMatch;
           }
           return (
             (nameMatch && cmd.name.length > 1) ||
@@ -176,8 +260,8 @@ export function useCompletion(
         })
         .filter((cmd) => cmd.description)
         .map((cmd) => ({
-          label: cmd.name, // Always show the main name as label
-          value: cmd.name, // Value should be the main command name for execution
+          label: cmd.name,
+          value: cmd.name,
           description: cmd.description,
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
@@ -211,144 +295,24 @@ export function useCompletion(
 
     const baseDirAbsolute = path.resolve(cwd, baseDirRelative);
 
-    let isMounted = true;
-
-    const findFilesRecursively = async (
-      startDir: string,
-      searchPrefix: string,
-      fileDiscovery: { shouldGitIgnoreFile: (path: string) => boolean } | null,
-      currentRelativePath = '',
-      depth = 0,
-      maxDepth = 10, // Limit recursion depth
-      maxResults = 50, // Limit number of results
-    ): Promise<Suggestion[]> => {
-      if (depth > maxDepth) {
-        return [];
-      }
-
-      const lowerSearchPrefix = searchPrefix.toLowerCase();
-      let foundSuggestions: Suggestion[] = [];
-      try {
-        const entries = await fs.readdir(startDir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (foundSuggestions.length >= maxResults) break;
-
-          const entryPathRelative = path.join(currentRelativePath, entry.name);
-          const entryPathFromRoot = path.relative(
-            cwd,
-            path.join(startDir, entry.name),
-          );
-
-          // Conditionally ignore dotfiles
-          if (!searchPrefix.startsWith('.') && entry.name.startsWith('.')) {
-            continue;
-          }
-
-          // Check if this entry should be ignored by git-aware filtering
-          if (
-            fileDiscovery &&
-            fileDiscovery.shouldGitIgnoreFile(entryPathFromRoot)
-          ) {
-            continue;
-          }
-
-          if (entry.name.toLowerCase().startsWith(lowerSearchPrefix)) {
-            foundSuggestions.push({
-              label: entryPathRelative + (entry.isDirectory() ? '/' : ''),
-              value: escapePath(
-                entryPathRelative + (entry.isDirectory() ? '/' : ''),
-              ),
-            });
-          }
-          if (
-            entry.isDirectory() &&
-            entry.name !== 'node_modules' &&
-            !entry.name.startsWith('.')
-          ) {
-            if (foundSuggestions.length < maxResults) {
-              foundSuggestions = foundSuggestions.concat(
-                await findFilesRecursively(
-                  path.join(startDir, entry.name),
-                  searchPrefix, // Pass original searchPrefix for recursive calls
-                  fileDiscovery,
-                  entryPathRelative,
-                  depth + 1,
-                  maxDepth,
-                  maxResults - foundSuggestions.length,
-                ),
-              );
-            }
-          }
-        }
-      } catch (_err) {
-        // Ignore errors like permission denied or ENOENT during recursive search
-      }
-      return foundSuggestions.slice(0, maxResults);
-    };
-
-    const findFilesWithGlob = async (
-      searchPrefix: string,
-      fileDiscoveryService: FileDiscoveryService,
-      maxResults = 50,
-    ): Promise<Suggestion[]> => {
-      const globPattern = `**/${searchPrefix}*`;
-      const files = await glob(globPattern, {
-        cwd,
-        dot: searchPrefix.startsWith('.'),
-        nocase: true,
-      });
-
-      const suggestions: Suggestion[] = files
-        .map((file: string) => {
-          const relativePath = path.relative(cwd, file);
-          return {
-            label: relativePath,
-            value: escapePath(relativePath),
-          };
-        })
-        .filter((s) => {
-          if (fileDiscoveryService) {
-            return !fileDiscoveryService.shouldGitIgnoreFile(s.label); // relative path
-          }
-          return true;
-        })
-        .slice(0, maxResults);
-
-      return suggestions;
-    };
-
     const fetchSuggestions = async () => {
       setIsLoadingSuggestions(true);
-      let fetchedSuggestions: Suggestion[] = [];
 
       const fileDiscoveryService = config ? config.getFileService() : null;
 
       try {
-        // If there's no slash, or it's the root, do a recursive search from cwd
+        // If there's no slash, do a recursive search from cwd using the worker
         if (partialPath.indexOf('/') === -1 && prefix) {
-          if (fileDiscoveryService) {
-            fetchedSuggestions = await findFilesWithGlob(
-              prefix,
-              fileDiscoveryService,
-            );
-          } else {
-            fetchedSuggestions = await findFilesRecursively(
-              cwd,
-              prefix,
-              fileDiscoveryService,
-            );
-          }
+          workerRef.current?.postMessage({ query, prefix, cwd });
         } else {
-          // Original behavior: list files in the specific directory
+          // Original behavior for specific directory listing (fast, no worker needed)
           const lowerPrefix = prefix.toLowerCase();
           const entries = await fs.readdir(baseDirAbsolute, {
             withFileTypes: true,
           });
 
-          // Filter entries using git-aware filtering
           const filteredEntries = [];
           for (const entry of entries) {
-            // Conditionally ignore dotfiles
             if (!prefix.startsWith('.') && entry.name.startsWith('.')) {
               continue;
             }
@@ -368,54 +332,41 @@ export function useCompletion(
             filteredEntries.push(entry);
           }
 
-          fetchedSuggestions = filteredEntries.map((entry) => {
+          const fetchedSuggestions = filteredEntries.map((entry) => {
             const label = entry.isDirectory() ? entry.name + '/' : entry.name;
             return {
               label,
-              value: escapePath(label), // Value for completion should be just the name part
+              value: escapePath(label),
             };
           });
-        }
 
-        // Sort by depth, then directories first, then alphabetically
-        fetchedSuggestions.sort((a, b) => {
-          const depthA = (a.label.match(/\//g) || []).length;
-          const depthB = (b.label.match(/\//g) || []).length;
+          // Sort here since this path doesn't use the worker
+          fetchedSuggestions.sort((a, b) => {
+            const aIsDir = a.label.endsWith('/');
+            const bIsDir = b.label.endsWith('/');
+            if (aIsDir && !bIsDir) return -1;
+            if (!aIsDir && bIsDir) return 1;
+            return a.label.localeCompare(b.label);
+          });
 
-          if (depthA !== depthB) {
-            return depthA - depthB;
-          }
-
-          const aIsDir = a.label.endsWith('/');
-          const bIsDir = b.label.endsWith('/');
-          if (aIsDir && !bIsDir) return -1;
-          if (!aIsDir && bIsDir) return 1;
-
-          return a.label.localeCompare(b.label);
-        });
-
-        if (isMounted) {
           setSuggestions(fetchedSuggestions);
           setShowSuggestions(fetchedSuggestions.length > 0);
           setActiveSuggestionIndex(fetchedSuggestions.length > 0 ? 0 : -1);
           setVisibleStartIndex(0);
+          setIsLoadingSuggestions(false);
         }
       } catch (error: unknown) {
         if (isNodeError(error) && error.code === 'ENOENT') {
-          if (isMounted) {
-            setSuggestions([]);
-            setShowSuggestions(false);
-          }
+          setSuggestions([]);
+          setShowSuggestions(false);
         } else {
           console.error(
-            `Error fetching completion suggestions for ${partialPath}: ${getErrorMessage(error)}`,
+            `Error fetching completion suggestions for ${partialPath}: ${getErrorMessage(
+              error,
+            )}`,
           );
-          if (isMounted) {
-            resetCompletionState();
-          }
+          resetCompletionState();
         }
-      }
-      if (isMounted) {
         setIsLoadingSuggestions(false);
       }
     };
@@ -423,7 +374,6 @@ export function useCompletion(
     const debounceTimeout = setTimeout(fetchSuggestions, 100);
 
     return () => {
-      isMounted = false;
       clearTimeout(debounceTimeout);
     };
   }, [query, cwd, isActive, resetCompletionState, slashCommands, config]);

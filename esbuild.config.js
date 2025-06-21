@@ -16,9 +16,12 @@ const pkg = require(path.resolve(__dirname, 'package.json'));
 
 esbuild
   .build({
-    entryPoints: ['packages/cli/index.ts'],
+    entryPoints: {
+      gemini: 'packages/cli/index.ts',
+      'fileSearch.worker': 'packages/cli/src/ui/hooks/fileSearch.worker.ts',
+    },
     bundle: true,
-    outfile: 'bundle/gemini.js',
+    outdir: 'bundle',
     platform: 'node',
     format: 'esm',
     define: {

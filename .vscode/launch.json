@@ -14,8 +14,9 @@
       "cwd": "${workspaceFolder}",
       "env": {
         "GEMINI_SANDBOX": "false",
-        "GEMINI_API_KEY": "testkey"
-      }
+        "GEMINI_API_KEY": "AIzaSyDl3ptd3VAZrlYeg3GBKVvKOHAw66QzCGQ"
+      },
+      "console": "externalTerminal"
     },
     {
       "type": "node",
