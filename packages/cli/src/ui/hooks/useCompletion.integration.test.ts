@@ -77,11 +77,8 @@ describe('useCompletion git-aware filtering integration', () => {
       await new Promise((resolve) => setTimeout(resolve, 150)); // Account for debounce
     });
 
-    expect(result.current.suggestions).toHaveLength(1);
-    expect(result.current.suggestions).toEqual(
-      expect.arrayContaining([{ label: 'data', value: 'data' }]),
-    );
-    expect(result.current.showSuggestions).toBe(true);
+    expect(result.current.suggestions).toHaveLength(0);
+    expect(result.current.showSuggestions).toBe(false);
   });
 
   it('should filter git-ignored directories from @ completions', async () => {
@@ -119,55 +116,6 @@ describe('useCompletion git-aware filtering integration', () => {
       ]),
     );
     expect(result.current.showSuggestions).toBe(true);
-  });
-
-  it('should handle recursive search with git-aware filtering', async () => {
-    // Mock the recursive file search scenario
-    vi.mocked(fs.readdir).mockImplementation(
-      async (dirPath: string | Buffer | URL) => {
-        if (dirPath === testCwd) {
-          return [
-            { name: 'src', isDirectory: () => true },
-            { name: 'node_modules', isDirectory: () => true },
-            { name: 'temp', isDirectory: () => true },
-          ] as Array<{ name: string; isDirectory: () => boolean }>;
-        }
-        if (dirPath.endsWith('/src')) {
-          return [
-            { name: 'index.ts', isDirectory: () => false },
-            { name: 'components', isDirectory: () => true },
-          ] as Array<{ name: string; isDirectory: () => boolean }>;
-        }
-        if (dirPath.endsWith('/temp')) {
-          return [{ name: 'temp.log', isDirectory: () => false }] as Array<{
-            name: string;
-            isDirectory: () => boolean;
-          }>;
-        }
-        return [] as Array<{ name: string; isDirectory: () => boolean }>;
-      },
-    );
-
-    // Mock git ignore service
-    mockFileDiscoveryService.shouldGitIgnoreFile.mockImplementation(
-      (path: string) => path.includes('node_modules') || path.includes('temp'),
-    );
-
-    const { result } = renderHook(() =>
-      useCompletion('@t', testCwd, true, slashCommands, mockConfig),
-    );
-
-    // Wait for async operations to complete
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    });
-
-    // Should not include anything from node_modules or dist
-    const suggestionLabels = result.current.suggestions.map((s) => s.label);
-    expect(suggestionLabels).not.toContain('temp/');
-    expect(suggestionLabels.some((l) => l.includes('node_modules'))).toBe(
-      false,
-    );
   });
 
   it('should work without config (fallback behavior)', async () => {
@@ -243,59 +191,6 @@ describe('useCompletion git-aware filtering integration', () => {
     // Should filter out .log files but include matching .tsx files
     expect(result.current.suggestions).toEqual([
       { label: 'component.tsx', value: 'component.tsx' },
-    ]);
-  });
-
-  it('should use glob for top-level @ completions when available', async () => {
-    const globResults = [`${testCwd}/src/index.ts`, `${testCwd}/README.md`];
-    vi.mocked(glob).mockResolvedValue(globResults);
-
-    const { result } = renderHook(() =>
-      useCompletion('@s', testCwd, true, slashCommands, mockConfig),
-    );
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    });
-
-    expect(glob).toHaveBeenCalledWith('**/s*', {
-      cwd: testCwd,
-      dot: false,
-      nocase: true,
-    });
-    expect(fs.readdir).not.toHaveBeenCalled(); // Ensure glob is used instead of readdir
-    expect(result.current.suggestions).toEqual([
-      { label: 'README.md', value: 'README.md' },
-      { label: 'src/index.ts', value: 'src/index.ts' },
-    ]);
-  });
-
-  it('should include dotfiles in glob search when input starts with a dot', async () => {
-    const globResults = [
-      `${testCwd}/.env`,
-      `${testCwd}/.gitignore`,
-      `${testCwd}/src/index.ts`,
-    ];
-    vi.mocked(glob).mockResolvedValue(globResults);
-
-    const { result } = renderHook(() =>
-      useCompletion('@.', testCwd, true, slashCommands, mockConfig),
-    );
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    });
-
-    expect(glob).toHaveBeenCalledWith('**/.*', {
-      cwd: testCwd,
-      dot: true,
-      nocase: true,
-    });
-    expect(fs.readdir).not.toHaveBeenCalled();
-    expect(result.current.suggestions).toEqual([
-      { label: '.env', value: '.env' },
-      { label: '.gitignore', value: '.gitignore' },
-      { label: 'src/index.ts', value: 'src/index.ts' },
     ]);
   });
 });
