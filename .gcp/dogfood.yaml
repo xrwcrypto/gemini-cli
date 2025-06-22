@@ -40,7 +40,6 @@ options:
   dynamicSubstitutions: true
 
 substitutions:
-  _REVISION: '0'
   _SANDBOX_IMAGE_REGISTRY: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers'
   _SANDBOX_IMAGE_NAME: 'gemini-cli-sandbox'
   _NPM_PUBLISH_TAG: 'head'
