@@ -25,6 +25,10 @@
   "files": [
     "dist"
   ],
+  "config": {
+    "sandboxRepository": "us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/",
+    "sandboxImageUri": "gemini-cli-sandbox"
+  },
   "dependencies": {
     "@gemini-cli/core": "file:../core",
     "@types/update-notifier": "^6.0.8",

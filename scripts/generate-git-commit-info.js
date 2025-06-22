@@ -42,7 +42,7 @@ try {
       encoding: 'utf-8',
     }).trim();
     if (gitStatus) {
-      gitCommitInfo = `${gitHash} (local modifications)`;
+      gitCommitInfo = `${gitHash}`;
     }
   }
 } catch {

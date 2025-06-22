@@ -9,6 +9,7 @@ import commandExists from 'command-exists';
 import * as os from 'node:os';
 import { getPackageJson } from '../utils/package.js';
 import { Settings } from './settings.js';
+import { GIT_COMMIT_INFO } from '../generated/git-commit.js';
 
 // This is a stripped-down version of the CliArgs interface from config.ts
 // to avoid circular dependencies.
@@ -98,10 +99,15 @@ export async function loadSandboxConfig(
   const command = getSandboxCommand(sandboxOption);
 
   const packageJson = await getPackageJson();
-  const image =
+  console.log(packageJson);
+  const imageName =
     argv['sandbox-image'] ??
     process.env.GEMINI_SANDBOX_IMAGE ??
     packageJson?.config?.sandboxImageUri;
+
+  const repository = packageJson?.config?.sandboxRepository;
+  const gitSHA = GIT_COMMIT_INFO;
+  const image = `${repository}${imageName}:0.1.0-${gitSHA}-release`;
 
   return command && image ? { command, image } : undefined;
 }
