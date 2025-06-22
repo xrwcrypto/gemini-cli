@@ -644,3 +644,75 @@ describe('loggers', () => {
     });
   });
 });
+
+describe('getFinalUsageMetadata', () => {
+  const createMockResponse = (
+    usageMetadata?: GenerateContentResponse['usageMetadata'],
+  ): GenerateContentResponse =>
+    ({
+      text: () => '',
+      data: () => ({}) as Record<string, unknown>,
+      functionCalls: () => [],
+      executableCode: () => [],
+      codeExecutionResult: () => [],
+      usageMetadata,
+    }) as unknown as GenerateContentResponse;
+
+  it('should return the usageMetadata from the last chunk that has it', () => {
+    const chunks: GenerateContentResponse[] = [
+      createMockResponse({
+        promptTokenCount: 10,
+        candidatesTokenCount: 20,
+        totalTokenCount: 30,
+      }),
+      createMockResponse(),
+      createMockResponse({
+        promptTokenCount: 15,
+        candidatesTokenCount: 25,
+        totalTokenCount: 40,
+      }),
+      createMockResponse(),
+    ];
+
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toEqual({
+      promptTokenCount: 15,
+      candidatesTokenCount: 25,
+      totalTokenCount: 40,
+    });
+  });
+
+  it('should return undefined if no chunks have usageMetadata', () => {
+    const chunks: GenerateContentResponse[] = [
+      createMockResponse(),
+      createMockResponse(),
+      createMockResponse(),
+    ];
+
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toBeUndefined();
+  });
+
+  it('should return the metadata from the only chunk if it has it', () => {
+    const chunks: GenerateContentResponse[] = [
+      createMockResponse({
+        promptTokenCount: 1,
+        candidatesTokenCount: 2,
+        totalTokenCount: 3,
+      }),
+    ];
+
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toEqual({
+      promptTokenCount: 1,
+      candidatesTokenCount: 2,
+      totalTokenCount: 3,
+    });
+  });
+
+  it('should return undefined for an empty array of chunks', () => {
+    const chunks: GenerateContentResponse[] = [];
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toBeUndefined();
+  });
+});

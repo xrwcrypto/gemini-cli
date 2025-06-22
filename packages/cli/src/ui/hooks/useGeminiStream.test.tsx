@@ -726,6 +726,7 @@ describe('useGeminiStream', () => {
         loadedSettings: mockLoadedSettings,
         // This is the key part of the test: update the toolCalls array
         // to simulate the tool finishing.
+        // @ts-expect-error - we are adding a property to the props object
         toolCalls: completedToolCalls,
       });
     });

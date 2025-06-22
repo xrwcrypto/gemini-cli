@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AuthClient } from 'google-auth-library';
+import { OAuth2Client } from 'google-auth-library';
 import {
   LoadCodeAssistResponse,
   LoadCodeAssistRequest,
@@ -44,7 +44,7 @@ export const CODE_ASSIST_API_VERSION = 'v1internal';
 
 export class CodeAssistServer implements ContentGenerator {
   constructor(
-    readonly auth: AuthClient,
+    readonly client: OAuth2Client,
     readonly projectId?: string,
     readonly httpOptions: HttpOptions = {},
   ) {}
@@ -112,8 +112,8 @@ export class CodeAssistServer implements ContentGenerator {
     req: object,
     signal?: AbortSignal,
   ): Promise<T> {
-    const res = await this.auth.request({
-      url: `${CODE_ASSIST_ENDPOINT}/${CODE_ASSIST_API_VERSION}:${method}`,
+    const res = await this.client.request({
+      url: this.getMethodUrl(method),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -131,8 +131,8 @@ export class CodeAssistServer implements ContentGenerator {
     req: object,
     signal?: AbortSignal,
   ): Promise<AsyncGenerator<T>> {
-    const res = await this.auth.request({
-      url: `${CODE_ASSIST_ENDPOINT}/${CODE_ASSIST_API_VERSION}:${method}`,
+    const res = await this.client.request({
+      url: this.getMethodUrl(method),
       method: 'POST',
       params: {
         alt: 'sse',
@@ -168,5 +168,10 @@ export class CodeAssistServer implements ContentGenerator {
         }
       }
     })();
+  }
+
+  getMethodUrl(method: string): string {
+    const endpoint = process.env.CODE_ASSIST_ENDPOINT ?? CODE_ASSIST_ENDPOINT;
+    return `${endpoint}/${CODE_ASSIST_API_VERSION}:${method}`;
   }
 }
