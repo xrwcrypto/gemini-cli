@@ -50,6 +50,9 @@
     "README.md",
     "LICENSE"
   ],
+  "config": {
+    "sandboxImageUri": "gemini-cli-sandbox"
+  },
   "devDependencies": {
     "@types/micromatch": "^4.0.9",
     "@types/mime-types": "^2.1.4",

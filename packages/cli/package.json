@@ -25,9 +25,6 @@
   "files": [
     "dist"
   ],
-  "config": {
-    "sandboxImageUri": "gemini-cli-sandbox"
-  },
   "dependencies": {
     "@gemini-cli/core": "file:../core",
     "@types/update-notifier": "^6.0.8",
