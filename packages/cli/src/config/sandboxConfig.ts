@@ -134,14 +134,19 @@ export async function buildImageName(imageNameOverride: string | undefined) {
     console.log("buildImangeName:repository Added /", repository)
   }
 
-  const gitSHA = GIT_COMMIT_INFO;
-  const version = packageJson?.version;
-
-  console.log("buildImangeName:gitSHA ", gitSHA)
-  console.log("buildImangeName:version ", packageJson?.version)
-  
-  const image = `${repository}${imageName}:${version}-${gitSHA}`;
+  const version = getVersion(packageJson?.version ?? '')
+  const image = `${repository}${imageName}:${version}`;
   
   console.log("buildbuildImangeName:image ", image)
   return image;
+}
+
+export function getVersion(packageVersion: string) {
+  const gitSHA = GIT_COMMIT_INFO;
+  const version = packageVersion;
+
+  console.log("buildImangeName:gitSHA ", gitSHA)
+  console.log("buildImangeName:version ", version)
+
+  return `${version}-${gitSHA}`
 }
