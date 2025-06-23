@@ -77,6 +77,7 @@ Slash commands provide meta-level control over the CLI itself.
       - **Description:** Hide tool descriptions, showing only the tool names.
 
 - **`/quit`** (or **`/exit`**)
+
   - **Description:** Exit Gemini CLI.
 
 ## Checkpointing Commands
