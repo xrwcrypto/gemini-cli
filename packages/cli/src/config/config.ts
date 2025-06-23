@@ -27,7 +27,13 @@ import * as dotenv from 'dotenv';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { loadSandboxConfig } from './sandboxConfig.js';
+import {
+  loadSandboxConfig,
+  SANDBOX_OPTIONS,
+  SANDBOX_LEGACY_OPTIONS,
+  SandboxOption,
+  SandboxLegacyOption,
+} from './sandboxConfig.js';
 
 // Simple console logger for now - replace with actual logger if available
 const logger = {
@@ -41,15 +47,15 @@ const logger = {
 
 interface CliArgs {
   model: string | undefined;
-  sandbox: boolean | string | undefined;
-  'sandbox-image': string | undefined;
+  sandbox?: Exclude<SandboxOption, SandboxLegacyOption>;
+  'sandbox-image'?: string;
   debug: boolean | undefined;
   prompt: string | undefined;
   all_files: boolean | undefined;
   show_memory_usage: boolean | undefined;
   yolo: boolean | undefined;
   telemetry: boolean | undefined;
-  checkpoint: boolean | undefined;
+  checkpointing: boolean | undefined;
   telemetryTarget: string | undefined;
   telemetryOtlpEndpoint: string | undefined;
   telemetryLogPrompts: boolean | undefined;
@@ -70,8 +76,13 @@ async function parseArguments(): Promise<CliArgs> {
     })
     .option('sandbox', {
       alias: 's',
-      type: 'boolean',
-      description: 'Run in sandbox?',
+      type: 'string',
+      choices: SANDBOX_OPTIONS.filter(
+        (o): o is Exclude<SandboxOption, SandboxLegacyOption> =>
+          !SANDBOX_LEGACY_OPTIONS.find((lo) => lo === o),
+      ),
+      description:
+        "Set the sandboxing command for tool execution. Use 'auto' to autodetect a supported platform, or specify one directly (e.g., 'docker', 'podman').",
     })
     .option('sandbox-image', {
       type: 'string',
@@ -122,7 +133,7 @@ async function parseArguments(): Promise<CliArgs> {
       description:
         'Enable or disable logging of user prompts for telemetry. Overrides settings files.',
     })
-    .option('checkpoint', {
+    .option('checkpointing', {
       alias: 'c',
       type: 'boolean',
       description: 'Enables checkpointing of file edits',
@@ -194,8 +205,14 @@ export async function loadCliConfig(
   );
 
   const mcpServers = mergeMcpServers(settings, extensions);
+  const excludeTools = mergeExcludeTools(settings, extensions);
 
-  const sandboxConfig = await loadSandboxConfig(settings, argv);
+  const sandboxConfig = await loadSandboxConfig(settings, argv).catch(
+    (e: Error) => {
+      console.error(e.message);
+      process.exit(1);
+    },
+  );
 
   return new Config({
     sessionId,
@@ -206,7 +223,7 @@ export async function loadCliConfig(
     question: argv.prompt || '',
     fullContext: argv.all_files || false,
     coreTools: settings.coreTools || undefined,
-    excludeTools: settings.excludeTools || undefined,
+    excludeTools,
     toolDiscoveryCommand: settings.toolDiscoveryCommand,
     toolCallCommand: settings.toolCallCommand,
     mcpServerCommand: settings.mcpServerCommand,
@@ -228,8 +245,12 @@ export async function loadCliConfig(
       logPrompts: argv.telemetryLogPrompts ?? settings.telemetry?.logPrompts,
     },
     // Git-aware file filtering settings
-    fileFilteringRespectGitIgnore: settings.fileFiltering?.respectGitIgnore,
-    checkpoint: argv.checkpoint,
+    fileFiltering: {
+      respectGitIgnore: settings.fileFiltering?.respectGitIgnore,
+      enableRecursiveFileSearch:
+        settings.fileFiltering?.enableRecursiveFileSearch,
+    },
+    checkpointing: argv.checkpointing || settings.checkpointing?.enabled,
     proxy:
       process.env.HTTPS_PROXY ||
       process.env.https_proxy ||
@@ -259,6 +280,20 @@ function mergeMcpServers(settings: Settings, extensions: Extension[]) {
   }
   return mcpServers;
 }
+
+function mergeExcludeTools(
+  settings: Settings,
+  extensions: Extension[],
+): string[] {
+  const allExcludeTools = new Set(settings.excludeTools || []);
+  for (const extension of extensions) {
+    for (const tool of extension.config.excludeTools || []) {
+      allExcludeTools.add(tool);
+    }
+  }
+  return [...allExcludeTools];
+}
+
 function findEnvFile(startDir: string): string | null {
   let currentDir = path.resolve(startDir);
   while (true) {

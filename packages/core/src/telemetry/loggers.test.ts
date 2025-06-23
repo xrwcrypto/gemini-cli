@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AuthType, ToolConfirmationOutcome } from '../index.js';
+import { ToolConfirmationOutcome } from '../tools/tools.js';
+import { AuthType } from '../core/contentGenerator.js';
 import { logs } from '@opentelemetry/api-logs';
 import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
 import { Config } from '../config/config.js';
@@ -20,18 +21,12 @@ import {
   logUserPrompt,
   logToolCall,
   ToolCallDecision,
+  getFinalUsageMetadata,
 } from './loggers.js';
 import * as metrics from './metrics.js';
 import * as sdk from './sdk.js';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
-
-vi.mock('@gemini-cli/cli/dist/src/utils/version', () => ({
-  getCliVersion: () => 'test-version',
-}));
-
-vi.mock('@gemini-cli/cli/dist/src/config/settings', () => ({
-  getTheme: () => 'test-theme',
-}));
+import { GenerateContentResponse } from '@google/genai';
 
 describe('loggers', () => {
   const mockLogger = {
@@ -518,5 +513,77 @@ describe('loggers', () => {
         undefined,
       );
     });
+  });
+});
+
+describe('getFinalUsageMetadata', () => {
+  const createMockResponse = (
+    usageMetadata?: GenerateContentResponse['usageMetadata'],
+  ): GenerateContentResponse =>
+    ({
+      text: () => '',
+      data: () => ({}) as Record<string, unknown>,
+      functionCalls: () => [],
+      executableCode: () => [],
+      codeExecutionResult: () => [],
+      usageMetadata,
+    }) as unknown as GenerateContentResponse;
+
+  it('should return the usageMetadata from the last chunk that has it', () => {
+    const chunks: GenerateContentResponse[] = [
+      createMockResponse({
+        promptTokenCount: 10,
+        candidatesTokenCount: 20,
+        totalTokenCount: 30,
+      }),
+      createMockResponse(),
+      createMockResponse({
+        promptTokenCount: 15,
+        candidatesTokenCount: 25,
+        totalTokenCount: 40,
+      }),
+      createMockResponse(),
+    ];
+
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toEqual({
+      promptTokenCount: 15,
+      candidatesTokenCount: 25,
+      totalTokenCount: 40,
+    });
+  });
+
+  it('should return undefined if no chunks have usageMetadata', () => {
+    const chunks: GenerateContentResponse[] = [
+      createMockResponse(),
+      createMockResponse(),
+      createMockResponse(),
+    ];
+
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toBeUndefined();
+  });
+
+  it('should return the metadata from the only chunk if it has it', () => {
+    const chunks: GenerateContentResponse[] = [
+      createMockResponse({
+        promptTokenCount: 1,
+        candidatesTokenCount: 2,
+        totalTokenCount: 3,
+      }),
+    ];
+
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toEqual({
+      promptTokenCount: 1,
+      candidatesTokenCount: 2,
+      totalTokenCount: 3,
+    });
+  });
+
+  it('should return undefined for an empty array of chunks', () => {
+    const chunks: GenerateContentResponse[] = [];
+    const result = getFinalUsageMetadata(chunks);
+    expect(result).toBeUndefined();
   });
 });
