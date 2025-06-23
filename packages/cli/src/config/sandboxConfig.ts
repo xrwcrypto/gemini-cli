@@ -104,20 +104,15 @@ export async function loadSandboxConfig(
     process.env.GEMINI_SANDBOX_IMAGE ??
     packageJson?.config?.sandboxImageUri;
 
-  let image = imageName
+  // let image = imageName
 
   const repository =
     process.env.GEMINI_SANDBOX_REPOSITORY ??
     packageJson?.config?.sandboxRepository;
-  
-  // repository is set in the ci build and will point to the acutal remote
-  // locally we don't want any set and can just use the image name
-  // we do not set package.json:config:sandboxRepository in code, it is a build artifact 
-  if (repository) {
-    const gitSHA = GIT_COMMIT_INFO;
-    const version = packageJson?.version;
-    image = `${repository}${imageName}:${version}-${gitSHA}`;
-  }
+
+  const gitSHA = GIT_COMMIT_INFO;
+  const version = packageJson?.version;
+  const image = `${repository}${imageName}:${version}-${gitSHA}`;
 
   return command && image ? { command, image } : undefined;
 }
