@@ -209,7 +209,7 @@ export class Config {
     }
 
     if (!this.disableDataCollection) {
-      ClearcutLogger.getInstance(this)?.enqueueLogEvent(
+      ClearcutLogger.getInstance(this)?.logStartSessionEvent(
         new StartSessionEvent(this),
       );
     }
