@@ -1,6 +1,6 @@
 steps:
   # Step 1: Install root dependencies (includes workspaces)
-  - name: 'Install root dependencies (includes workspaces)'
+  - name: 'Install root dependencies includes workspaces'
     entrypoint: 'npm'
     args: ['install']
 

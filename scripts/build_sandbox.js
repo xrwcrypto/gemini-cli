@@ -22,8 +22,7 @@ import { chmodSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import packageJson from '../package.json' with { type: 'json' };
-import { GIT_COMMIT_INFO } from '../packages/cli/dist/src/generated/git-commit.js';
+import { buildImageName } from '../packages/cli/dist/src/config/sandboxConfig.js'
 
 const argv = yargs(hideBin(process.argv))
   .option('s', {
@@ -62,16 +61,7 @@ if (sandboxCommand === 'sandbox-exec') {
 
 console.log(`using ${sandboxCommand} for sandboxing`);
 
-const imageName = packageJson.config.sandboxImageUri;
-
-const repository =
-  process.env.GEMINI_SANDBOX_REPOSITORY ??
-  packageJson?.config?.sandboxRepository ??
-  '';
-
-const gitSHA = GIT_COMMIT_INFO;
-const version = packageJson?.version;
-const baseImage = `${repository}${imageName}:${version}-${gitSHA}`;
+const baseImage = await buildImageName()
 
 const customImage = argv.i;
 const baseDockerfile = 'Dockerfile';

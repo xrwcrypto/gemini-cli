@@ -98,13 +98,18 @@ export async function loadSandboxConfig(
   const sandboxOption = argv.sandbox ?? settings.sandbox;
   const command = getSandboxCommand(sandboxOption);
 
-  const packageJson = await getPackageJson();
+  const image = await buildImageName(argv['sandbox-image'])
+  console.log(image)
+
+  return command && image ? { command, image } : undefined;
+}
+
+export async function buildImageName(imageNameOverride: string | undefined) {
+const packageJson = await getPackageJson();
   const imageName =
-    argv['sandbox-image'] ??
+    imageNameOverride ??
     process.env.GEMINI_SANDBOX_IMAGE ??
     packageJson?.config?.sandboxImageUri;
-
-  // let image = imageName
 
   const repository =
     process.env.GEMINI_SANDBOX_REPOSITORY ??
@@ -113,7 +118,5 @@ export async function loadSandboxConfig(
 
   const gitSHA = GIT_COMMIT_INFO;
   const version = packageJson?.version;
-  const image = `${repository}${imageName}:${version}-${gitSHA}`;
-
-  return command && image ? { command, image } : undefined;
+  return `${repository}${imageName}:${version}-${gitSHA}`;
 }
