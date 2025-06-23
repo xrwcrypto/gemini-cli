@@ -112,7 +112,7 @@ const packageJson = await getPackageJson();
     packageJson?.config?.sandboxImageUri;
 
   const repository =
-    process.env.GEMINI_SANDBOX_REPOSITORY ??
+    process.env.SANDBOX_IMAGE_REGISTRY ??
     packageJson?.config?.sandboxRepository ??
     '';
 

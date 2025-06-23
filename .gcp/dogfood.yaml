@@ -15,6 +15,7 @@ steps:
         npm pkg set "version=$${new_version}"
         npm pkg set config.sandboxRepository="${_SANDBOX_IMAGE_REGISTRY}"
         echo "Set root package.json version to: $${new_version}"
+        echo $(npm pkg get config.sandboxRepository)
 
   # Step 3: Run prerelease:dev to update workspace versions and dependencies
   - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
