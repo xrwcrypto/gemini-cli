@@ -107,7 +107,7 @@ export async function loadSandboxConfig(
 
   const repository = packageJson?.config?.sandboxRepository;
   const gitSHA = GIT_COMMIT_INFO;
-  const image = `${repository}${imageName}:0.1.0-${gitSHA}`;
+  const image = `${repository}${imageName}:${gitSHA}`;
 
   return command && image ? { command, image } : undefined;
 }
