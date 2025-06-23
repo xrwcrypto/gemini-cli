@@ -95,6 +95,7 @@ Checkpointing allows you to save and restore the state of your conversation and 
   - **Usage:** `/resume [tag]`
 
 - **`/restore`**
+
   - **Description:** Restores the project files to the state they were in just before a tool was executed. This is particularly useful for undoing file edits made by a tool. If run without a tool call ID, it will list available checkpoints to restore from.
   - **Usage:** `/restore [tool_call_id]`
 
