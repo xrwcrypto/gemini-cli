@@ -18,34 +18,13 @@
 // limitations under the License.
 
 import { execSync } from 'child_process';
+import { buildImageName } from '../packages/cli/dist/src/config/sandboxConfig.js';
 
 const {
-  SANDBOX_IMAGE_REGISTRY,
-  SANDBOX_IMAGE_NAME,
-  npm_package_version,
   DOCKER_DRY_RUN,
 } = process.env;
 
-if (!SANDBOX_IMAGE_REGISTRY) {
-  console.error(
-    'Error: SANDBOX_IMAGE_REGISTRY environment variable is not set.',
-  );
-  process.exit(1);
-}
-
-if (!SANDBOX_IMAGE_NAME) {
-  console.error('Error: SANDBOX_IMAGE_NAME environment variable is not set.');
-  process.exit(1);
-}
-
-if (!npm_package_version) {
-  console.error(
-    'Error: npm_package_version environment variable is not set (should be run via npm).',
-  );
-  process.exit(1);
-}
-
-const imageUri = `${SANDBOX_IMAGE_REGISTRY}/${SANDBOX_IMAGE_NAME}:${npm_package_version}`;
+const imageUri = await buildImageName()
 
 if (DOCKER_DRY_RUN) {
   console.log(`DRY RUN: Would execute: docker push "${imageUri}"`);
