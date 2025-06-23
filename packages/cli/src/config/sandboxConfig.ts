@@ -111,10 +111,14 @@ const packageJson = await getPackageJson();
     process.env.GEMINI_SANDBOX_IMAGE ??
     packageJson?.config?.sandboxImageUri;
 
-  const repository =
+  let repository =
     process.env.SANDBOX_IMAGE_REGISTRY ??
     packageJson?.config?.sandboxRepository ??
     '';
+
+  if (repository) {
+    repository = `${repository}/`
+  }
 
   const gitSHA = GIT_COMMIT_INFO;
   const version = packageJson?.version;
