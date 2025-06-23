@@ -6,24 +6,58 @@ Gemini CLI's telemtry system is built on the **[OpenTelemetry] (OTEL)** standard
 
 [OpenTelemetry]: https://opentelemetry.io/
 
-## Enabling telemetry
+## Quick Start
 
-You can enable telemetry in multiple ways. Configuration is primarily managed via the [`.gemini/settings.json` file](../cli/configuration.md) and environment variables, but CLI flags can override these settings for a specific session.
+### Telemetry with Google Cloud
+
+1.  **Ensure Prerequisites:**
+    Ensure that:
+    - You have exported the `OTLP_GOOGLE_CLOUD_PROJECT` environment variable.
+    - You have authenticated with Google Cloud and have the necessary IAM roles.
+      For full details, see the [Google Cloud](#google-cloud) prerequisites.
+
+1.  **Run the Command:** Execute the following command from the project root:
+
+    ```bash
+    npm run telemetry -- --target=gcp
+    ```
+
+1.  **Run Gemini CLI:** In a separate terminal, run your Gemini CLI commands. This will generate telemetry data that the collector will capture.
+
+1.  **View Data:** The script will provide links to view your telemetry data (traces, metrics, logs) in the Google Cloud Console.
+
+1.  **Details:** Refer to documentation for telemetry in [Google Cloud](#google-cloud).
+
+### Local Telemetry with Jaeger UI (for Traces)
+
+1.  **Run the Command:** Execute the following command from the project root:
+
+    ```bash
+    npm run telemetry -- --target=local
+    ```
+
+1.  **Run Gemini CLI:** In a separate terminal, run your Gemini CLI commands. This will generate telemetry data that the collector will capture.
+
+1.  **View Data:** The script will provide links to view your telemetry data (traces, metrics, logs) locally.
+
+1.  **Details:** Refer to documentation for telemetry in [Local](#local).
+
+## Enabling Telemetry
+
+You can enable telemetry in multiple ways. [Configuration](configuration.md) is primarily managed via the `.gemini/settings.json` file and environment variables, but CLI flags can override these settings for a specific session.
 
 ### Order of precedence
 
 The following lists the precedence for applying telemetry settings, with items listed higher having greater precedence:
 
-1.  **CLI flags (for `gemini` command):**
-
-    - `--telemetry` / `--no-telemetry`: Overrides `telemetry.enabled`.
+1.  **CLI Flags (for `gemini` command):**
+    - `--telemetry` / `--no-telemetry`: Overrides `telemetry.enabled`. If this flag is not provided, telemetry is disabled unless enabled in settings files.
     - `--telemetry-target <local|gcp>`: Overrides `telemetry.target`.
     - `--telemetry-otlp-endpoint <URL>`: Overrides `telemetry.otlpEndpoint`.
     - `--telemetry-log-prompts` / `--no-telemetry-log-prompts`: Overrides `telemetry.logPrompts`.
 
-1.  **Environment variables:**
-
-    - `OTEL_EXPORTER_OTLP_ENDPOINT`: Overrides `telemetry.otlpEndpoint`.
+1.  **Environment Variables:**
+    - `OTEL_EXPORTER_OTLP_ENDPOINT`: Overrides `telemetry.otlpEndpoint` if no `--telemetry-otlp-endpoint` flag is present.
 
 1.  **Workspace settings file (`.gemini/settings.json`):** Values from the `telemetry` object in this project-specific file.
 
@@ -73,7 +107,6 @@ Use the `npm run telemetry -- --target=local` command to automate the process of
     ```
 
     The script will:
-
     - Download Jaeger and OTEL if needed.
     - Start a local Jaeger instance.
     - Start an OTEL collector configured to receive data from Gemini CLI.
@@ -94,8 +127,7 @@ Use the `npm run telemetry -- --target=local` command to automate the process of
 Use the `npm run telemetry -- --target=gcp` command to automate setting up a local OpenTelemetry collector that forwards data to your Google Cloud project, including configuring the necessary settings in your `.gemini/settings.json` file. The underlying script installs `otelcol-contrib`. To use it:
 
 1.  **Prerequisites**:
-
-    - Have a Google Cloud project ID.
+    - Ensure you have a Google Cloud Project ID.
     - Export the `GOOGLE_CLOUD_PROJECT` environment variable to make it available to the OTEL collector.
       ```bash
       export OTLP_GOOGLE_CLOUD_PROJECT="your-project-id"
@@ -111,7 +143,6 @@ Use the `npm run telemetry -- --target=gcp` command to automate setting up a loc
     ```
 
     The script will:
-
     - Download the `otelcol-contrib` binary if needed.
     - Start an OTEL collector configured to receive data from Gemini CLI and export it to your specified Google Cloud project.
     - Automatically enable telemetry and disable sandbox mode in your workspace settings (`.gemini/settings.json`).
@@ -140,8 +171,7 @@ The following section describes the struture of logs and metrics generated for G
 
 Logs are timestamped records of specific events. The following events are logged for Gemini CLI:
 
-- `gemini_cli.config`: This event occurs once at startup with the CLI's configuration.
-
+- `gemini_cli.config`: Fired once at startup with the CLI's configuration.
   - **Attributes**:
     - `model` (string)
     - `embedding_model` (string)
@@ -156,14 +186,12 @@ Logs are timestamped records of specific events. The following events are logged
     - `debug_mode` (boolean)
     - `mcp_servers` (string)
 
-- `gemini_cli.user_prompt`: This event occurs when a user submits a prompt.
-
+- `gemini_cli.user_prompt`: Fired when a user submits a prompt.
   - **Attributes**:
     - `prompt_length`
     - `prompt` (this attribute is excluded if `log_prompts_enabled` is configured to be `false`)
 
-- `gemini_cli.tool_call`: This event occurs for each function call.
-
+- `gemini_cli.tool_call`: Fired for every function call.
   - **Attributes**:
     - `function_name`
     - `function_args`
@@ -173,14 +201,12 @@ Logs are timestamped records of specific events. The following events are logged
     - `error` (if applicable)
     - `error_type` (if applicable)
 
-- `gemini_cli.api_request`: This event occurs when making a request to Gemini API.
-
+- `gemini_cli.api_request`: Fired when making a request to the Gemini API.
   - **Attributes**:
     - `model`
     - `request_text` (if applicable)
 
-- `gemini_cli.api_error`: This event occurs if the API request fails.
-
+- `gemini_cli.api_error`: Fired if the API request fails.
   - **Attributes**:
     - `model`
     - `error`
@@ -209,32 +235,27 @@ Metrics are numerical measurements of behavior over time. The following metrics 
 - `gemini_cli.session.count` (Counter, Int): Incremented once per CLI startup.
 
 - `gemini_cli.tool.call.count` (Counter, Int): Counts tool calls.
-
   - **Attributes**:
     - `function_name`
     - `success` (boolean)
     - `decision` (string: "accept", "reject", or "modify", if applicable)
 
 - `gemini_cli.tool.call.latency` (Histogram, ms): Measures tool call latency.
-
   - **Attributes**:
     - `function_name`
     - `decision` (string: "accept", "reject", or "modify", if applicable)
 
 - `gemini_cli.api.request.count` (Counter, Int): Counts all API requests.
-
   - **Attributes**:
     - `model`
     - `status_code`
     - `error_type` (if applicable)
 
 - `gemini_cli.api.request.latency` (Histogram, ms): Measures API request latency.
-
   - **Attributes**:
     - `model`
 
 - `gemini_cli.token.usage` (Counter, Int): Counts the number of tokens used.
-
   - **Attributes**:
     - `model`
     - `type` (string: "input", "output", "thought", "cache", or "tool")
