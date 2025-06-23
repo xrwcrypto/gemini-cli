@@ -18,7 +18,7 @@ describe('LSTool', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ls-tool-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ls-tool-test-gen-'));
     mockConfig = {
       getTargetDir: () => tempDir,
       getFileFilteringRespectGitIgnore: () => true,
@@ -130,29 +130,44 @@ describe('LSTool', () => {
 
   describe('Path Resilience', () => {
     describe('on POSIX', () => {
+      let posixTempDir: string;
+      let posixLsTool: LSTool;
+      let posixMockConfig: Config;
+
       beforeEach(() => {
-        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ls-tool-test-'));
-        mockConfig = {
-          getTargetDir: () => tempDir,
+        posixTempDir = fs.mkdtempSync(
+          path.join(os.tmpdir(), 'ls-tool-test-posix-'),
+        );
+        posixMockConfig = {
+          getTargetDir: () => posixTempDir,
         } as unknown as Config;
-        lsTool = new LSTool(tempDir, mockConfig);
+        posixLsTool = new LSTool(posixTempDir, posixMockConfig);
+      });
+
+      afterEach(() => {
+        fs.rmSync(posixTempDir, { recursive: true, force: true });
       });
 
       it('should allow a valid posix path', () => {
-        expect(lsTool.validateToolParams({ path: tempDir })).toBeNull();
+        expect(
+          posixLsTool.validateToolParams({ path: posixTempDir }),
+        ).toBeNull();
       });
 
       it('should reject a path traversal attempt', () => {
-        const traversalPath = path.join(tempDir, '..', '..');
-        expect(lsTool.validateToolParams({ path: traversalPath })).toContain(
-          'Path must be within the root directory',
-        );
+        const traversalPath = path.join(posixTempDir, '..', '..');
+        expect(
+          posixLsTool.validateToolParams({ path: traversalPath }),
+        ).toContain('Path must be within the root directory');
       });
     });
 
     describe('on Windows', () => {
+      let windowsLsTool: LSTool;
+      let windowsMockConfig: Config;
+
       beforeEach(() => {
-        tempDir = 'C:\\temp';
+        const windowsTempDir = 'C:\\temp';
         vi.spyOn(os, 'platform').mockReturnValue('win32');
 
         // Mock path functions to behave like win32
@@ -169,32 +184,36 @@ describe('LSTool', () => {
           isDirectory: () => true,
         } as unknown as fs.Stats);
 
-        mockConfig = {
-          getTargetDir: () => tempDir,
+        windowsMockConfig = {
+          getTargetDir: () => windowsTempDir,
         } as unknown as Config;
 
         // Instantiate the tool with a dummy root and then manually
         // set the rootDirectory to the desired Windows path.
         // This avoids issues with path.resolve being called in the
         // constructor on a non-Windows host.
-        lsTool = new LSTool('/', mockConfig);
+        windowsLsTool = new LSTool('/', mockConfig);
         // @ts-expect-error private property
-        lsTool.rootDirectory = tempDir;
+        windowsLsTool.rootDirectory = windowsTempDir;
       });
 
       it('should allow a valid windows path', () => {
-        expect(lsTool.validateToolParams({ path: 'C:\\temp' })).toBeNull();
+        expect(
+          windowsLsTool.validateToolParams({ path: 'C:\\temp' }),
+        ).toBeNull();
       });
 
       it('should allow a valid mixed path', () => {
-        expect(lsTool.validateToolParams({ path: 'C:/temp' })).toBeNull();
+        expect(
+          windowsLsTool.validateToolParams({ path: 'C:/temp' }),
+        ).toBeNull();
       });
 
       it('should reject a path traversal attempt', () => {
         const traversalPath = 'C:\\..\\..\\';
-        expect(lsTool.validateToolParams({ path: traversalPath })).toContain(
-          'Path must be within the root directory',
-        );
+        expect(
+          windowsLsTool.validateToolParams({ path: traversalPath }),
+        ).toContain('Path must be within the root directory');
       });
     });
   });
