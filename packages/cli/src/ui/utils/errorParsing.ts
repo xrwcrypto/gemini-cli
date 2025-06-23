@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { StructuredError } from '@gemini-cli/core';
+import { StructuredError } from '@google/gemini-cli-core';
 
 const RATE_LIMIT_ERROR_MESSAGE =
   '\nPlease wait and try again later. To increase your limits, upgrade to a plan with higher limits, or use /auth to switch to using a paid API key from AI Studio at https://aistudio.google.com/apikey';

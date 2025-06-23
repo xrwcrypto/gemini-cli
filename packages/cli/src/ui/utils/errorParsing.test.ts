@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseAndFormatApiError } from './errorParsing.js';
-import { StructuredError } from '@gemini-cli/core';
+import { StructuredError } from '@google/gemini-cli-core';
 
 describe('parseAndFormatApiError', () => {
   const rateLimitMessage =
