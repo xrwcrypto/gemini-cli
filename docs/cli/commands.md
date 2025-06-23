@@ -112,7 +112,9 @@ At commands are used to include the content of files or directories as part of y
     - `What is this file about? @README.md`
   - **Details:**
     - If a path to a single file is provided, the content of that file is read.
-    - If a path to a directory is provided, the command attempts to read the content of files within that directory and any subdirectories.
+    - If a path to a directory is provided, the command attempts to read the content of files within that directory.
+    - If a path fragment without any path separators (e.g., `@my_file`) is provided, the command will search recursively through the entire project to find matching files.
+    - **Search Result Limit:** To ensure performance, the number of files returned by a search is limited. If a search matches more than the limit (currently 100), the list of results will be truncated.
     - Spaces in paths should be escaped with a backslash (e.g., `@My\ Documents/file.txt`).
     - The command uses the `read_many_files` tool internally. The content is fetched and then inserted into your query before being sent to the Gemini model.
     - **Git-aware filtering:** By default, git-ignored files (like `node_modules/`, `dist/`, `.env`, `.git/`) are excluded. This behavior can be changed via the `fileFiltering` settings.

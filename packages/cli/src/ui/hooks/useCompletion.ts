@@ -5,16 +5,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import { glob } from 'glob';
 import {
   isNodeError,
   escapePath,
-  unescapePath,
   getErrorMessage,
   Config,
-  FileDiscoveryService,
 } from '@gemini-cli/core';
 import {
   MAX_SUGGESTIONS_TO_SHOW,
@@ -123,6 +120,11 @@ export function useCompletion(
       return;
     }
 
+    // Create a controller on each effect run. The cleanup function will abort
+    // this controller, cancelling any in-flight glob search.
+    const controller = new AbortController();
+    const { signal } = controller;
+
     const trimmedQuery = query.trimStart(); // Trim leading whitespace
 
     // --- Handle Slash Command Completion ---
@@ -198,199 +200,62 @@ export function useCompletion(
     }
 
     const partialPath = query.substring(atIndex + 1);
-    const lastSlashIndex = partialPath.lastIndexOf('/');
-    const baseDirRelative =
-      lastSlashIndex === -1
-        ? '.'
-        : partialPath.substring(0, lastSlashIndex + 1);
-    const prefix = unescapePath(
-      lastSlashIndex === -1
-        ? partialPath
-        : partialPath.substring(lastSlashIndex + 1),
-    );
-
-    const baseDirAbsolute = path.resolve(cwd, baseDirRelative);
-
-    let isMounted = true;
-
-    const findFilesRecursively = async (
-      startDir: string,
-      searchPrefix: string,
-      fileDiscovery: { shouldGitIgnoreFile: (path: string) => boolean } | null,
-      currentRelativePath = '',
-      depth = 0,
-      maxDepth = 10, // Limit recursion depth
-      maxResults = 50, // Limit number of results
-    ): Promise<Suggestion[]> => {
-      if (depth > maxDepth) {
-        return [];
-      }
-
-      const lowerSearchPrefix = searchPrefix.toLowerCase();
-      let foundSuggestions: Suggestion[] = [];
-      try {
-        const entries = await fs.readdir(startDir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (foundSuggestions.length >= maxResults) break;
-
-          const entryPathRelative = path.join(currentRelativePath, entry.name);
-          const entryPathFromRoot = path.relative(
-            cwd,
-            path.join(startDir, entry.name),
-          );
-
-          // Conditionally ignore dotfiles
-          if (!searchPrefix.startsWith('.') && entry.name.startsWith('.')) {
-            continue;
-          }
-
-          // Check if this entry should be ignored by git-aware filtering
-          if (
-            fileDiscovery &&
-            fileDiscovery.shouldGitIgnoreFile(entryPathFromRoot)
-          ) {
-            continue;
-          }
-
-          if (entry.name.toLowerCase().startsWith(lowerSearchPrefix)) {
-            foundSuggestions.push({
-              label: entryPathRelative + (entry.isDirectory() ? '/' : ''),
-              value: escapePath(
-                entryPathRelative + (entry.isDirectory() ? '/' : ''),
-              ),
-            });
-          }
-          if (
-            entry.isDirectory() &&
-            entry.name !== 'node_modules' &&
-            !entry.name.startsWith('.')
-          ) {
-            if (foundSuggestions.length < maxResults) {
-              foundSuggestions = foundSuggestions.concat(
-                await findFilesRecursively(
-                  path.join(startDir, entry.name),
-                  searchPrefix, // Pass original searchPrefix for recursive calls
-                  fileDiscovery,
-                  entryPathRelative,
-                  depth + 1,
-                  maxDepth,
-                  maxResults - foundSuggestions.length,
-                ),
-              );
-            }
-          }
-        }
-      } catch (_err) {
-        // Ignore errors like permission denied or ENOENT during recursive search
-      }
-      return foundSuggestions.slice(0, maxResults);
-    };
-
-    const findFilesWithGlob = async (
-      searchPrefix: string,
-      fileDiscoveryService: FileDiscoveryService,
-      maxResults = 50,
-    ): Promise<Suggestion[]> => {
-      const globPattern = `**/${searchPrefix}*`;
-      const files = await glob(globPattern, {
-        cwd,
-        dot: searchPrefix.startsWith('.'),
-        nocase: true,
-      });
-
-      const suggestions: Suggestion[] = files
-        .map((file: string) => {
-          const relativePath = path.relative(cwd, file);
-          return {
-            label: relativePath,
-            value: escapePath(relativePath),
-          };
-        })
-        .filter((s) => {
-          if (fileDiscoveryService) {
-            return !fileDiscoveryService.shouldGitIgnoreFile(s.label); // relative path
-          }
-          return true;
-        })
-        .slice(0, maxResults);
-
-      return suggestions;
-    };
 
     const fetchSuggestions = async () => {
+      if (signal.aborted) return;
       setIsLoadingSuggestions(true);
-      let fetchedSuggestions: Suggestion[] = [];
 
       const fileDiscoveryService = config ? config.getFileService() : null;
       const enableRecursiveSearch =
         config?.getEnableRecursiveFileSearch() ?? true;
 
+      if (!enableRecursiveSearch) {
+        setIsLoadingSuggestions(false);
+        return;
+      }
+
       try {
-        // If there's no slash, or it's the root, do a recursive search from cwd
-        if (
-          partialPath.indexOf('/') === -1 &&
-          prefix &&
-          enableRecursiveSearch
-        ) {
-          if (fileDiscoveryService) {
-            fetchedSuggestions = await findFilesWithGlob(
-              prefix,
-              fileDiscoveryService,
-            );
-          } else {
-            fetchedSuggestions = await findFilesRecursively(
-              cwd,
-              prefix,
-              fileDiscoveryService,
-            );
-          }
-        } else {
-          // Original behavior: list files in the specific directory
-          const lowerPrefix = prefix.toLowerCase();
-          const entries = await fs.readdir(baseDirAbsolute, {
-            withFileTypes: true,
-          });
+        // Heuristic: If the path contains a separator, the user is likely
+        // trying to complete a path. Otherwise, they are trying to find a
+        // file anywhere in the project.
+        const hasPathSeparators =
+          partialPath.includes('/') || partialPath.includes('\\');
+        const globPattern = hasPathSeparators
+          ? `${partialPath}*`
+          : `**/${partialPath}*`;
 
-          // Filter entries using git-aware filtering
-          const filteredEntries = [];
-          for (const entry of entries) {
-            // Conditionally ignore dotfiles
-            if (!prefix.startsWith('.') && entry.name.startsWith('.')) {
-              continue;
-            }
-            if (!entry.name.toLowerCase().startsWith(lowerPrefix)) continue;
+        const files = await glob(globPattern, {
+          cwd,
+          dot: partialPath.startsWith('.'),
+          nocase: true,
+          signal, // Pass the abort signal to the glob library.
+          nodir: true, // We only want to suggest files.
+        });
 
-            const relativePath = path.relative(
-              cwd,
-              path.join(baseDirAbsolute, entry.name),
-            );
-            if (
-              fileDiscoveryService &&
-              fileDiscoveryService.shouldGitIgnoreFile(relativePath)
-            ) {
-              continue;
-            }
+        // If the signal was aborted, another keypress has occurred, so we
+        // should not update the state.
+        if (signal.aborted) return;
 
-            filteredEntries.push(entry);
-          }
-
-          fetchedSuggestions = filteredEntries.map((entry) => {
-            const label = entry.isDirectory() ? entry.name + '/' : entry.name;
+        let fetchedSuggestions: Suggestion[] = files
+          .map((file: string) => {
+            const relativePath = path.relative(cwd, file);
             return {
-              label,
-              value: escapePath(label), // Value for completion should be just the name part
+              label: relativePath,
+              value: escapePath(relativePath),
             };
+          })
+          .filter((s) => {
+            if (fileDiscoveryService) {
+              return !fileDiscoveryService.shouldGitIgnoreFile(s.label);
+            }
+            return true;
           });
-        }
 
         // Sort by depth, then directories first, then alphabetically
         fetchedSuggestions.sort((a, b) => {
           const depthA = (a.label.match(/\//g) || []).length;
           const depthB = (b.label.match(/\//g) || []).length;
-
-          if (depthA !== depthB) {
-            return depthA - depthB;
-          }
+          if (depthA !== depthB) return depthA - depthB;
 
           const aIsDir = a.label.endsWith('/');
           const bIsDir = b.label.endsWith('/');
@@ -400,37 +265,50 @@ export function useCompletion(
           return a.label.localeCompare(b.label);
         });
 
-        if (isMounted) {
+        // Budget the results to prevent overwhelming the UI.
+        const MAX_RESULTS = 100;
+        fetchedSuggestions = fetchedSuggestions.slice(0, MAX_RESULTS);
+
+        if (!signal.aborted) {
           setSuggestions(fetchedSuggestions);
           setShowSuggestions(fetchedSuggestions.length > 0);
           setActiveSuggestionIndex(fetchedSuggestions.length > 0 ? 0 : -1);
           setVisibleStartIndex(0);
         }
       } catch (error: unknown) {
+        // Silently ignore abort errors, as they are expected.
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+
         if (isNodeError(error) && error.code === 'ENOENT') {
-          if (isMounted) {
+          if (!signal.aborted) {
             setSuggestions([]);
             setShowSuggestions(false);
           }
         } else {
           console.error(
-            `Error fetching completion suggestions for ${partialPath}: ${getErrorMessage(error)}`,
+            `Error fetching completion suggestions for ${partialPath}: ${getErrorMessage(
+              error,
+            )}`,
           );
-          if (isMounted) {
+          if (!signal.aborted) {
             resetCompletionState();
           }
         }
-      }
-      if (isMounted) {
-        setIsLoadingSuggestions(false);
+      } finally {
+        if (!signal.aborted) {
+          setIsLoadingSuggestions(false);
+        }
       }
     };
 
-    const debounceTimeout = setTimeout(fetchSuggestions, 100);
+    // Debounce the search to avoid excessive calls while typing.
+    const debounceTimeout = setTimeout(fetchSuggestions, 150);
 
     return () => {
-      isMounted = false;
       clearTimeout(debounceTimeout);
+      controller.abort();
     };
   }, [query, cwd, isActive, resetCompletionState, slashCommands, config]);
 
