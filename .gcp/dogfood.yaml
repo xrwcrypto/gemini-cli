@@ -13,11 +13,6 @@ steps:
         npm pkg set config.sandboxRepository="${_SANDBOX_IMAGE_REGISTRY}"
         echo $(npm pkg get config.sandboxRepository)
 
-  # Step 3: Run prerelease:dev to update workspace versions and dependencies
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
-    entrypoint: 'npm'
-    args: ['run', 'prerelease:dev'] # This will run prerelease:version and prerelease:deps
-
   # Step 4: Authenticate for Docker and NPM
   - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
     entrypoint: 'npm'
@@ -43,12 +38,18 @@ steps:
         npm pkg set "version=$${new_version}"
         echo "Set root package.json version to: $${new_version}"
  
+  # Step 3: Run prerelease:dev to update workspace versions and dependencies
+  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+    entrypoint: 'npm'
+    args: ['run', 'prerelease:dev'] # This will run prerelease:version and prerelease:deps
+
  # Step 6: Run the master release script
   - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
     entrypoint: 'npm'
     args: ['run', 'publish:npm']
     env:
       - 'NPM_PUBLISH_TAG=$_NPM_PUBLISH_TAG'
+
 
 options:
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
