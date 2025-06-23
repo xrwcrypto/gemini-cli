@@ -11,6 +11,7 @@ steps:
       - -c # Use bash -c to allow for command substitution and string manipulation
       - |
         current_version=$(npm pkg get version | sed 's/"//g')
+        echo "Current verion: $${current_version}"
         new_version="$${current_version}-$SHORT_SHA"
         npm pkg set "version=$${new_version}"
         npm pkg set config.sandboxRepository="${_SANDBOX_IMAGE_REGISTRY}"
