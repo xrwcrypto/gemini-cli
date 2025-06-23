@@ -109,8 +109,9 @@ export async function buildImageName(imageNameOverride: string | undefined) {
   const imageName = String(
     imageNameOverride ??
       process.env.GEMINI_SANDBOX_IMAGE ??
+      process.env.SANDBOX_IMAGE_NAME ??
       packageJson?.config?.sandboxImageUri ??
-      '',
+      'gemini-cli-sandbox',
   );
 
   console.log("buildImangeName:imageName ", imageName)
