@@ -197,7 +197,7 @@ export class Config {
     this.bugCommand = params.bugCommand;
     this.model = params.model;
     this.disableDataCollection =
-      params.telemetry?.disableDataCollection ?? true;
+      params.telemetry?.disableDataCollection ?? false;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
 
     if (params.contextFileName) {
@@ -208,11 +208,9 @@ export class Config {
       initializeTelemetry(this);
     }
 
-    if (!this.disableDataCollection) {
-      ClearcutLogger.getInstance(this)?.logStartSessionEvent(
-        new StartSessionEvent(this),
-      );
-    }
+  ClearcutLogger.getInstance(this)?.logStartSessionEvent(
+      new StartSessionEvent(this),
+    );
   }
 
   async refreshAuth(authMethod: AuthType) {
