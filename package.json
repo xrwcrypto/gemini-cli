@@ -42,9 +42,6 @@
     "telemetry": "node scripts/telemetry.js",
     "start:gcp": "npm run telemetry -- --target=gcp & npm start"
   },
-  "bin": {
-    "gemini": "bundle/gemini.js"
-  },
   "files": [
     "bundle/",
     "README.md",
