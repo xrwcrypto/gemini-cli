@@ -192,7 +192,7 @@ describe('LSTool', () => {
         // set the rootDirectory to the desired Windows path.
         // This avoids issues with path.resolve being called in the
         // constructor on a non-Windows host.
-        windowsLsTool = new LSTool('/', mockConfig);
+        windowsLsTool = new LSTool('/', windowsMockConfig);
         // @ts-expect-error private property
         windowsLsTool.rootDirectory = windowsTempDir;
       });
