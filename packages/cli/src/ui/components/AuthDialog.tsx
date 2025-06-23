@@ -38,7 +38,7 @@ export function AuthDialog({
       label: 'Login with Google Work',
       value: AuthType.LOGIN_WITH_GOOGLE_ENTERPRISE,
     },
-    { label: 'Vertex API Key', value: AuthType.USE_VERTEX_AI },
+    { label: 'Vertex AI', value: AuthType.USE_VERTEX_AI },
   ];
 
   const isSelectedAuthInMore = allAuthItems
@@ -78,6 +78,13 @@ export function AuthDialog({
 
   useInput((_input, key) => {
     if (key.escape) {
+      if (settings.merged.selectedAuthType === undefined) {
+        // Prevent exiting if no auth method is set
+        setErrorMessage(
+          'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
+        );
+        return;
+      }
       onSelect(undefined, SettingScope.User);
     }
   });

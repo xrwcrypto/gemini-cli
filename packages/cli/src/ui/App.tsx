@@ -183,6 +183,7 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
         process.cwd(),
         config.getDebugMode(),
         config.getFileService(),
+        config.getExtensionContextFilePaths(),
       );
       config.setUserMemory(memoryContent);
       config.setGeminiMdFileCount(fileCount);
@@ -294,6 +295,28 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
   );
 
   useInput((input: string, key: InkKeyType) => {
+    let enteringConstrainHeightMode = false;
+    if (!constrainHeight) {
+      // Automatically re-enter constrain height mode if the user types
+      // anything. When constrainHeight==false, the user will experience
+      // significant flickering so it is best to disable it immediately when
+      // the user starts interacting with the app.
+      enteringConstrainHeightMode = true;
+      setConstrainHeight(true);
+
+      // If our pending history item happens to exceed the terminal height we will most likely need to refresh
+      // our static collection to ensure no duplication or tearing. This is currently working around a core bug
+      // in Ink which we have a PR out to fix: https://github.com/vadimdemedes/ink/pull/717
+      if (pendingHistoryItemRef.current && pendingHistoryItems.length > 0) {
+        const pendingItemDimensions = measureElement(
+          pendingHistoryItemRef.current,
+        );
+        if (pendingItemDimensions.height > availableTerminalHeight) {
+          refreshStatic();
+        }
+      }
+    }
+
     if (key.ctrl && input === 'o') {
       setShowErrorDetails((prev) => !prev);
       refreshStatic();
@@ -314,8 +337,8 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
         return;
       }
       handleExit(ctrlDPressedOnce, setCtrlDPressedOnce, ctrlDTimerRef);
-    } else if (key.ctrl && input === 's') {
-      setConstrainHeight((prev) => !prev);
+    } else if (key.ctrl && input === 's' && !enteringConstrainHeightMode) {
+      setConstrainHeight(false);
     }
   });
 
@@ -523,7 +546,7 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     );
   }
   const mainAreaWidth = Math.floor(terminalWidth * 0.9);
-  const debugConsoleMaxHeight = Math.max(terminalHeight * 0.2, 5);
+  const debugConsoleMaxHeight = Math.floor(Math.max(terminalHeight * 0.2, 5));
   // Arbitrary threshold to ensure that items in the static area are large
   // enough but not too large to make the terminal hard to use.
   const staticAreaMaxItemHeight = Math.max(terminalHeight * 4, 100);

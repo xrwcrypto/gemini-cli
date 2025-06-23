@@ -12,8 +12,9 @@
       "runtimeArgs": ["run", "start"],
       "skipFiles": ["<node_internals>/**"],
       "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
       "env": {
-        "GEMINI_SANDBOX": "docker"
+        "GEMINI_SANDBOX": "false"
       },
       "console": "integratedTerminal"
     },
