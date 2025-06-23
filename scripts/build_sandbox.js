@@ -66,7 +66,8 @@ const imageName = packageJson.config.sandboxImageUri;
 
 const repository =
   process.env.GEMINI_SANDBOX_REPOSITORY ??
-  packageJson?.config?.sandboxRepository;
+  packageJson?.config?.sandboxRepository ??
+  '';
 
 const gitSHA = GIT_COMMIT_INFO;
 const version = packageJson?.version;

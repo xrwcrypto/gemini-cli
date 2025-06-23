@@ -1,11 +1,11 @@
 steps:
   # Step 1: Install root dependencies (includes workspaces)
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+  - name: 'Install root dependencies (includes workspaces)'
     entrypoint: 'npm'
     args: ['install']
 
   # Step 2: Update version in root package.json
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+  - name: 'Update version in root package.json'
     entrypoint: 'bash'
     args:
       - -c # Use bash -c to allow for command substitution and string manipulation
@@ -17,17 +17,17 @@ steps:
         echo "Set root package.json version to: $${new_version}"
 
   # Step 3: Run prerelease:dev to update workspace versions and dependencies
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+  - name: 'Run prerelease:dev to update workspace versions and dependencies'
     entrypoint: 'npm'
     args: ['run', 'prerelease:dev'] # This will run prerelease:version and prerelease:deps
 
   # Step 4: Authenticate for Docker and NPM
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+  - name: 'Authenticate for Docker and NPM'
     entrypoint: 'npm'
     args: ['run', 'auth']
 
   # Step 5: Run the master release script
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+  - name: 'Run the master release script'
     entrypoint: 'npm'
     args: ['run', 'publish:release']
     env:
@@ -41,7 +41,7 @@ options:
   dynamicSubstitutions: true
 
 substitutions:
-  _SANDBOX_IMAGE_REGISTRY: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/'
+  _SANDBOX_IMAGE_REGISTRY: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers'
   _SANDBOX_IMAGE_NAME: 'gemini-cli-sandbox'
   _NPM_PUBLISH_TAG: 'head'
   _CONTAINER_TOOL: 'docker'
