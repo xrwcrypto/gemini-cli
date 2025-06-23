@@ -22,7 +22,7 @@ import { chmodSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { buildImageName } from '../packages/cli/dist/src/config/sandboxConfig.js'
+import { buildImageName } from '../packages/cli/dist/src/config/sandboxConfig.js';
 
 const argv = yargs(hideBin(process.argv))
   .option('s', {
@@ -61,7 +61,7 @@ if (sandboxCommand === 'sandbox-exec') {
 
 console.log(`using ${sandboxCommand} for sandboxing`);
 
-const baseImage = await buildImageName()
+const baseImage = await buildImageName();
 
 const customImage = argv.i;
 const baseDockerfile = 'Dockerfile';
