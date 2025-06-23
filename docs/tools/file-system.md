@@ -110,7 +110,6 @@ The Gemini CLI provides a comprehensive suite of tools for interacting with the 
 - **Tool name:** `glob`
 - **Display name:** FindFiles
 - **File:** `glob.ts`
-- **Description:**
 - **Parameters:**
   - `pattern` (string, required): The glob pattern to match against (e.g., `"*.py"`, `"src/**/*.js"`).
   - `path` (string, optional): The absolute path to the directory to search within. If omitted, searches the tool's root directory.
