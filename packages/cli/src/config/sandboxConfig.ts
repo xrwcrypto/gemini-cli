@@ -116,7 +116,7 @@ const packageJson = await getPackageJson();
     packageJson?.config?.sandboxRepository ??
     '';
 
-  if (repository) {
+  if (repository && !repository.endsWith('/')) {
     repository = `${repository}/`
   }
 
