@@ -11,7 +11,7 @@ steps:
       - -c # Use bash -c to allow for command substitution and string manipulation
       - |
         current_version=$(npm pkg get version | sed 's/"//g')
-        new_version="$SHORT_SHA"
+        new_version="$${current_version}-$SHORT_SHA"
         npm pkg set "version=$${new_version}"
         echo "Set root package.json version to: $${new_version}"
 
