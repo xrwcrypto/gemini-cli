@@ -113,17 +113,34 @@ export async function buildImageName(imageNameOverride: string | undefined) {
       '',
   );
 
+  console.log("buildImangeName:imageName ", imageName)
+  console.log("buildImangeName:imageNameOverride ", imageNameOverride)
+  console.log("buildImangeName:GEMINI_SANDBOX_IMAGE ", process.env.GEMINI_SANDBOX_IMAGE)
+
   let repository = String(
     process.env.SANDBOX_IMAGE_REGISTRY ??
       packageJson?.config?.sandboxRepository ??
       '',
   );
 
+  console.log("buildImangeName:repository ", repository)
+  console.log("buildImangeName:SANDBOX_IMAGE_REGISTRY ", process.env.SANDBOX_IMAGE_REGISTRY)
+  console.log("buildImangeName:packgeJson.sandboxRepository ", packageJson?.config?.sandboxRepository)
+
   if (repository && !repository.endsWith('/')) {
+    console.log("buildImangeName:repository Adding /")
     repository = `${repository}/`;
+    console.log("buildImangeName:repository Added /", repository)
   }
 
   const gitSHA = GIT_COMMIT_INFO;
   const version = packageJson?.version;
-  return `${repository}${imageName}:${version}-${gitSHA}`;
+
+  console.log("buildImangeName:gitSHA ", gitSHA)
+  console.log("buildImangeName:version ", packageJson?.version)
+  
+  const image = `${repository}${imageName}:${version}-${gitSHA}`;
+  
+  console.log("buildbuildImangeName:image ", image)
+  return image;
 }
