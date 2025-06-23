@@ -7,22 +7,28 @@ Gemini CLI supports several built-in commands to help you manage your session, c
 Slash commands provide meta-level control over the CLI itself.
 
 - **`/bug`**
+
   - **Description:** File an issue about Gemini CLI. By default, the issue is filed within the GitHub repository for Gemini CLI. The string you enter after `/bug` will become the headline for the bug being filed. The default `/bug` behavior can be modified using the `bugCommand` setting in your `.gemini/settings.json` files.
 
 - **`/clear`**
+
   - **Description:** Clear the terminal screen, including the visible session history and scrollback within the CLI. The underlying session data (for history recall) might be preserved depending on the exact implementation, but the visual display is cleared.
   - **Keyboard shortcut:** Press **Ctrl+L** at any time to perform a clear action.
 
 - **`/compress`**
+
   - **Description:** Replace the entire chat context with a summary. This saves on tokens used for future tasks while retaining a high level summary of what has happened.
 
 - **`/editor`**
+
   - **Description:** Open a dialog for selecting supported editors.
 
 - **`/help`** (or **`/?`**)
+
   - **Description:** Display help information about the Gemini CLI, including available commands and their usage.
 
 - **`/mcp`**
+
   - **Description:** List configured Model Context Protocol (MCP) servers, their connection status, server details, and available tools.
   - **Sub-commands:**
     - **`desc`** or **`descriptions`**:
@@ -34,6 +40,7 @@ Slash commands provide meta-level control over the CLI itself.
   - **Keyboard Shortcut:** Press **Ctrl+T** at any time to toggle between showing and hiding tool descriptions.
 
 - **`/memory`**
+
   - **Description:** Manage the AI's instructional context (hierarchical memory loaded from `GEMINI.md` files).
   - **Sub-commands:**
     - **`add`**:
@@ -45,18 +52,23 @@ Slash commands provide meta-level control over the CLI itself.
     - **Note:** For more details on how `GEMINI.md` files contribute to hierarchical memory, see the [CLI Configuration documentation](./configuration.md#4-geminimd-files-hierarchical-instructional-context).
 
 - **`/stats`**
+
   - **Description:** Display detailed statistics for the current Gemini CLI session, such as the session duration.
 
 - [**`/theme`**](./themes.md)
+
   - **Description:** Open a dialog that lets you change the visual theme of Gemini CLI.
 
 - **`/auth`**
+
   - **Description:** Open a dialog that lets you change the authentication method.
 
 - **`/about`**
+
   - **Description:** Show version info. Please share this information when filing issues.
 
 - [**`/tools`**](../tools/index.md)
+
   - **Description:** Display a list of tools that are currently available within Gemini CLI.
   - **Sub-commands:**
     - **`desc`** or **`descriptions`**:
@@ -72,10 +84,12 @@ Slash commands provide meta-level control over the CLI itself.
 Checkpointing allows you to save and restore the state of your conversation and files. This is disabled by default, you must explicitly enable checkpointing using the `--checkpointing` argument or via [settings](./configuration.md).
 
 - **`/save`**
+
   - **Description:** Saves a checkpoint of the current conversation history. You can optionally add a `[tag]` to easily identify it later.
   - **Usage:** `/save [tag]`
 
 - **`/resume`**
+
   - **Description:** Resumes a conversation from a previously saved checkpoint. If you don't provide a `[tag]`, it will attempt to load the latest checkpoint.
   - **Usage:** `/resume [tag]`
 
@@ -88,6 +102,7 @@ Checkpointing allows you to save and restore the state of your conversation and 
 At commands are used to include the content of files or directories as part of your prompt to Gemini. These commands include git-aware filtering.
 
 - **`@<path_to_file_or_directory>`**
+
   - **Description:** Inject the content of the specified file or files into your current prompt. This is useful for asking questions about specific code, text, or collections of files.
   - **Examples:**
     - `@path/to/your/file.txt Explain this text.`
@@ -115,12 +130,14 @@ At commands are used to include the content of files or directories as part of y
 The `!` prefix lets you interact with your system's shell directly from within Gemini CLI.
 
 - **`!<shell_command>`**
+
   - **Description:** Execute the given `<shell_command>` in your system's default shell. Any output or errors from the command are displayed in the terminal.
   - **Examples:**
     - `!ls -la` (executes `ls -la` and returns to Gemini CLI)
     - `!git status` (executes `git status` and returns to Gemini CLI)
 
 - **`!` (Toggle shell mode)**
+
   - **Description:** Typing `!` on its own toggles shell mode.
     - **Entering shell mode:**
       - When active, shell mode uses a different coloring and a "Shell Mode Indicator".
