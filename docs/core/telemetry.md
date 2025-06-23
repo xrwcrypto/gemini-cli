@@ -134,7 +134,7 @@ Use the `npm run telemetry -- --target=gcp` command to automate setting up a loc
 
 The following section describes the struture of logs and metrics generated for Gemini CLI.
 
-* A `sessionId` is included as a common attribute on all logs and metrics.
+- A `sessionId` is included as a common attribute on all logs and metrics.
 
 ### Logs
 
