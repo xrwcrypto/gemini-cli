@@ -8,13 +8,13 @@ In the context of the Gemini CLI, tools are specific functions or modules that t
 
 The core component (`packages/core`) manages these tools, presents their definitions (schemas) to the Gemini model, executes them when requested, and returns the results to the model for further processing into a user-facing response.
 
-These tools provide the following capabilities: 
+These tools provide the following capabilities:
 
-* **Access local information:** Tools allow Gemini to access your local file system, read file contents, list directories, etc.
-* **Execute commands:** With tools like `run_shell_command`, Gemini can run shell commands (with appropriate safety measures and user confirmation).
-* **Interact with the web:** Tools can fetch content from URLs.
-* **Take actions:** Tools can modify files, write new files, or perform other actions on your system (again, typically with safeguards).
-* **Ground responses:** By using tools to fetch real-time or specific local data, Gemini's responses can be more accurate, relevant, and grounded in your actual context.
+- **Access local information:** Tools allow Gemini to access your local file system, read file contents, list directories, etc.
+- **Execute commands:** With tools like `run_shell_command`, Gemini can run shell commands (with appropriate safety measures and user confirmation).
+- **Interact with the web:** Tools can fetch content from URLs.
+- **Take actions:** Tools can modify files, write new files, or perform other actions on your system (again, typically with safeguards).
+- **Ground responses:** By using tools to fetch real-time or specific local data, Gemini's responses can be more accurate, relevant, and grounded in your actual context.
 
 ## How to use Gemini CLI tools
 
@@ -34,8 +34,8 @@ You will typically see messages in the CLI indicating when a tool is being calle
 
 Many tools, especially those that can modify your file system or execute commands (`write_file`, `edit`, `run_shell_command`), are designed with safety in mind. The Gemini CLI will typically:
 
-* **Require confirmation:** Prompt you before executing potentially sensitive operations, showing you what action is about to be taken.
-* **Utilize sandboxing:** All tools are subject to restrictions enforced by sandboxing (see [README](../../README.md#sandboxing)). This means that when operating in a sandbox, any tools (including MCP servers) you wish to use must be available _inside_ the sandbox environment. For example, to run an MCP server through `npx`, the `npx` executable must be installed within the sandbox's Docker image or be available in the `sandbox-exec` environment.
+- **Require confirmation:** Prompt you before executing potentially sensitive operations, showing you what action is about to be taken.
+- **Utilize sandboxing:** All tools are subject to restrictions enforced by sandboxing (see [README](../../README.md#sandboxing)). This means that when operating in a sandbox, any tools (including MCP servers) you wish to use must be available _inside_ the sandbox environment. For example, to run an MCP server through `npx`, the `npx` executable must be installed within the sandbox's Docker image or be available in the `sandbox-exec` environment.
 
 It's important to always review confirmation prompts carefully before allowing a tool to proceed.
 
@@ -43,9 +43,9 @@ It's important to always review confirmation prompts carefully before allowing a
 
 Gemini CLI's built-in tools can be broadly categorized as follows:
 
-* **[File System Tools](./file-system.md):** For interacting with files and directories (reading, writing, listing, searching, etc.).
-* **[Shell Tool](./shell.md) (`run_shell_command`):** For executing shell commands.
-* **[Web Fetch Tool](./web-fetch.md) (`web_fetch`):** For retrieving content from URLs.
-* **[Web Search Tool](./web-search.md) (`web_search`):** For searching the web.
-* **[Multi-File Read Tool](./multi-file.md) (`read_many_files`):** A specialized tool for reading content from multiple files or directories, often used by the `@` command.
-* **[Memory Tool](./memory.md) (`save_memory`):** For saving and recalling information across sessions.
+- **[File System Tools](./file-system.md):** For interacting with files and directories (reading, writing, listing, searching, etc.).
+- **[Shell Tool](./shell.md) (`run_shell_command`):** For executing shell commands.
+- **[Web Fetch Tool](./web-fetch.md) (`web_fetch`):** For retrieving content from URLs.
+- **[Web Search Tool](./web-search.md) (`web_search`):** For searching the web.
+- **[Multi-File Read Tool](./multi-file.md) (`read_many_files`):** A specialized tool for reading content from multiple files or directories, often used by the `@` command.
+- **[Memory Tool](./memory.md) (`save_memory`):** For saving and recalling information across sessions.
