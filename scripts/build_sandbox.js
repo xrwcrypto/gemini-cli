@@ -62,8 +62,6 @@ if (sandboxCommand === 'sandbox-exec') {
 
 console.log(`using ${sandboxCommand} for sandboxing`);
 
-
-
 const imageName = packageJson.config.sandboxImageUri;
 
 const repository =
