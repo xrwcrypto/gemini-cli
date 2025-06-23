@@ -51,7 +51,6 @@
     "LICENSE"
   ],
   "config": {
-    "sandboxRepository": "us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/",
     "sandboxImageUri": "gemini-cli-sandbox"
   },
   "devDependencies": {

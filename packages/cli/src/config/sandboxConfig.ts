@@ -104,7 +104,9 @@ export async function loadSandboxConfig(
     process.env.GEMINI_SANDBOX_IMAGE ??
     packageJson?.config?.sandboxImageUri;
 
-  const repository = packageJson?.config?.sandboxRepository;
+  const repository =
+    process.env.GEMINI_SANDBOX_REPOSITORY ??
+    packageJson?.config?.sandboxRepository;
   const gitSHA = GIT_COMMIT_INFO;
   const version = packageJson?.version;
   const image = `${repository}${imageName}:${version}-${gitSHA}`;

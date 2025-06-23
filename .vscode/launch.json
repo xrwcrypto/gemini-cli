@@ -13,9 +13,9 @@
       "skipFiles": ["<node_internals>/**"],
       "cwd": "${workspaceFolder}",
       "env": {
-        "GEMINI_SANDBOX": "false",
-        "GEMINI_API_KEY": "testkey"
-      }
+        "GEMINI_SANDBOX": "docker"
+      },
+      "console": "integratedTerminal"
     },
     {
       "type": "node",

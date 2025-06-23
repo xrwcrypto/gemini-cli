@@ -13,6 +13,7 @@ steps:
         current_version=$(npm pkg get version | sed 's/"//g')
         new_version="$${current_version}-$SHORT_SHA"
         npm pkg set "version=$${new_version}"
+        npm pkg set config.sandboxRepository="${_SANDBOX_IMAGE_REGISTRY}"
         echo "Set root package.json version to: $${new_version}"
 
   # Step 3: Run prerelease:dev to update workspace versions and dependencies
