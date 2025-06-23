@@ -105,7 +105,7 @@ chmodSync(
   0o755,
 );
 
-const buildStdout = 'inherit';
+const buildStdout = process.env.VERBOSE ? 'inherit' : 'ignore';
 
 function buildImage(imageName, dockerfile) {
   console.log(`building ${imageName} ... (can be slow first time)`);
