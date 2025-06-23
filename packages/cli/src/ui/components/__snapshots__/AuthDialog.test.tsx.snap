@@ -1,0 +1,56 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AuthDialog > Snapshots > should render all options when an advanced option is pre-selected 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ Select Auth Method                                                                               │
+│ ○ Login with Google                                                                              │
+│ ○ Gemini API Key                                                                                 │
+│ ○ Login with Google Work                                                                         │
+│ ● Vertex API Key                                                                                 │
+│                                                                                                  │
+│ (Use Enter to select, esc to cancel)                                                             │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`AuthDialog > Snapshots > should render correctly for initial auth 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ Select Auth Method                                                                               │
+│ ● Login with Google                                                                              │
+│ ○ Gemini API Key                                                                                 │
+│ ○ More...                                                                                        │
+│                                                                                                  │
+│ (Use Enter to select, esc to quit)                                                               │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`AuthDialog > Snapshots > should render correctly for user-initiated auth 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ Select Auth Method                                                                               │
+│ ● Login with Google                                                                              │
+│ ○ Gemini API Key                                                                                 │
+│ ○ More...                                                                                        │
+│                                                                                                  │
+│ (Use Enter to select, esc to cancel)                                                             │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`AuthDialog > Snapshots > should render correctly with an error message 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ Select Auth Method                                                                               │
+│ ● Login with Google                                                                              │
+│ ○ Gemini API Key                                                                                 │
+│ ○ More...                                                                                        │
+│                                                                                                  │
+│ Something went wrong                                                                             │
+│                                                                                                  │
+│ (Use Enter to select, esc to cancel)                                                             │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;

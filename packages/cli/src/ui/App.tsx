@@ -127,6 +127,8 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
   const [ctrlDPressedOnce, setCtrlDPressedOnce] = useState(false);
   const ctrlDTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [constrainHeight, setConstrainHeight] = useState<boolean>(true);
+  const [isInitialAuthResolved, setIsInitialAuthResolved] =
+    useState<boolean>(false);
 
   const errorCount = useMemo(
     () => consoleMessages.filter((msg) => msg.type === 'error').length,
@@ -155,7 +157,11 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
       if (error) {
         setAuthError(error);
         openAuthDialog();
+      } else {
+        setIsInitialAuthResolved(true);
       }
+    } else {
+      openAuthDialog();
     }
   }, [settings.merged.selectedAuthType, openAuthDialog, setAuthError]);
 
@@ -658,6 +664,8 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
                 onHighlight={handleAuthHighlight}
                 settings={settings}
                 initialErrorMessage={authError}
+                isInitialAuth={!isInitialAuthResolved}
+                onExit={() => process.exit(0)}
               />
             </Box>
           ) : isEditorDialogOpen ? (

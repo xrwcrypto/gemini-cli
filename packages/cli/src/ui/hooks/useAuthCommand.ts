@@ -82,6 +82,10 @@ Message: ${getErrorMessage(e)}`
     setIsAuthenticating(false);
   }, []);
 
+  const closeAuthDialog = useCallback(() => {
+    setIsAuthDialogOpen(false);
+  }, []);
+
   return {
     isAuthDialogOpen,
     openAuthDialog,
@@ -89,5 +93,6 @@ Message: ${getErrorMessage(e)}`
     handleAuthHighlight,
     isAuthenticating,
     cancelAuthentication,
+    closeAuthDialog,
   };
 };

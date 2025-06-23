@@ -4,7 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type Mock,
+} from 'vitest';
 import { render } from 'ink-testing-library';
 import { AppWrapper as App } from './App.js';
 import {
@@ -14,9 +22,11 @@ import {
   ToolRegistry,
   AccessibilitySettings,
   SandboxConfig,
+  AuthType,
 } from '@gemini-cli/core';
 import { LoadedSettings, SettingsFile, Settings } from '../config/settings.js';
 import process from 'node:process';
+import { useAuthCommand } from './hooks/useAuthCommand.js';
 
 // Define a more complete mock server config based on actual Config
 interface MockServerConfig {
@@ -146,12 +156,7 @@ vi.mock('./hooks/useGeminiStream', () => ({
 }));
 
 vi.mock('./hooks/useAuthCommand', () => ({
-  useAuthCommand: vi.fn(() => ({
-    isAuthDialogOpen: false,
-    openAuthDialog: vi.fn(),
-    handleAuthSelect: vi.fn(),
-    handleAuthHighlight: vi.fn(),
-  })),
+  useAuthCommand: vi.fn(),
 }));
 
 vi.mock('./hooks/useLogger', () => ({
@@ -161,15 +166,19 @@ vi.mock('./hooks/useLogger', () => ({
 }));
 
 vi.mock('../config/config.js', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<typeof import('../config/config.js')>();
   return {
-    // @ts-expect-error - this is fine
     ...actual,
     loadHierarchicalGeminiMemory: vi
       .fn()
       .mockResolvedValue({ memoryContent: '', fileCount: 0 }),
   };
 });
+
+vi.mock('../config/auth.js', () => ({
+  validateAuthMethod: vi.fn(),
+}));
+import { validateAuthMethod } from '../config/auth.js';
 
 describe('App UI', () => {
   let mockConfig: MockServerConfig;
@@ -207,13 +216,25 @@ describe('App UI', () => {
       model: 'model',
     }) as unknown as MockServerConfig;
 
-    // Ensure the getShowMemoryUsage mock function is specifically set up if not covered by constructor mock
     if (!mockConfig.getShowMemoryUsage) {
       mockConfig.getShowMemoryUsage = vi.fn(() => false);
     }
-    mockConfig.getShowMemoryUsage.mockReturnValue(false); // Default for most tests
+    mockConfig.getShowMemoryUsage.mockReturnValue(false);
 
-    // Ensure a theme is set so the theme dialog does not appear.
+    // Provide a default mock for useAuthCommand that can be overridden
+    vi.mocked(useAuthCommand).mockReturnValue({
+      isAuthDialogOpen: false,
+      openAuthDialog: vi.fn(),
+      handleAuthSelect: vi.fn(),
+      handleAuthHighlight: vi.fn(),
+      isAuthenticating: false,
+      cancelAuthentication: vi.fn(),
+      closeAuthDialog: vi.fn(),
+    });
+
+    // Default to valid auth
+    vi.mocked(validateAuthMethod).mockReturnValue(null);
+
     mockSettings = createMockSettings({ theme: 'Default' });
   });
 
@@ -222,12 +243,105 @@ describe('App UI', () => {
       currentUnmount();
       currentUnmount = undefined;
     }
-    vi.clearAllMocks(); // Clear mocks after each test
+    vi.clearAllMocks();
+  });
+
+  describe('Authentication Flow', () => {
+    it('should open AuthDialog on initial load if no auth type is set', () => {
+      const openAuthDialogMock = vi.fn();
+      vi.mocked(useAuthCommand).mockReturnValue({
+        isAuthDialogOpen: false,
+        openAuthDialog: openAuthDialogMock,
+        handleAuthSelect: vi.fn(),
+        handleAuthHighlight: vi.fn(),
+        isAuthenticating: false,
+        cancelAuthentication: vi.fn(),
+        closeAuthDialog: vi.fn(),
+      });
+      mockSettings = createMockSettings({
+        theme: 'Default',
+        selectedAuthType: undefined,
+      });
+
+      const { unmount } = render(
+        <App
+          config={mockConfig as unknown as ServerConfig}
+          settings={mockSettings}
+        />,
+      );
+      currentUnmount = unmount;
+
+      expect(openAuthDialogMock).toHaveBeenCalled();
+    });
+
+    it('should exit when escape is pressed during initial auth', () => {
+      const exitSpy = vi
+        .spyOn(process, 'exit')
+        .mockImplementation(() => undefined as never);
+      vi.mocked(useAuthCommand).mockReturnValue({
+        isAuthDialogOpen: true, // Force the dialog to be open for the test
+        openAuthDialog: vi.fn(),
+        handleAuthSelect: vi.fn(),
+        handleAuthHighlight: vi.fn(),
+        isAuthenticating: false,
+        cancelAuthentication: vi.fn(),
+        closeAuthDialog: vi.fn(),
+      });
+      // Initial auth happens when no auth type is set.
+      mockSettings = createMockSettings({
+        theme: 'Default',
+        selectedAuthType: undefined,
+      });
+
+      const { stdin, unmount } = render(
+        <App
+          config={mockConfig as unknown as ServerConfig}
+          settings={mockSettings}
+        />,
+      );
+      currentUnmount = unmount;
+
+      stdin.write('\u001b'); // Simulate escape key press
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      exitSpy.mockRestore();
+    });
+
+    it('should NOT exit when escape is pressed during user-initiated auth', async () => {
+      const exitSpy = vi
+        .spyOn(process, 'exit')
+        .mockImplementation(() => undefined as never);
+      vi.mocked(useAuthCommand).mockReturnValue({
+        isAuthDialogOpen: true,
+        openAuthDialog: vi.fn(),
+        handleAuthSelect: vi.fn(),
+        handleAuthHighlight: vi.fn(),
+        isAuthenticating: false,
+        cancelAuthentication: vi.fn(),
+        closeAuthDialog: vi.fn(),
+      });
+      mockSettings = createMockSettings({
+        theme: 'Default',
+        selectedAuthType: AuthType.USE_GEMINI,
+      });
+
+      const { stdin, unmount } = render(
+        <App
+          config={mockConfig as unknown as ServerConfig}
+          settings={mockSettings}
+        />,
+      );
+      currentUnmount = unmount;
+
+      await Promise.resolve();
+
+      stdin.write('\u001b'); // Simulate escape key press
+      expect(exitSpy).not.toHaveBeenCalled();
+      exitSpy.mockRestore();
+    });
   });
 
   it('should display default "GEMINI.md" in footer when contextFileName is not set and count is 1', async () => {
     mockConfig.getGeminiMdFileCount.mockReturnValue(1);
-    // For this test, ensure showMemoryUsage is false or debugMode is false if it relies on that
     mockConfig.getDebugMode.mockReturnValue(false);
     mockConfig.getShowMemoryUsage.mockReturnValue(false);
 
@@ -238,7 +352,7 @@ describe('App UI', () => {
       />,
     );
     currentUnmount = unmount;
-    await Promise.resolve(); // Wait for any async updates
+    await Promise.resolve();
     expect(lastFrame()).toContain('Using 1 GEMINI.md file');
   });
 

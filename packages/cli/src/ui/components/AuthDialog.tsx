@@ -17,6 +17,8 @@ interface AuthDialogProps {
   onHighlight: (authMethod: string | undefined) => void;
   settings: LoadedSettings;
   initialErrorMessage?: string | null;
+  isInitialAuth: boolean;
+  onExit: () => void;
 }
 
 export function AuthDialog({
@@ -24,6 +26,8 @@ export function AuthDialog({
   onHighlight,
   settings,
   initialErrorMessage,
+  isInitialAuth,
+  onExit,
 }: AuthDialogProps): React.JSX.Element {
   const [errorMessage, setErrorMessage] = useState<string | null>(
     initialErrorMessage || null,
@@ -78,7 +82,11 @@ export function AuthDialog({
 
   useInput((_input, key) => {
     if (key.escape) {
-      onSelect(undefined, SettingScope.User);
+      if (isInitialAuth) {
+        onExit();
+      } else {
+        onSelect(undefined, SettingScope.User);
+      }
     }
   });
 
@@ -104,7 +112,10 @@ export function AuthDialog({
         </Box>
       )}
       <Box marginTop={1}>
-        <Text color={Colors.Gray}>(Use Enter to select)</Text>
+        <Text color={Colors.Gray}>
+          (Use Enter to select,{' '}
+          {isInitialAuth ? 'esc to quit' : 'esc to cancel'})
+        </Text>
       </Box>
     </Box>
   );
