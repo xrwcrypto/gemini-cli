@@ -123,7 +123,7 @@ export async function buildImageName(imageNameOverride: string | undefined) {
     repository = `${repository}/`;
   }
 
-  const gitSHA = GIT_COMMIT_INFO;
+  const gitSHA = process.env.SANDBOX_SHA ?? GIT_COMMIT_INFO;
   const version = packageJson?.version;
   return `${repository}${imageName}:${version}-${gitSHA}`;
 }
