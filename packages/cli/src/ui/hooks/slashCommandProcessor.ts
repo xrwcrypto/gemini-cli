@@ -992,6 +992,7 @@ Add any other context about the problem here.
     addMemoryAction,
     addMessage,
     toggleCorgiMode,
+    savedChatTags,
     config,
     showToolDescriptions,
     session,
