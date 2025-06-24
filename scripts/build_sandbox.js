@@ -24,6 +24,14 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import cliPkgJson from '../packages/cli/package.json' with { type: 'json' };
 
+// TEMP
+import { writeFileSync } from 'node:fs';
+import { format } from 'node:util'
+// import { homedir } from 'node:os';
+const f = join('/tmp', 'npx_debug.log');
+writeFileSync(f, format('TEST'))
+// END TEMP
+
 const argv = yargs(hideBin(process.argv))
   .option('s', {
     alias: 'skip-npm-install-build',
@@ -42,15 +50,15 @@ const argv = yargs(hideBin(process.argv))
     description: 'use <image> name for custom image',
   }).argv;
 
-let sandboxCommand;
-try {
-  sandboxCommand = execSync('node scripts/sandbox_command.js')
-    .toString()
-    .trim();
-} catch {
-  console.warn('ERROR: could not detect sandbox container command');
-  process.exit(0);
-}
+let sandboxCommand = "docker";
+// try {
+//   sandboxCommand = execSync('GEMINI_SANDBOX=docker node scripts/sandbox_command.js')
+//     .toString()
+//     .trim();
+// } catch {
+//   console.warn('ERROR: could not detect sandbox container command');
+//   process.exit(0);
+// }
 
 if (sandboxCommand === 'sandbox-exec') {
   console.warn(
@@ -81,7 +89,7 @@ console.log('packing @gemini-cli/cli ...');
 const cliPackageDir = join('packages', 'cli');
 rmSync(join(cliPackageDir, 'dist', 'gemini-cli-cli-*.tgz'), { force: true });
 execSync(`npm pack -w @gemini-cli/cli --pack-destination ./packages/cli/dist`, {
-  stdio: 'ignore',
+  stdio: 'inherit',
 });
 
 console.log('packing @gemini-cli/core ...');
@@ -89,7 +97,7 @@ const corePackageDir = join('packages', 'core');
 rmSync(join(corePackageDir, 'dist', 'gemini-cli-core-*.tgz'), { force: true });
 execSync(
   `npm pack -w @gemini-cli/core --pack-destination ./packages/core/dist`,
-  { stdio: 'ignore' },
+  { stdio: 'inherit' },
 );
 
 const packageVersion = JSON.parse(
@@ -105,7 +113,7 @@ chmodSync(
   0o755,
 );
 
-const buildStdout = process.env.VERBOSE ? 'inherit' : 'ignore';
+const buildStdout = process.env.VERBOSE ? 'inherit' : 'inherit';
 
 function buildImage(imageName, dockerfile) {
   console.log(`building ${imageName} ... (can be slow first time)`);
@@ -135,4 +143,4 @@ if (customDockerfile && customImage) {
   buildImage(customImage, customDockerfile);
 }
 
-execSync(`${sandboxCommand} image prune -f`, { stdio: 'ignore' });
+execSync(`${sandboxCommand} image prune -f`, { stdio: 'inherit' });
