@@ -30,7 +30,7 @@ export interface GrepToolParams {
   /**
    * The directory to search in (optional, defaults to current directory relative to root)
    */
-  path?: string;
+  absolute_path?: string;
 
   /**
    * File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")
@@ -71,7 +71,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
               "The regular expression (regex) pattern to search for within file contents (e.g., 'function\\s+myFunction', 'import\\s+\\{.*\\}\\s+from\\s+.*').",
             type: 'string',
           },
-          path: {
+          absolute_path: {
             description:
               'Optional: The absolute path to the directory to search within. If omitted, searches the current working directory.',
             type: 'string',
@@ -152,7 +152,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
     }
 
     try {
-      this.resolveAndValidatePath(params.path);
+      this.resolveAndValidatePath(params.absolute_path);
     } catch (error) {
       return getErrorMessage(error);
     }
@@ -181,8 +181,8 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
 
     let searchDirAbs: string;
     try {
-      searchDirAbs = this.resolveAndValidatePath(params.path);
-      const searchDirDisplay = params.path || '.';
+      searchDirAbs = this.resolveAndValidatePath(params.absolute_path);
+      const searchDirDisplay = params.absolute_path || '.';
 
       const matches: GrepMatch[] = await this.performGrepSearch({
         pattern: params.pattern,
@@ -322,9 +322,9 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
     if (params.include) {
       description += ` in ${params.include}`;
     }
-    if (params.path) {
-      const resolvedPath = path.resolve(this.rootDirectory, params.path);
-      if (resolvedPath === this.rootDirectory || params.path === '.') {
+    if (params.absolute_path) {
+      const resolvedPath = path.resolve(this.rootDirectory, params.absolute_path);
+      if (resolvedPath === this.rootDirectory || params.absolute_path === '.') {
         description += ` within ./`;
       } else {
         const relativePath = makeRelative(resolvedPath, this.rootDirectory);

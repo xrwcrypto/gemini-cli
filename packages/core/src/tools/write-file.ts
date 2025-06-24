@@ -39,7 +39,7 @@ export interface WriteFileToolParams {
   /**
    * The absolute path to the file to write to
    */
-  file_path: string;
+  absolute_path: string;
 
   /**
    * The content to write to the file
@@ -71,7 +71,7 @@ export class WriteFileTool
       'Writes content to a specified file in the local filesystem.',
       {
         properties: {
-          file_path: {
+          absolute_path: {
             description:
               "The absolute path to the file to write to (e.g., '/home/user/project/file.txt'). Relative paths are not supported.",
             type: 'string',
@@ -81,7 +81,7 @@ export class WriteFileTool
             type: 'string',
           },
         },
-        required: ['file_path', 'content'],
+        required: ['absolute_path', 'content'],
         type: 'object',
       },
     );
@@ -111,7 +111,7 @@ export class WriteFileTool
     ) {
       return 'Parameters failed schema validation.';
     }
-    const filePath = params.file_path;
+    const filePath = params.absolute_path;
     if (!path.isAbsolute(filePath)) {
       return `File path must be absolute: ${filePath}`;
     }
@@ -138,11 +138,11 @@ export class WriteFileTool
   }
 
   getDescription(params: WriteFileToolParams): string {
-    if (!params.file_path || !params.content) {
+    if (!params.absolute_path || !params.content) {
       return `Model did not provide valid parameters for write file tool`;
     }
     const relativePath = makeRelative(
-      params.file_path,
+      params.absolute_path,
       this.config.getTargetDir(),
     );
     return `Writing to ${shortenPath(relativePath)}`;
@@ -165,7 +165,7 @@ export class WriteFileTool
     }
 
     const correctedContentResult = await this._getCorrectedFileContent(
-      params.file_path,
+      params.absolute_path,
       params.content,
       abortSignal,
     );
@@ -177,10 +177,10 @@ export class WriteFileTool
 
     const { originalContent, correctedContent } = correctedContentResult;
     const relativePath = makeRelative(
-      params.file_path,
+      params.absolute_path,
       this.config.getTargetDir(),
     );
-    const fileName = path.basename(params.file_path);
+    const fileName = path.basename(params.absolute_path);
 
     const fileDiff = Diff.createPatch(
       fileName,
@@ -218,7 +218,7 @@ export class WriteFileTool
     }
 
     const correctedContentResult = await this._getCorrectedFileContent(
-      params.file_path,
+      params.absolute_path,
       params.content,
       abortSignal,
     );
@@ -227,7 +227,7 @@ export class WriteFileTool
       const errDetails = correctedContentResult.error;
       const errorMsg = `Error checking existing file: ${errDetails.message}`;
       return {
-        llmContent: `Error checking existing file ${params.file_path}: ${errDetails.message}`,
+        llmContent: `Error checking existing file ${params.absolute_path}: ${errDetails.message}`,
         returnDisplay: errorMsg,
       };
     }
@@ -245,15 +245,15 @@ export class WriteFileTool
         !correctedContentResult.fileExists);
 
     try {
-      const dirName = path.dirname(params.file_path);
+      const dirName = path.dirname(params.absolute_path);
       if (!fs.existsSync(dirName)) {
         fs.mkdirSync(dirName, { recursive: true });
       }
 
-      fs.writeFileSync(params.file_path, fileContent, 'utf8');
+      fs.writeFileSync(params.absolute_path, fileContent, 'utf8');
 
       // Generate diff for display result
-      const fileName = path.basename(params.file_path);
+      const fileName = path.basename(params.absolute_path);
       // If there was a readError, originalContent in correctedContentResult is '',
       // but for the diff, we want to show the original content as it was before the write if possible.
       // However, if it was unreadable, currentContentForDiff will be empty.
@@ -271,14 +271,14 @@ export class WriteFileTool
       );
 
       const llmSuccessMessage = isNewFile
-        ? `Successfully created and wrote to new file: ${params.file_path}`
-        : `Successfully overwrote file: ${params.file_path}`;
+        ? `Successfully created and wrote to new file: ${params.absolute_path}`
+        : `Successfully overwrote file: ${params.absolute_path}`;
 
       const displayResult: FileDiff = { fileDiff, fileName };
 
       const lines = fileContent.split('\n').length;
-      const mimetype = getSpecificMimeType(params.file_path);
-      const extension = path.extname(params.file_path); // Get extension
+      const mimetype = getSpecificMimeType(params.absolute_path);
+      const extension = path.extname(params.absolute_path); // Get extension
       if (isNewFile) {
         recordFileOperationMetric(
           this.config,
@@ -304,7 +304,7 @@ export class WriteFileTool
     } catch (error) {
       const errorMsg = `Error writing to file: ${error instanceof Error ? error.message : String(error)}`;
       return {
-        llmContent: `Error writing to file ${params.file_path}: ${errorMsg}`,
+        llmContent: `Error writing to file ${params.absolute_path}: ${errorMsg}`,
         returnDisplay: `Error: ${errorMsg}`,
       };
     }
@@ -371,10 +371,10 @@ export class WriteFileTool
     abortSignal: AbortSignal,
   ): ModifyContext<WriteFileToolParams> {
     return {
-      getFilePath: (params: WriteFileToolParams) => params.file_path,
+      getFilePath: (params: WriteFileToolParams) => params.absolute_path,
       getCurrentContent: async (params: WriteFileToolParams) => {
         const correctedContentResult = await this._getCorrectedFileContent(
-          params.file_path,
+          params.absolute_path,
           params.content,
           abortSignal,
         );
@@ -382,7 +382,7 @@ export class WriteFileTool
       },
       getProposedContent: async (params: WriteFileToolParams) => {
         const correctedContentResult = await this._getCorrectedFileContent(
-          params.file_path,
+          params.absolute_path,
           params.content,
           abortSignal,
         );

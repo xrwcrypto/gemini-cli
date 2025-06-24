@@ -18,7 +18,7 @@ export interface LSToolParams {
   /**
    * The absolute path to the directory to list
    */
-  path: string;
+  absolute_path: string;
 
   /**
    * Array of glob patterns to ignore (optional)
@@ -81,7 +81,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       'Lists the names of files and subdirectories directly within a specified directory path. Can optionally ignore entries matching provided glob patterns.',
       {
         properties: {
-          path: {
+          absolute_path: {
             description:
               'The absolute path to the directory to list (must be absolute, not relative)',
             type: 'string',
@@ -99,7 +99,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
             type: 'boolean',
           },
         },
-        required: ['path'],
+        required: ['absolute_path'],
         type: 'object',
       },
     );
@@ -141,11 +141,11 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     ) {
       return 'Parameters failed schema validation.';
     }
-    if (!path.isAbsolute(params.path)) {
-      return `Path must be absolute: ${params.path}`;
+    if (!path.isAbsolute(params.absolute_path)) {
+      return `Path must be absolute: ${params.absolute_path}`;
     }
-    if (!this.isWithinRoot(params.path)) {
-      return `Path must be within the root directory (${this.rootDirectory}): ${params.path}`;
+    if (!this.isWithinRoot(params.absolute_path)) {
+      return `Path must be within the root directory (${this.rootDirectory}): ${params.absolute_path}`;
     }
     return null;
   }
@@ -180,7 +180,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
    * @returns A string describing the file being read
    */
   getDescription(params: LSToolParams): string {
-    const relativePath = makeRelative(params.path, this.rootDirectory);
+    const relativePath = makeRelative(params.absolute_path, this.rootDirectory);
     return shortenPath(relativePath);
   }
 
@@ -211,23 +211,23 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     }
 
     try {
-      const stats = fs.statSync(params.path);
+      const stats = fs.statSync(params.absolute_path);
       if (!stats) {
         // fs.statSync throws on non-existence, so this check might be redundant
         // but keeping for clarity. Error message adjusted.
         return this.errorResult(
-          `Error: Directory not found or inaccessible: ${params.path}`,
+          `Error: Directory not found or inaccessible: ${params.absolute_path}`,
           `Directory not found or inaccessible.`,
         );
       }
       if (!stats.isDirectory()) {
         return this.errorResult(
-          `Error: Path is not a directory: ${params.path}`,
+          `Error: Path is not a directory: ${params.absolute_path}`,
           `Path is not a directory.`,
         );
       }
 
-      const files = fs.readdirSync(params.path);
+      const files = fs.readdirSync(params.absolute_path);
 
       // Get centralized file discovery service
       const respectGitIgnore =
@@ -241,7 +241,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       if (files.length === 0) {
         // Changed error message to be more neutral for LLM
         return {
-          llmContent: `Directory ${params.path} is empty.`,
+          llmContent: `Directory ${params.absolute_path} is empty.`,
           returnDisplay: `Directory is empty.`,
         };
       }
@@ -251,7 +251,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
           continue;
         }
 
-        const fullPath = path.join(params.path, file);
+        const fullPath = path.join(params.absolute_path, file);
         const relativePath = path.relative(this.rootDirectory, fullPath);
 
         // Check if this file should be git-ignored (only in git repositories)
@@ -291,7 +291,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         .map((entry) => `${entry.isDirectory ? '[DIR] ' : ''}${entry.name}`)
         .join('\n');
 
-      let resultMessage = `Directory listing for ${params.path}:\n${directoryContent}`;
+      let resultMessage = `Directory listing for ${params.absolute_path}:\n${directoryContent}`;
       if (gitIgnoredCount > 0) {
         resultMessage += `\n\n(${gitIgnoredCount} items were git-ignored)`;
       }

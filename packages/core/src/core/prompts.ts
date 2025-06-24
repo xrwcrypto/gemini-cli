@@ -166,7 +166,7 @@ model: true
 
 <example>
 user: list files here.
-model: [tool_call: ${LSTool.Name} for path '.']
+model: [tool_call: ${LSTool.Name} for absolute_path '/path/to/current/dir']
 </example>
 
 <example>
@@ -178,12 +178,12 @@ model: [tool_call: ${ShellTool.Name} for 'node server.js &' because it must run 
 user: Refactor the auth logic in src/auth.py to use the requests library instead of urllib.
 model: Okay, I can refactor 'src/auth.py'.
 First, I'll analyze the code and check for a test safety net before planning any changes.
-[tool_call: ${GlobTool.Name} for path 'tests/test_auth.py']
-[tool_call: ${ReadFileTool.Name} for absolute_path '/path/to/tests/test_auth.py']
+[tool_call: ${GlobTool.Name} for pattern 'tests/test_auth.py' absolute_path '/path/to/project']
+[tool_call: ${ReadFileTool.Name} for absolute_path '/path/to/project/tests/test_auth.py']
 (After analysis)
 Great, 'tests/test_auth.py' exists and covers the core authentication logic. With this safety net in place, I can safely plan the refactoring.
 I'll also confirm 'requests' is a dependency.
-[tool_call: ${ReadFileTool.Name} for absolute_path '/path/to/requirements.txt']
+[tool_call: ${ReadFileTool.Name} for absolute_path '/path/to/project/requirements.txt']
 (After analysis)
 Looks good, 'requests' is available.
 
@@ -218,7 +218,7 @@ model: I can run \`rm -rf ./temp\`. This will permanently delete the directory a
 user: Write tests for someFile.ts
 model:
 Okay, I can write those tests. First, I'll read \`someFile.ts\` to understand its functionality.
-[tool_call: ${ReadFileTool.Name} for absolute_path '/path/to/someFile.ts' or use ${GlobTool.Name} to find \`someFile.ts\` if its location is unknown]
+[tool_call: ${ReadFileTool.Name} for absolute_path '/path/to/someFile.ts' or use ${GlobTool.Name} to find \`someFile.ts\` if its location is unknown, e.g. [tool_call: ${GlobTool.Name} for pattern '**/someFile.ts' absolute_path '/path/to/project']]
 Now I'll look for existing or related test files to understand current testing conventions and dependencies.
 [tool_call: ${ReadManyFilesTool.Name} for paths ['**/*.test.ts', 'src/**/*.spec.ts'] assuming someFile.ts is in the src directory]
 (After reviewing existing tests and the file content)

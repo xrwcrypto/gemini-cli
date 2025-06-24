@@ -32,7 +32,7 @@ export interface EditToolParams {
   /**
    * The absolute path to the file to modify
    */
-  file_path: string;
+  absolute_path: string;
 
   /**
    * The text to replace
@@ -79,18 +79,10 @@ export class EditTool
     super(
       EditTool.Name,
       'Edit',
-      `Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when \`expected_replacements\` is specified. This tool requires providing significant context around the change to ensure precise targeting. Always use the ${ReadFileTool.Name} tool to examine the file's current content before attempting a text replacement.
-
-Expectation for required parameters:
-1. \`file_path\` MUST be an absolute path; otherwise an error will be thrown.
-2. \`old_string\` MUST be the exact literal text to replace (including all whitespace, indentation, newlines, and surrounding code etc.).
-3. \`new_string\` MUST be the exact literal text to replace \`old_string\` with (also including all whitespace, indentation, newlines, and surrounding code etc.). Ensure the resulting code is correct and idiomatic.
-4. NEVER escape \`old_string\` or \`new_string\`, that would break the exact literal text requirement.
-**Important:** If ANY of the above are not satisfied, the tool will fail. CRITICAL for \`old_string\`: Must uniquely identify the single instance to change. Include at least 3 lines of context BEFORE and AFTER the target text, matching whitespace and indentation precisely. If this string matches multiple locations, or does not match exactly, the tool will fail.
-**Multiple replacements:** Set \`expected_replacements\` to the number of occurrences you want to replace. The tool will replace ALL occurrences that match \`old_string\` exactly. Ensure the number of replacements matches your expectation.`,
+      `Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when \`expected_replacements\` is specified. This tool requires providing significant context around the change to ensure precise targeting. Always use the ${ReadFileTool.Name} tool to examine the file's current content before attempting a text replacement.\n\nExpectation for required parameters:\n1. \`absolute_path\` MUST be an absolute path; otherwise an error will be thrown.\n2. \`old_string\` MUST be the exact literal text to replace (including all whitespace, indentation, newlines, and surrounding code etc.).\n3. \`new_string\` MUST be the exact literal text to replace \`old_string\` with (also including all whitespace, indentation, newlines, and surrounding code etc.). Ensure the resulting code is correct and idiomatic.\n4. NEVER escape \`old_string\` or \`new_string\`, that would break the exact literal text requirement.\n**Important:** If ANY of the above are not satisfied, the tool will fail. CRITICAL for \`old_string\`: Must uniquely identify the single instance to change. Include at least 3 lines of context BEFORE and AFTER the target text, matching whitespace and indentation precisely. If this string matches multiple locations, or does not match exactly, the tool will fail.\n**Multiple replacements:** Set \`expected_replacements\` to the number of occurrences you want to replace. The tool will replace ALL occurrences that match \`old_string\` exactly. Ensure the number of replacements matches your expectation.`,
       {
         properties: {
-          file_path: {
+          absolute_path: {
             description:
               "The absolute path to the file to modify. Must start with '/'.",
             type: 'string',
@@ -112,7 +104,7 @@ Expectation for required parameters:
             minimum: 1,
           },
         },
-        required: ['file_path', 'old_string', 'new_string'],
+        required: ['absolute_path', 'old_string', 'new_string'],
         type: 'object',
       },
     );
@@ -154,12 +146,12 @@ Expectation for required parameters:
       return 'Parameters failed schema validation.';
     }
 
-    if (!path.isAbsolute(params.file_path)) {
-      return `File path must be absolute: ${params.file_path}`;
+    if (!path.isAbsolute(params.absolute_path)) {
+      return `File path must be absolute: ${params.absolute_path}`;
     }
 
-    if (!this.isWithinRoot(params.file_path)) {
-      return `File path must be within the root directory (${this.rootDirectory}): ${params.file_path}`;
+    if (!this.isWithinRoot(params.absolute_path)) {
+      return `File path must be within the root directory (${this.rootDirectory}): ${params.absolute_path}`;
     }
 
     return null;
@@ -205,7 +197,7 @@ Expectation for required parameters:
     let error: { display: string; raw: string } | undefined = undefined;
 
     try {
-      currentContent = fs.readFileSync(params.file_path, 'utf8');
+      currentContent = fs.readFileSync(params.absolute_path, 'utf8');
       // Normalize line endings to LF for consistent processing.
       currentContent = currentContent.replace(/\r\n/g, '\n');
       fileExists = true;
@@ -224,7 +216,7 @@ Expectation for required parameters:
       // Trying to edit a non-existent file (and old_string is not empty)
       error = {
         display: `File not found. Cannot apply edit. Use an empty old_string to create a new file.`,
-        raw: `File not found: ${params.file_path}`,
+        raw: `File not found: ${params.absolute_path}`,
       };
     } else if (currentContent !== null) {
       // Editing an existing file
@@ -242,24 +234,24 @@ Expectation for required parameters:
         // Error: Trying to create a file that already exists
         error = {
           display: `Failed to edit. Attempted to create a file that already exists.`,
-          raw: `File already exists, cannot create: ${params.file_path}`,
+          raw: `File already exists, cannot create: ${params.absolute_path}`,
         };
       } else if (occurrences === 0) {
         error = {
           display: `Failed to edit, could not find the string to replace.`,
-          raw: `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`,
+          raw: `Failed to edit, 0 occurrences found for old_string in ${params.absolute_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`,
         };
       } else if (occurrences !== expectedReplacements) {
         error = {
           display: `Failed to edit, expected ${expectedReplacements} occurrence(s) but found ${occurrences}.`,
-          raw: `Failed to edit, Expected ${expectedReplacements} occurrences but found ${occurrences} for old_string in file: ${params.file_path}`,
+          raw: `Failed to edit, Expected ${expectedReplacements} occurrences but found ${occurrences} for old_string in file: ${params.absolute_path}`,
         };
       }
     } else {
       // Should not happen if fileExists and no exception was thrown, but defensively:
       error = {
         display: `Failed to read content of file.`,
-        raw: `Failed to read content of existing file: ${params.file_path}`,
+        raw: `Failed to read content of existing file: ${params.absolute_path}`,
       };
     }
 
@@ -320,7 +312,7 @@ Expectation for required parameters:
       return false;
     }
 
-    const fileName = path.basename(params.file_path);
+    const fileName = path.basename(params.absolute_path);
     const fileDiff = Diff.createPatch(
       fileName,
       editData.currentContent ?? '',
@@ -331,7 +323,7 @@ Expectation for required parameters:
     );
     const confirmationDetails: ToolEditConfirmationDetails = {
       type: 'edit',
-      title: `Confirm Edit: ${shortenPath(makeRelative(params.file_path, this.rootDirectory))}`,
+      title: `Confirm Edit: ${shortenPath(makeRelative(params.absolute_path, this.rootDirectory))}`,
       fileName,
       fileDiff,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
@@ -344,10 +336,10 @@ Expectation for required parameters:
   }
 
   getDescription(params: EditToolParams): string {
-    if (!params.file_path || !params.old_string || !params.new_string) {
+    if (!params.absolute_path || !params.old_string || !params.new_string) {
       return `Model did not provide valid parameters for edit tool`;
     }
-    const relativePath = makeRelative(params.file_path, this.rootDirectory);
+    const relativePath = makeRelative(params.absolute_path, this.rootDirectory);
     if (params.old_string === '') {
       return `Create ${shortenPath(relativePath)}`;
     }
@@ -401,16 +393,16 @@ Expectation for required parameters:
     }
 
     try {
-      this.ensureParentDirectoriesExist(params.file_path);
-      fs.writeFileSync(params.file_path, editData.newContent, 'utf8');
+      this.ensureParentDirectoriesExist(params.absolute_path);
+      fs.writeFileSync(params.absolute_path, editData.newContent, 'utf8');
 
       let displayResult: ToolResultDisplay;
       if (editData.isNewFile) {
-        displayResult = `Created ${shortenPath(makeRelative(params.file_path, this.rootDirectory))}`;
+        displayResult = `Created ${shortenPath(makeRelative(params.absolute_path, this.rootDirectory))}`;
       } else {
         // Generate diff for display, even though core logic doesn't technically need it
         // The CLI wrapper will use this part of the ToolResult
-        const fileName = path.basename(params.file_path);
+        const fileName = path.basename(params.absolute_path);
         const fileDiff = Diff.createPatch(
           fileName,
           editData.currentContent ?? '', // Should not be null here if not isNewFile
@@ -423,8 +415,8 @@ Expectation for required parameters:
       }
 
       const llmSuccessMessage = editData.isNewFile
-        ? `Created new file: ${params.file_path} with provided content.`
-        : `Successfully modified file: ${params.file_path} (${editData.occurrences} replacements).`;
+        ? `Created new file: ${params.absolute_path} with provided content.`
+        : `Successfully modified file: ${params.absolute_path} (${editData.occurrences} replacements).`;
 
       return {
         llmContent: llmSuccessMessage,
@@ -451,10 +443,10 @@ Expectation for required parameters:
 
   getModifyContext(_: AbortSignal): ModifyContext<EditToolParams> {
     return {
-      getFilePath: (params: EditToolParams) => params.file_path,
+      getFilePath: (params: EditToolParams) => params.absolute_path,
       getCurrentContent: async (params: EditToolParams): Promise<string> => {
         try {
-          return fs.readFileSync(params.file_path, 'utf8');
+          return fs.readFileSync(params.absolute_path, 'utf8');
         } catch (err) {
           if (!isNodeError(err) || err.code !== 'ENOENT') throw err;
           return '';
@@ -462,7 +454,7 @@ Expectation for required parameters:
       },
       getProposedContent: async (params: EditToolParams): Promise<string> => {
         try {
-          const currentContent = fs.readFileSync(params.file_path, 'utf8');
+          const currentContent = fs.readFileSync(params.absolute_path, 'utf8');
           return this._applyReplacement(
             currentContent,
             params.old_string,

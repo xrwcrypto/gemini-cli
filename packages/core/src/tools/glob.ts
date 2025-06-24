@@ -60,7 +60,7 @@ export interface GlobToolParams {
   /**
    * The directory to search in (optional, defaults to current directory)
    */
-  path?: string;
+  absolute_path?: string;
 
   /**
    * Whether the search should be case-sensitive (optional, defaults to false)
@@ -97,7 +97,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
               "The glob pattern to match against (e.g., '**/*.py', 'docs/*.md').",
             type: 'string',
           },
-          path: {
+          absolute_path: {
             description:
               'Optional: The absolute path to the directory to search within. If omitted, searches the root directory.',
             type: 'string',
@@ -153,7 +153,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
 
     const searchDirAbsolute = path.resolve(
       this.rootDirectory,
-      params.path || '.',
+      params.absolute_path || '.',
     );
 
     if (!this.isWithinRoot(searchDirAbsolute)) {
@@ -188,8 +188,8 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
    */
   getDescription(params: GlobToolParams): string {
     let description = `'${params.pattern}'`;
-    if (params.path) {
-      const searchDir = path.resolve(this.rootDirectory, params.path || '.');
+    if (params.absolute_path) {
+      const searchDir = path.resolve(this.rootDirectory, params.absolute_path || '.');
       const relativePath = makeRelative(searchDir, this.rootDirectory);
       description += ` within ${shortenPath(relativePath)}`;
     }
@@ -214,7 +214,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
     try {
       const searchDirAbsolute = path.resolve(
         this.rootDirectory,
-        params.path || '.',
+        params.absolute_path || '.',
       );
 
       // Get centralized file discovery service
