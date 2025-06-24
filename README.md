@@ -4,6 +4,8 @@
 
 This repository contains the Gemini CLI tool.
 
+![Gemini CLI Screenshot](./docs/assets/gemini-screenshot.png)
+
 ## Quickstart
 
 1. **Prerequisites:** Ensure you have [Node.js version 18](https://nodejs.org/en/download) or higher installed.
@@ -100,4 +102,8 @@ Use MCP servers to integrate your local system tools with your enterprise collab
 
 ## Gemini APIs
 
-This project leverages the Gemini APIs to provide AI capabilities. For details on the terms of service governing the Gemini API, please refer to the [Gemini API Terms of Service](https://ai.google.dev/gemini-api/terms).
+This project leverages the Gemini APIs to provide AI capabilities. For details on the terms of service governing the Gemini API, please refer to the terms for the access mechanism you are using:
+
+- [Gemini API key](https://ai.google.dev/gemini-api/terms)
+- [Gemini Code Assist](https://developers.google.com/gemini-code-assist/resources/privacy-notices)
+- [Vertex AI](https://cloud.google.com/terms/service-terms)

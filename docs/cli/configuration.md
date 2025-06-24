@@ -150,7 +150,7 @@ In addition to a project settings file, a project's `.gemini` directory can cont
 
 - **`checkpointing`** (object):
 
-  - **Description:** Configures the checkpointing feature, which allows you to save and restore conversation and file states. See the [Checkpointing Commands](./commands.md#checkpointing-commands) for more details.
+  - **Description:** Configures the checkpointing feature, which allows you to save and restore conversation and file states. See the [Checkpointing documentation](../checkpointing.md) for more details.
   - **Default:** `{"enabled": false}`
   - **Properties:**
     - **`enabled`** (boolean): When `true`, the `/restore` command is available.
@@ -432,3 +432,6 @@ You can opt out of usage statistics collection at any time by setting the `usage
   "usageStatisticsEnabled": false
 }
 ```
+
+**Privacy Policy:**
+Data collected is subject to the [Google Privacy Policy](https://policies.google.com/privacy).
