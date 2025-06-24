@@ -17,9 +17,9 @@ This documentation is organized into the following sections:
   - **[Commands](./cli/commands.md):** Description of available CLI commands.
   - **[Configuration](./cli/configuration.md):** Information on configuring the CLI.
   - **[Extensions](./extension.md):** How to extend the CLI with new functionality.
-  - **[Telemetry](./telemetry.md):** Overview of telemetry in the CLI.
 - **Core Details:** Documentation for `packages/core`.
   - **[Core Introduction](./core/index.md):** Overview of the core component.
+  - **[Configuration](./core/configuration.md):** Information on configuring the core component.
   - **[Tools API](./core/tools-api.md):** Information on how the core manages and exposes tools.
 - **Tools:**
   - **[Tools Overview](./tools/index.md):** Overview of the available tools.
