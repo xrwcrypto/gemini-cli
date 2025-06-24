@@ -15,25 +15,19 @@ export const validateAuthMethod = (authMethod: string): string | null => {
 
   if (authMethod === AuthType.LOGIN_WITH_GOOGLE_ENTERPRISE) {
     if (!process.env.GOOGLE_CLOUD_PROJECT) {
-      return 'GOOGLE_CLOUD_PROJECT environment variable not found. Add that to your evironment and try again (no reload needed if using .env)!';
+      return 'GOOGLE_CLOUD_PROJECT environment variable not found. Add that to your environment and try again (no reload needed if using .env)!';
     }
     return null;
   }
 
   if (authMethod === AuthType.USE_GEMINI) {
-    if (process.env.GOOGLE_GENAI_USE_VERTEXAI) {
-      return 'GOOGLE_GENAI_USE_VERTEXAI cannot be set when using GEMINI_API_KEY. Update your evironment and try again (no reload needed if using .env)!';
-    }
     if (!process.env.GEMINI_API_KEY) {
-      return 'GEMINI_API_KEY environment variable not found. Add that to your evironment and try again (no reload needed if using .env)!';
+      return 'GEMINI_API_KEY environment variable not found. Add that to your environment and try again (no reload needed if using .env)!';
     }
     return null;
   }
 
   if (authMethod === AuthType.USE_VERTEX_AI) {
-    if (process.env.GEMINI_API_KEY) {
-      return 'GEMINI_API_KEY cannot be set when using Vertex AI. Update your evironment and try again (no reload needed if using .env)!';
-    }
     const hasVertexProjectLocationConfig =
       !!process.env.GOOGLE_CLOUD_PROJECT && !!process.env.GOOGLE_CLOUD_LOCATION;
     const hasGoogleApiKey = !!process.env.GOOGLE_API_KEY;
@@ -42,7 +36,7 @@ export const validateAuthMethod = (authMethod: string): string | null => {
         'When using Vertex AI, you must specify either:\n' +
         '• GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION environment variables.\n' +
         '• GOOGLE_API_KEY environment variable (if using express mode).\n' +
-        'Update your evironment and try again (no reload needed if using .env)!'
+        'Update your environment and try again (no reload needed if using .env)!'
       );
     }
     return null;
