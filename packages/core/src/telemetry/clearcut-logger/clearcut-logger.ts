@@ -46,7 +46,7 @@ export class ClearcutLogger {
   }
 
   static getInstance(config?: Config): ClearcutLogger | undefined {
-    if (config === undefined || config?.getDisableDataCollection())
+    if (config === undefined || !config?.getUsageStatisticsEnabled())
       return undefined;
     if (!ClearcutLogger.instance) {
       ClearcutLogger.instance = new ClearcutLogger(config);
@@ -64,9 +64,10 @@ export class ClearcutLogger {
     ]);
   }
 
-  createLogEvent(name: string, data: Map<EventMetadataKey, string>): object {
+  createLogEvent(name: string, data: object): object {
     return {
-      Application: 'GEMINI_CLI',
+      console_type: 'GEMINI_CLI',
+      application: 102,
       event_name: name,
       client_install_id: getPersistentUserId(),
       event_metadata: [data] as object[],
@@ -79,19 +80,27 @@ export class ClearcutLogger {
     }
 
     this.flushToClearcut();
-    this.last_flush_time = Date.now();
   }
 
   flushToClearcut(): Promise<LogResponse> {
+    if (this.config?.getDebugMode()) {
+      console.log('Flushing log events to Clearcut.');
+    }
+    const eventsToSend = [...this.events];
+    this.events.length = 0;
+
     return new Promise<Buffer>((resolve, reject) => {
       const request = [
         {
           log_source_name: 'CONCORD',
           request_time_ms: Date.now(),
-          log_event: this.events,
+          log_event: eventsToSend,
         },
       ];
       const body = JSON.stringify(request);
+      if (this.config?.getDebugMode() ?? false) {
+        console.log('Clearcut POST request body:', body);
+      }
       const options = {
         hostname: 'play.googleapis.com',
         path: '/log',
@@ -106,12 +115,17 @@ export class ClearcutLogger {
         });
       });
       req.on('error', (e) => {
+        if (this.config?.getDebugMode()) {
+          console.log('Clearcut POST request error: ', e);
+        }
+        // Add the events back to the front of the queue to be retried.
+        this.events.unshift(...eventsToSend);
         reject(e);
       });
       req.end(body);
     }).then((buf: Buffer) => {
       try {
-        this.events.length = 0;
+        this.last_flush_time = Date.now();
         return this.decodeLogResponse(buf) || {};
       } catch (error: unknown) {
         console.error('Error flushing log events:', error);
@@ -152,179 +166,220 @@ export class ClearcutLogger {
       // message is corrupted.
       return undefined;
     }
-    return {
+
+    const returnVal = {
       nextRequestWaitMs: Number(ms),
     };
+    if (this.config?.getDebugMode()) {
+      console.log('Clearcut response: ', returnVal);
+    }
+    return returnVal;
   }
 
   logStartSessionEvent(event: StartSessionEvent): void {
-    const data: Map<EventMetadataKey, string> = new Map();
-
-    data.set(EventMetadataKey.GEMINI_CLI_START_SESSION_MODEL, event.model);
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_EMBEDDING_MODEL,
-      event.embedding_model,
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_SANDBOX,
-      event.sandbox_enabled.toString(),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_CORE_TOOLS,
-      event.core_tools_enabled,
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_APPROVAL_MODE,
-      event.approval_mode,
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_API_KEY_ENABLED,
-      event.api_key_enabled.toString(),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_VERTEX_API_ENABLED,
-      event.vertex_ai_enabled.toString(),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_DEBUG_MODE_ENABLED,
-      event.debug_enabled.toString(),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_MCP_SERVERS,
-      event.mcp_servers,
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_TELEMETRY_ENABLED,
-      event.telemetry_enabled.toString(),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_START_SESSION_TELEMETRY_LOG_USER_PROMPTS_ENABLED,
-      event.telemetry_log_user_prompts_enabled.toString(),
-    );
-
+    const data = [
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_START_SESSION_MODEL,
+        value: event.model,
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_EMBEDDING_MODEL,
+        value: event.embedding_model,
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_START_SESSION_SANDBOX,
+        value: event.sandbox_enabled.toString(),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_START_SESSION_CORE_TOOLS,
+        value: event.core_tools_enabled,
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_START_SESSION_APPROVAL_MODE,
+        value: event.approval_mode,
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_API_KEY_ENABLED,
+        value: event.api_key_enabled.toString(),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_VERTEX_API_ENABLED,
+        value: event.vertex_ai_enabled.toString(),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_DEBUG_MODE_ENABLED,
+        value: event.debug_enabled.toString(),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_VERTEX_API_ENABLED,
+        value: event.vertex_ai_enabled.toString(),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_START_SESSION_MCP_SERVERS,
+        value: event.mcp_servers,
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_VERTEX_API_ENABLED,
+        value: event.vertex_ai_enabled.toString(),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_TELEMETRY_ENABLED,
+        value: event.telemetry_enabled.toString(),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_START_SESSION_TELEMETRY_LOG_USER_PROMPTS_ENABLED,
+        value: event.telemetry_log_user_prompts_enabled.toString(),
+      },
+    ];
     this.enqueueLogEvent(this.createLogEvent(start_session_event_name, data));
-    this.flushIfNeeded();
+    // Flush start event immediately
+    this.flushToClearcut();
   }
 
   logNewPromptEvent(event: UserPromptEvent): void {
-    const data: Map<EventMetadataKey, string> = new Map();
-
-    data.set(
-      EventMetadataKey.GEMINI_CLI_USER_PROMPT_LENGTH,
-      JSON.stringify(event.prompt_length),
-    );
+    const data = [
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_USER_PROMPT_LENGTH,
+        value: JSON.stringify(event.prompt_length),
+      },
+    ];
 
     this.enqueueLogEvent(this.createLogEvent(new_prompt_event_name, data));
-    this.flushIfNeeded();
+    this.flushToClearcut();
   }
 
   logToolCallEvent(event: ToolCallEvent): void {
-    const data: Map<EventMetadataKey, string> = new Map();
-
-    data.set(EventMetadataKey.GEMINI_CLI_TOOL_CALL_NAME, event.function_name);
-    data.set(
-      EventMetadataKey.GEMINI_CLI_TOOL_CALL_DECISION,
-      JSON.stringify(event.decision),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_TOOL_CALL_SUCCESS,
-      JSON.stringify(event.success),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_TOOL_CALL_DURATION_MS,
-      JSON.stringify(event.duration_ms),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_TOOL_ERROR_MESSAGE,
-      JSON.stringify(event.error),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_TOOL_CALL_ERROR_TYPE,
-      JSON.stringify(event.error_type),
-    );
+    const data = [
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_TOOL_CALL_NAME,
+        value: JSON.stringify(event.function_name),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_TOOL_CALL_DECISION,
+        value: JSON.stringify(event.decision),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_TOOL_CALL_SUCCESS,
+        value: JSON.stringify(event.success),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_TOOL_CALL_DURATION_MS,
+        value: JSON.stringify(event.duration_ms),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_TOOL_ERROR_MESSAGE,
+        value: JSON.stringify(event.error),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_TOOL_CALL_ERROR_TYPE,
+        value: JSON.stringify(event.error_type),
+      },
+    ];
 
     this.enqueueLogEvent(this.createLogEvent(tool_call_event_name, data));
-    this.flushIfNeeded();
+    this.flushToClearcut();
   }
 
   logApiRequestEvent(event: ApiRequestEvent): void {
-    const data: Map<EventMetadataKey, string> = new Map();
-
-    data.set(EventMetadataKey.GEMINI_CLI_API_REQUEST_MODEL, event.model);
+    const data = [
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_REQUEST_MODEL,
+        value: JSON.stringify(event.model),
+      },
+    ];
 
     this.enqueueLogEvent(this.createLogEvent(api_request_event_name, data));
-    this.flushIfNeeded();
+    this.flushToClearcut();
   }
 
   logApiResponseEvent(event: ApiResponseEvent): void {
-    const data: Map<EventMetadataKey, string> = new Map();
-
-    data.set(EventMetadataKey.GEMINI_CLI_API_RESPONSE_MODEL, event.model);
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_RESPONSE_STATUS_CODE,
-      JSON.stringify(event.status_code),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_RESPONSE_DURATION_MS,
-      JSON.stringify(event.duration_ms),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_ERROR_MESSAGE,
-      JSON.stringify(event.error),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_RESPONSE_INPUT_TOKEN_COUNT,
-      JSON.stringify(event.input_token_count),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_RESPONSE_OUTPUT_TOKEN_COUNT,
-      JSON.stringify(event.output_token_count),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_RESPONSE_CACHED_TOKEN_COUNT,
-      JSON.stringify(event.cached_content_token_count),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_RESPONSE_THINKING_TOKEN_COUNT,
-      JSON.stringify(event.thoughts_token_count),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_RESPONSE_TOOL_TOKEN_COUNT,
-      JSON.stringify(event.tool_token_count),
-    );
+    const data = [
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_RESPONSE_MODEL,
+        value: JSON.stringify(event.model),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_RESPONSE_STATUS_CODE,
+        value: JSON.stringify(event.status_code),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_RESPONSE_DURATION_MS,
+        value: JSON.stringify(event.duration_ms),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_ERROR_MESSAGE,
+        value: JSON.stringify(event.error),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_API_RESPONSE_INPUT_TOKEN_COUNT,
+        value: JSON.stringify(event.input_token_count),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_API_RESPONSE_OUTPUT_TOKEN_COUNT,
+        value: JSON.stringify(event.output_token_count),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_API_RESPONSE_CACHED_TOKEN_COUNT,
+        value: JSON.stringify(event.cached_content_token_count),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_API_RESPONSE_THINKING_TOKEN_COUNT,
+        value: JSON.stringify(event.thoughts_token_count),
+      },
+      {
+        gemini_cli_key:
+          EventMetadataKey.GEMINI_CLI_API_RESPONSE_THINKING_TOKEN_COUNT,
+        value: JSON.stringify(event.tool_token_count),
+      },
+    ];
 
     this.enqueueLogEvent(this.createLogEvent(api_response_event_name, data));
-    this.flushIfNeeded();
+    this.flushToClearcut();
   }
 
   logApiErrorEvent(event: ApiErrorEvent): void {
-    const data: Map<EventMetadataKey, string> = new Map();
-
-    data.set(EventMetadataKey.GEMINI_CLI_API_ERROR_MODEL, event.model);
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_ERROR_TYPE,
-      JSON.stringify(event.error_type),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_ERROR_STATUS_CODE,
-      JSON.stringify(event.status_code),
-    );
-    data.set(
-      EventMetadataKey.GEMINI_CLI_API_ERROR_DURATION_MS,
-      JSON.stringify(event.duration_ms),
-    );
+    const data = [
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_ERROR_MODEL,
+        value: JSON.stringify(event.model),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_ERROR_TYPE,
+        value: JSON.stringify(event.error_type),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_ERROR_STATUS_CODE,
+        value: JSON.stringify(event.status_code),
+      },
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_API_ERROR_DURATION_MS,
+        value: JSON.stringify(event.duration_ms),
+      },
+    ];
 
     this.enqueueLogEvent(this.createLogEvent(api_error_event_name, data));
-    this.flushIfNeeded();
+    this.flushToClearcut();
   }
 
   logEndSessionEvent(event: EndSessionEvent): void {
-    const data: Map<EventMetadataKey, string> = new Map();
-
-    data.set(
-      EventMetadataKey.GEMINI_CLI_END_SESSION_ID,
-      event?.session_id?.toString() ?? '',
-    );
+    const data = [
+      {
+        gemini_cli_key: EventMetadataKey.GEMINI_CLI_END_SESSION_ID,
+        value: event?.session_id?.toString() ?? '',
+      },
+    ];
 
     this.enqueueLogEvent(this.createLogEvent(end_session_event_name, data));
     // Flush immediately on session end.

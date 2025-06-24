@@ -53,6 +53,7 @@ describe('runNonInteractive', () => {
     mockConfig = {
       getToolRegistry: vi.fn().mockReturnValue(mockToolRegistry),
       getGeminiClient: vi.fn().mockReturnValue(mockGeminiClient),
+      getContentGeneratorConfig: vi.fn().mockReturnValue({}),
     } as unknown as Config;
 
     mockProcessStdoutWrite = vi.fn().mockImplementation(() => true);
@@ -215,8 +216,7 @@ describe('runNonInteractive', () => {
     await runNonInteractive(mockConfig, 'Initial fail');
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error processing input:',
-      apiError,
+      '[API Error: API connection failed]',
     );
   });
 });

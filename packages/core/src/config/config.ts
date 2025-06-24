@@ -57,7 +57,6 @@ export interface TelemetrySettings {
   target?: TelemetryTarget;
   otlpEndpoint?: string;
   logPrompts?: boolean;
-  disableDataCollection?: boolean;
 }
 
 export class MCPServerConfig {
@@ -107,6 +106,7 @@ export interface ConfigParameters {
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
   telemetry?: TelemetrySettings;
+  usageStatisticsEnabled?: boolean;
   fileFiltering?: {
     respectGitIgnore?: boolean;
     enableRecursiveFileSearch?: boolean;
@@ -117,7 +117,6 @@ export interface ConfigParameters {
   fileDiscoveryService?: FileDiscoveryService;
   bugCommand?: BugCommandSettings;
   model: string;
-  disableDataCollection?: boolean;
   extensionContextFilePaths?: string[];
 }
 
@@ -143,6 +142,7 @@ export class Config {
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
   private readonly telemetrySettings: TelemetrySettings;
+  private readonly usageStatisticsEnabled: boolean;
   private geminiClient!: GeminiClient;
   private readonly fileFiltering: {
     respectGitIgnore: boolean;
@@ -155,7 +155,6 @@ export class Config {
   private readonly cwd: string;
   private readonly bugCommand: BugCommandSettings | undefined;
   private readonly model: string;
-  private readonly disableDataCollection: boolean;
   private readonly extensionContextFilePaths: string[];
 
   constructor(params: ConfigParameters) {
@@ -184,6 +183,7 @@ export class Config {
       otlpEndpoint: params.telemetry?.otlpEndpoint ?? DEFAULT_OTLP_ENDPOINT,
       logPrompts: params.telemetry?.logPrompts ?? true,
     };
+    this.usageStatisticsEnabled = params.usageStatisticsEnabled ?? true;
 
     this.fileFiltering = {
       respectGitIgnore: params.fileFiltering?.respectGitIgnore ?? true,
@@ -196,8 +196,6 @@ export class Config {
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
     this.model = params.model;
-    this.disableDataCollection =
-      params.telemetry?.disableDataCollection ?? true;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
 
     if (params.contextFileName) {
@@ -208,10 +206,12 @@ export class Config {
       initializeTelemetry(this);
     }
 
-    if (!this.disableDataCollection) {
-      ClearcutLogger.getInstance(this)?.enqueueLogEvent(
+    if (this.getUsageStatisticsEnabled()) {
+      ClearcutLogger.getInstance(this)?.logStartSessionEvent(
         new StartSessionEvent(this),
       );
+    } else {
+      console.log('Data collection is disabled.');
     }
   }
 
@@ -386,8 +386,8 @@ export class Config {
     return this.fileDiscoveryService;
   }
 
-  getDisableDataCollection(): boolean {
-    return this.disableDataCollection;
+  getUsageStatisticsEnabled(): boolean {
+    return this.usageStatisticsEnabled;
   }
 
   getExtensionContextFilePaths(): string[] {

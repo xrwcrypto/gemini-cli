@@ -20,7 +20,7 @@ import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 import { reportError } from '../utils/errorReporting.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { GeminiChat } from './geminiChat.js';
-import { isAuthError } from '../code_assist/errors.js';
+import { UnauthorizedError, toFriendlyError } from '../utils/errors.js';
 
 // Define a structure for tools passed to the server
 export interface ServerTool {
@@ -49,8 +49,13 @@ export enum GeminiEventType {
   Thought = 'thought',
 }
 
-export interface GeminiErrorEventValue {
+export interface StructuredError {
   message: string;
+  status?: number;
+}
+
+export interface GeminiErrorEventValue {
+  error: StructuredError;
 }
 
 export interface ToolCallRequestInfo {
@@ -219,8 +224,9 @@ export class Turn {
           value: { ...this.lastUsageMetadata, apiTimeMs: durationMs },
         };
       }
-    } catch (error) {
-      if (isAuthError(error)) {
+    } catch (e) {
+      const error = toFriendlyError(e);
+      if (error instanceof UnauthorizedError) {
         throw error;
       }
       if (signal.aborted) {
@@ -236,8 +242,18 @@ export class Turn {
         contextForReport,
         'Turn.run-sendMessageStream',
       );
-      const errorMessage = getErrorMessage(error);
-      yield { type: GeminiEventType.Error, value: { message: errorMessage } };
+      const status =
+        typeof error === 'object' &&
+        error !== null &&
+        'status' in error &&
+        typeof (error as { status: unknown }).status === 'number'
+          ? (error as { status: number }).status
+          : undefined;
+      const structuredError: StructuredError = {
+        message: getErrorMessage(error),
+        status,
+      };
+      yield { type: GeminiEventType.Error, value: { error: structuredError } };
       return;
     }
   }
