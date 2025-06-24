@@ -28,8 +28,6 @@ import {
 import { type Part, type PartListUnion } from '@google/genai';
 import {
   StreamingState,
-  HistoryItem,
-  HistoryItemWithoutId,
   HistoryItemToolGroup,
   MessageType,
   ToolCallStatus,
@@ -39,7 +37,6 @@ import { parseAndFormatApiError } from '../utils/errorParsing.js';
 import { useShellCommandProcessor } from './shellCommandProcessor.js';
 import { handleAtCommand } from './atCommandProcessor.js';
 import { findLastSafeSplitPoint } from '../utils/markdownUtilities.js';
-import { useStateAndRef } from './useStateAndRef.js';
 import { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { useLogger } from './useLogger.js';
 import { promises as fs } from 'fs';
@@ -77,8 +74,7 @@ enum StreamProcessingStatus {
  */
 export const useGeminiStream = (
   geminiClient: GeminiClient,
-  history: HistoryItem[],
-  addItem: UseHistoryManagerReturn['addItem'],
+  historyManager: UseHistoryManagerReturn,
   setShowHelp: React.Dispatch<React.SetStateAction<boolean>>,
   config: Config,
   onDebugMessage: (message: string) => void,
@@ -92,13 +88,12 @@ export const useGeminiStream = (
   onAuthError: () => void,
   performMemoryRefresh: () => Promise<void>,
 ) => {
+  const { addItem, setPendingHistoryItem, commitPendingItem } = historyManager;
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const turnCancelledRef = useRef(false);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
-  const [pendingHistoryItemRef, setPendingHistoryItem] =
-    useStateAndRef<HistoryItemWithoutId | null>(null);
   const processedMemoryToolsRef = useRef<Set<string>>(new Set());
   const logger = useLogger();
   const { startNewTurn, addUsage } = useSessionStats();
@@ -111,18 +106,9 @@ export const useGeminiStream = (
 
   const [toolCalls, scheduleToolCalls, markToolsAsSubmitted] =
     useReactToolScheduler(
-      (completedToolCallsFromScheduler) => {
-        // This onComplete is called when ALL scheduled tools for a given batch are done.
-        if (completedToolCallsFromScheduler.length > 0) {
-          // Add the final state of these tools to the history for display.
-          // The new useEffect will handle submitting their responses.
-          addItem(
-            mapTrackedToolCallsToDisplay(
-              completedToolCallsFromScheduler as TrackedToolCall[],
-            ),
-            Date.now(),
-          );
-        }
+      () => {
+        // onComplete is now a no-op. The logic is moved to the useEffect below.
+        // TODO(jacobr): XXX review this change.
       },
       config,
       setPendingHistoryItem,
@@ -179,9 +165,7 @@ export const useGeminiStream = (
       }
       turnCancelledRef.current = true;
       abortControllerRef.current?.abort();
-      if (pendingHistoryItemRef.current) {
-        addItem(pendingHistoryItemRef.current, Date.now());
-      }
+      commitPendingItem();
       addItem(
         {
           type: MessageType.INFO,
@@ -308,51 +292,49 @@ export const useGeminiStream = (
         return '';
       }
       let newGeminiMessageBuffer = currentGeminiMessageBuffer + eventValue;
-      if (
-        pendingHistoryItemRef.current?.type !== 'gemini' &&
-        pendingHistoryItemRef.current?.type !== 'gemini_content'
-      ) {
-        if (pendingHistoryItemRef.current) {
-          addItem(pendingHistoryItemRef.current, userMessageTimestamp);
+      setPendingHistoryItem((item) => {
+        if (item?.type !== 'gemini' && item?.type !== 'gemini_content') {
+          if (item) {
+            addItem(item, userMessageTimestamp);
+          }
+          newGeminiMessageBuffer = eventValue;
+          return { type: 'gemini', text: newGeminiMessageBuffer };
         }
-        setPendingHistoryItem({ type: 'gemini', text: '' });
-        newGeminiMessageBuffer = eventValue;
-      }
-      // Split large messages for better rendering performance. Ideally,
-      // we should maximize the amount of output sent to <Static />.
-      const splitPoint = findLastSafeSplitPoint(newGeminiMessageBuffer);
-      if (splitPoint === newGeminiMessageBuffer.length) {
-        // Update the existing message with accumulated content
-        setPendingHistoryItem((item) => ({
-          type: item?.type as 'gemini' | 'gemini_content',
-          text: newGeminiMessageBuffer,
-        }));
-      } else {
-        // This indicates that we need to split up this Gemini Message.
-        // Splitting a message is primarily a performance consideration. There is a
-        // <Static> component at the root of App.tsx which takes care of rendering
-        // content statically or dynamically. Everything but the last message is
-        // treated as static in order to prevent re-rendering an entire message history
-        // multiple times per-second (as streaming occurs). Prior to this change you'd
-        // see heavy flickering of the terminal. This ensures that larger messages get
-        // broken up so that there are more "statically" rendered.
-        const beforeText = newGeminiMessageBuffer.substring(0, splitPoint);
-        const afterText = newGeminiMessageBuffer.substring(splitPoint);
-        addItem(
-          {
-            type: pendingHistoryItemRef.current?.type as
-              | 'gemini'
-              | 'gemini_content',
-            text: beforeText,
-          },
-          userMessageTimestamp,
-        );
-        setPendingHistoryItem({ type: 'gemini_content', text: afterText });
-        newGeminiMessageBuffer = afterText;
-      }
+
+        // Split large messages for better rendering performance. Ideally,
+        // we should maximize the amount of output sent to <Static />.
+        const splitPoint = findLastSafeSplitPoint(newGeminiMessageBuffer);
+        if (splitPoint === newGeminiMessageBuffer.length) {
+          // Update the existing message with accumulated content
+          return {
+            type: item?.type as 'gemini' | 'gemini_content',
+            text: newGeminiMessageBuffer,
+          };
+        } else {
+          // This indicates that we need to split up this Gemini Message.
+          // Splitting a message is primarily a performance consideration. There is a
+          // <Static> component at the root of App.tsx which takes care of rendering
+          // content statically or dynamically. Everything but the last message is
+          // treated as static in order to prevent re-rendering an entire message history
+          // multiple times per-second (as streaming occurs). Prior to this change you'd
+          // see heavy flickering of the terminal. This ensures that larger messages get
+          // broken up so that there are more "statically" rendered.
+          const beforeText = newGeminiMessageBuffer.substring(0, splitPoint);
+          const afterText = newGeminiMessageBuffer.substring(splitPoint);
+          addItem(
+            {
+              type: item?.type as 'gemini' | 'gemini_content',
+              text: beforeText,
+            },
+            userMessageTimestamp,
+          );
+          newGeminiMessageBuffer = afterText;
+          return { type: 'gemini_content', text: afterText };
+        }
+      });
       return newGeminiMessageBuffer;
     },
-    [addItem, pendingHistoryItemRef, setPendingHistoryItem],
+    [addItem, setPendingHistoryItem],
   );
 
   const handleUserCancelledEvent = useCallback(
@@ -360,41 +342,39 @@ export const useGeminiStream = (
       if (turnCancelledRef.current) {
         return;
       }
-      if (pendingHistoryItemRef.current) {
-        if (pendingHistoryItemRef.current.type === 'tool_group') {
-          const updatedTools = pendingHistoryItemRef.current.tools.map(
-            (tool) =>
+      setPendingHistoryItem((item) => {
+        if (item) {
+          if (item.type === 'tool_group') {
+            const updatedTools = item.tools.map((tool) =>
               tool.status === ToolCallStatus.Pending ||
               tool.status === ToolCallStatus.Confirming ||
               tool.status === ToolCallStatus.Executing
                 ? { ...tool, status: ToolCallStatus.Canceled }
                 : tool,
-          );
-          const pendingItem: HistoryItemToolGroup = {
-            ...pendingHistoryItemRef.current,
-            tools: updatedTools,
-          };
-          addItem(pendingItem, userMessageTimestamp);
-        } else {
-          addItem(pendingHistoryItemRef.current, userMessageTimestamp);
+            );
+            const pendingItem: HistoryItemToolGroup = {
+              ...item,
+              tools: updatedTools,
+            };
+            addItem(pendingItem, userMessageTimestamp);
+          } else {
+            addItem(item, userMessageTimestamp);
+          }
         }
-        setPendingHistoryItem(null);
-      }
+        return null;
+      });
       addItem(
         { type: MessageType.INFO, text: 'User cancelled the request.' },
         userMessageTimestamp,
       );
       setIsResponding(false);
     },
-    [addItem, pendingHistoryItemRef, setPendingHistoryItem],
+    [addItem, setPendingHistoryItem],
   );
 
   const handleErrorEvent = useCallback(
     (eventValue: ErrorEvent['value'], userMessageTimestamp: number) => {
-      if (pendingHistoryItemRef.current) {
-        addItem(pendingHistoryItemRef.current, userMessageTimestamp);
-        setPendingHistoryItem(null);
-      }
+      commitPendingItem();
       addItem(
         {
           type: MessageType.ERROR,
@@ -406,7 +386,7 @@ export const useGeminiStream = (
         userMessageTimestamp,
       );
     },
-    [addItem, pendingHistoryItemRef, setPendingHistoryItem, config],
+    [addItem, commitPendingItem, config],
   );
 
   const handleChatCompressionEvent = useCallback(
@@ -531,10 +511,7 @@ export const useGeminiStream = (
           return;
         }
 
-        if (pendingHistoryItemRef.current) {
-          addItem(pendingHistoryItemRef.current, userMessageTimestamp);
-          setPendingHistoryItem(null);
-        }
+        commitPendingItem();
       } catch (error: unknown) {
         if (error instanceof UnauthorizedError) {
           onAuthError();
@@ -559,9 +536,8 @@ export const useGeminiStream = (
       setShowHelp,
       prepareQueryForGemini,
       processGeminiStreamEvents,
-      pendingHistoryItemRef,
+      commitPendingItem,
       addItem,
-      setPendingHistoryItem,
       setInitError,
       geminiClient,
       startNewTurn,
@@ -603,6 +579,18 @@ export const useGeminiStream = (
           }
           return false;
         },
+      );
+
+      if (completedAndReadyToSubmitTools.length === 0) {
+        return;
+      }
+
+      // Add the final state of these tools to the history for display.
+      addItem(
+        mapTrackedToolCallsToDisplay(
+          completedAndReadyToSubmitTools as TrackedToolCall[],
+        ),
+        Date.now(),
       );
 
       // Finalize any client-initiated tools as soon as they are done.
@@ -706,7 +694,7 @@ export const useGeminiStream = (
   ]);
 
   const pendingHistoryItems = [
-    pendingHistoryItemRef.current,
+    historyManager.pendingHistoryItem,
     pendingToolCallGroupDisplay,
   ].filter((i) => i !== undefined && i !== null);
 
@@ -784,7 +772,7 @@ export const useGeminiStream = (
               toolCallWithSnapshotFilePath,
               JSON.stringify(
                 {
-                  history,
+                  history: historyManager.history,
                   clientHistory,
                   toolCall: {
                     name: toolCall.request.name,
@@ -808,7 +796,14 @@ export const useGeminiStream = (
       }
     };
     saveRestorableToolCalls();
-  }, [toolCalls, config, onDebugMessage, gitService, history, geminiClient]);
+  }, [
+    toolCalls,
+    config,
+    onDebugMessage,
+    gitService,
+    historyManager.history,
+    geminiClient,
+  ]);
 
   return {
     streamingState,

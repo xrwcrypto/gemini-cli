@@ -171,23 +171,6 @@ export const useSlashCommandProcessor = (
     [addMessage],
   );
 
-  const savedChatTags = async function () {
-    const geminiDir = config?.getProjectTempDir();
-    if (!geminiDir) {
-      return [];
-    }
-    try {
-      const files = await fs.readdir(geminiDir);
-      return files
-        .filter(
-          (file) => file.startsWith('checkpoint-') && file.endsWith('.json'),
-        )
-        .map((file) => file.replace('checkpoint-', '').replace('.json', ''));
-    } catch (_err) {
-      return [];
-    }
-  };
-
   const slashCommands: SlashCommand[] = useMemo(() => {
     const commands: SlashCommand[] = [
       {
@@ -754,15 +737,40 @@ Add any other context about the problem here.
               refreshStatic();
               return;
             }
-            case 'list':
-              addMessage({
-                type: MessageType.INFO,
-                content:
-                  'list of saved conversations: ' +
-                  (await savedChatTags()).join(', '),
-                timestamp: new Date(),
-              });
+            case 'list': {
+              const geminiDir = config?.getProjectTempDir();
+              if (!geminiDir) {
+                addMessage({
+                  type: MessageType.ERROR,
+                  content: 'Could not determine .gemini directory.',
+                  timestamp: new Date(),
+                });
+                return;
+              }
+              try {
+                const files = await fs.readdir(geminiDir);
+                const tags = files
+                  .filter(
+                    (file) =>
+                      file.startsWith('checkpoint-') && file.endsWith('.json'),
+                  )
+                  .map((file) =>
+                    file.replace('checkpoint-', '').replace('.json', ''),
+                  );
+                addMessage({
+                  type: MessageType.INFO,
+                  content: 'list of saved conversations: ' + tags.join(', '),
+                  timestamp: new Date(),
+                });
+              } catch (_err) {
+                addMessage({
+                  type: MessageType.ERROR,
+                  content: 'Could not read saved conversations.',
+                  timestamp: new Date(),
+                });
+              }
               return;
+            }
             default:
               addMessage({
                 type: MessageType.ERROR,
@@ -772,8 +780,26 @@ Add any other context about the problem here.
               return;
           }
         },
-        completion: async () =>
-          (await savedChatTags()).map((tag) => 'resume ' + tag),
+        completion: async () => {
+          const geminiDir = config?.getProjectTempDir();
+          if (!geminiDir) {
+            return [];
+          }
+          try {
+            const files = await fs.readdir(geminiDir);
+            const tags = files
+              .filter(
+                (file) =>
+                  file.startsWith('checkpoint-') && file.endsWith('.json'),
+              )
+              .map((file) =>
+                file.replace('checkpoint-', '').replace('.json', ''),
+              );
+            return tags.map((tag) => `resume ${tag}`);
+          } catch (_err) {
+            return [];
+          }
+        },
       },
       {
         name: 'quit',

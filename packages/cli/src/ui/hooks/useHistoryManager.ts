@@ -5,7 +5,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-import { HistoryItem } from '../types.js';
+import { HistoryItem, HistoryItemWithoutId } from '../types.js';
 
 // Type for the updater function passed to updateHistoryItem
 type HistoryItemUpdater = (
@@ -14,7 +14,12 @@ type HistoryItemUpdater = (
 
 export interface UseHistoryManagerReturn {
   history: HistoryItem[];
+  pendingHistoryItem: HistoryItemWithoutId | null;
+  setPendingHistoryItem: React.Dispatch<
+    React.SetStateAction<HistoryItemWithoutId | null>
+  >;
   addItem: (itemData: Omit<HistoryItem, 'id'>, baseTimestamp: number) => number; // Returns the generated ID
+  commitPendingItem: () => void;
   updateItem: (
     id: number,
     updates: Partial<Omit<HistoryItem, 'id'>> | HistoryItemUpdater,
@@ -31,6 +36,8 @@ export interface UseHistoryManagerReturn {
  */
 export function useHistory(): UseHistoryManagerReturn {
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [pendingHistoryItem, setPendingHistoryItem] =
+    useState<HistoryItemWithoutId | null>(null);
   const messageIdCounterRef = useRef(0);
 
   // Generates a unique message ID based on a timestamp and a counter.
@@ -68,6 +75,13 @@ export function useHistory(): UseHistoryManagerReturn {
     [getNextMessageId],
   );
 
+  const commitPendingItem = useCallback(() => {
+    if (pendingHistoryItem) {
+      addItem(pendingHistoryItem, Date.now());
+      setPendingHistoryItem(null);
+    }
+  }, [pendingHistoryItem, addItem]);
+
   /**
    * Updates an existing history item identified by its ID.
    * @deprecated Prefer not to update history item directly as we are currently
@@ -98,12 +112,16 @@ export function useHistory(): UseHistoryManagerReturn {
   // Clears the entire history state and resets the ID counter.
   const clearItems = useCallback(() => {
     setHistory([]);
+    setPendingHistoryItem(null);
     messageIdCounterRef.current = 0;
   }, []);
 
   return {
     history,
+    pendingHistoryItem,
+    setPendingHistoryItem,
     addItem,
+    commitPendingItem,
     updateItem,
     clearItems,
     loadHistory,

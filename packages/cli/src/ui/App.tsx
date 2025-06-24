@@ -24,7 +24,6 @@ import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
-import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
 import { Header } from './components/Header.js';
 import { LoadingIndicator } from './components/LoadingIndicator.js';
@@ -70,6 +69,7 @@ import { checkForUpdates } from './utils/updateCheck.js';
 import ansiEscapes from 'ansi-escapes';
 import { OverflowProvider } from './contexts/OverflowContext.js';
 import { ShowMoreLines } from './components/ShowMoreLines.js';
+import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
 
@@ -93,7 +93,15 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     checkForUpdates().then(setUpdateMessage);
   }, []);
 
-  const { history, addItem, clearItems, loadHistory } = useHistory();
+  const {
+    history,
+    pendingHistoryItem,
+    setPendingHistoryItem,
+    commitPendingItem,
+    addItem,
+    clearItems,
+    loadHistory,
+  } = useHistory();
   const {
     consoleMessages,
     handleNewMessage,
@@ -236,7 +244,54 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     showToolDescriptions,
     setQuittingMessages,
   );
-  const pendingHistoryItems = [...pendingSlashCommandHistoryItems];
+
+  const getPreferredEditor = useCallback(() => {
+    const editorType = settings.merged.preferredEditor;
+    const isValidEditor = isEditorAvailable(editorType);
+    if (!isValidEditor) {
+      openEditorDialog();
+      return;
+    }
+    return editorType as EditorType;
+  }, [settings, openEditorDialog]);
+
+  const onAuthError = useCallback(() => {
+    setAuthError('reauth required');
+    openAuthDialog();
+  }, [openAuthDialog, setAuthError]);
+
+  const {
+    streamingState,
+    submitQuery,
+    initError,
+    pendingHistoryItems: pendingGeminiHistoryItems,
+    thought,
+  } = useGeminiStream(
+    config.getGeminiClient(),
+    {
+      history,
+      pendingHistoryItem,
+      setPendingHistoryItem,
+      commitPendingItem,
+      addItem,
+      clearItems,
+      loadHistory,
+      updateItem: () => {}, // no-op for now
+    },
+    setShowHelp,
+    config,
+    setDebugMessage,
+    handleSlashCommand,
+    shellModeActive,
+    getPreferredEditor,
+    onAuthError,
+    performMemoryRefresh,
+  );
+
+  const pendingHistoryItems = [
+    ...pendingSlashCommandHistoryItems,
+    ...pendingGeminiHistoryItems,
+  ];
 
   const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
   const isInitialMount = useRef(true);
@@ -324,7 +379,7 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
 
       const mcpServers = config.getMcpServers();
       if (Object.keys(mcpServers || {}).length > 0) {
-        handleSlashCommand(newValue ? '/mcp desc' : '/mcp nodesc');
+        void handleSlashCommand(newValue ? '/mcp desc' : '/mcp nodesc');
       }
     } else if (key.ctrl && (input === 'c' || input === 'C')) {
       handleExit(ctrlCPressedOnce, setCtrlCPressedOnce, ctrlCTimerRef);
@@ -349,45 +404,6 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
       setGeminiMdFileCount(config.getGeminiMdFileCount());
     }
   }, [config]);
-
-  const getPreferredEditor = useCallback(() => {
-    const editorType = settings.merged.preferredEditor;
-    const isValidEditor = isEditorAvailable(editorType);
-    if (!isValidEditor) {
-      openEditorDialog();
-      return;
-    }
-    return editorType as EditorType;
-  }, [settings, openEditorDialog]);
-
-  const onAuthError = useCallback(() => {
-    setAuthError('reauth required');
-    openAuthDialog();
-  }, [openAuthDialog, setAuthError]);
-
-  const {
-    streamingState,
-    submitQuery,
-    initError,
-    pendingHistoryItems: pendingGeminiHistoryItems,
-    thought,
-  } = useGeminiStream(
-    config.getGeminiClient(),
-    history,
-    addItem,
-    setShowHelp,
-    config,
-    setDebugMessage,
-    handleSlashCommand,
-    shellModeActive,
-    getPreferredEditor,
-    onAuthError,
-    performMemoryRefresh,
-  );
-  pendingHistoryItems.push(...pendingGeminiHistoryItems);
-  const { elapsedTime, currentLoadingPhrase } =
-    useLoadingIndicator(streamingState);
-  const showAutoAcceptIndicator = useAutoAcceptIndicator({ config });
 
   const handleFinalSubmit = useCallback(
     (submittedValue: string) => {
@@ -521,6 +537,12 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     }
     return getAllGeminiMdFilenames();
   }, [settings.merged.contextFileName]);
+
+  const { elapsedTime, currentLoadingPhrase } =
+    useLoadingIndicator(streamingState);
+  const showAutoAcceptIndicator = useAutoAcceptIndicator({
+    config,
+  });
 
   if (quittingMessages) {
     return (
