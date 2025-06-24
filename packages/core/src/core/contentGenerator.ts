@@ -93,7 +93,7 @@ export async function createContentGeneratorConfig(
     contentGeneratorConfig.apiKey = googleApiKey;
     contentGeneratorConfig.vertexai = true;
 
-    // TODO(b/427463139): add a fallback model check for Vertex AI
+    // TODO(#1403): add a fallback model check for Vertex AI
 
     return contentGeneratorConfig;
   }
