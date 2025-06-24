@@ -249,7 +249,10 @@ describe('GlobTool', () => {
     });
 
     it('should return error if specified search path is a file, not a directory', async () => {
-      const params: GlobToolParams = { pattern: '*.txt', absolute_path: 'fileA.txt' };
+      const params: GlobToolParams = {
+        pattern: '*.txt',
+        absolute_path: 'fileA.txt',
+      };
       expect(globTool.validateToolParams(params)).toContain(
         'Search path is not a directory',
       );

@@ -189,7 +189,10 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
   getDescription(params: GlobToolParams): string {
     let description = `'${params.pattern}'`;
     if (params.absolute_path) {
-      const searchDir = path.resolve(this.rootDirectory, params.absolute_path || '.');
+      const searchDir = path.resolve(
+        this.rootDirectory,
+        params.absolute_path || '.',
+      );
       const relativePath = makeRelative(searchDir, this.rootDirectory);
       description += ` within ${shortenPath(relativePath)}`;
     }

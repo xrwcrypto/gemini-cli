@@ -93,7 +93,10 @@ describe('GrepTool', () => {
     });
 
     it('should return error if path does not exist', () => {
-      const params: GrepToolParams = { pattern: 'hello', absolute_path: 'nonexistent' };
+      const params: GrepToolParams = {
+        pattern: 'hello',
+        absolute_path: 'nonexistent',
+      };
       // Check for the core error message, as the full path might vary
       expect(grepTool.validateToolParams(params)).toContain(
         'Failed to access path stats for',
@@ -103,7 +106,10 @@ describe('GrepTool', () => {
 
     it('should return error if path is a file, not a directory', async () => {
       const filePath = path.join(tempRootDir, 'fileA.txt');
-      const params: GrepToolParams = { pattern: 'hello', absolute_path: filePath };
+      const params: GrepToolParams = {
+        pattern: 'hello',
+        absolute_path: filePath,
+      };
       expect(grepTool.validateToolParams(params)).toContain(
         `Path is not a directory: ${filePath}`,
       );
@@ -250,7 +256,10 @@ describe('GrepTool', () => {
     });
 
     it('should use ./ for root path in description', () => {
-      const params: GrepToolParams = { pattern: 'testPattern', absolute_path: '.' };
+      const params: GrepToolParams = {
+        pattern: 'testPattern',
+        absolute_path: '.',
+      };
       expect(grepTool.getDescription(params)).toBe("'testPattern' within ./");
     });
   });

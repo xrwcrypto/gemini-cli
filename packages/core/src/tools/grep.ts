@@ -323,7 +323,10 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
       description += ` in ${params.include}`;
     }
     if (params.absolute_path) {
-      const resolvedPath = path.resolve(this.rootDirectory, params.absolute_path);
+      const resolvedPath = path.resolve(
+        this.rootDirectory,
+        params.absolute_path,
+      );
       if (resolvedPath === this.rootDirectory || params.absolute_path === '.') {
         description += ` within ./`;
       } else {
