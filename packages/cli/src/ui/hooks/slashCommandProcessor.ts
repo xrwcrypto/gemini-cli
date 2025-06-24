@@ -69,6 +69,7 @@ export const useSlashCommandProcessor = (
   refreshStatic: () => void,
   setShowHelp: React.Dispatch<React.SetStateAction<boolean>>,
   onDebugMessage: (message: string) => void,
+  openUsageStatsNotificationDialog: () => void,
   openThemeDialog: () => void,
   openAuthDialog: () => void,
   openEditorDialog: () => void,
@@ -229,6 +230,13 @@ export const useSlashCommandProcessor = (
           await config?.getGeminiClient()?.resetChat();
           console.clear();
           refreshStatic();
+        },
+      },
+      {
+        name: 'toggleUsageStats',
+        description: 'enable or disable usage statistics collection',
+        action: (_mainCommand, _subCommand, _args) => {
+          openUsageStatsNotificationDialog();
         },
       },
       {
@@ -983,6 +991,7 @@ Add any other context about the problem here.
     onDebugMessage,
     setShowHelp,
     refreshStatic,
+    openUsageStatsNotificationDialog,
     openThemeDialog,
     openAuthDialog,
     openEditorDialog,
