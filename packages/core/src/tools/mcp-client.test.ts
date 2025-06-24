@@ -138,6 +138,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
     expect(mockConfig.getMcpServers).toHaveBeenCalledTimes(1);
@@ -168,6 +169,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -215,6 +217,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -254,6 +257,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -336,6 +340,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -404,6 +409,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -438,6 +444,7 @@ describe('discoverMcpTools', () => {
       discoverMcpTools(
         mockConfig.getMcpServers() ?? {},
         mockConfig.getMcpServerCommand(),
+        false,
         mockToolRegistry as any,
       ),
     ).rejects.toThrow('Parsing failed');
@@ -452,6 +459,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -477,6 +485,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -502,6 +511,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -526,6 +536,7 @@ describe('discoverMcpTools', () => {
     await discoverMcpTools(
       mockConfig.getMcpServers() ?? {},
       mockConfig.getMcpServerCommand(),
+      false,
       mockToolRegistry as any,
     );
 
@@ -534,5 +545,42 @@ describe('discoverMcpTools', () => {
     const lastClientInstance =
       clientInstances[clientInstances.length - 1]?.value;
     expect(lastClientInstance?.onerror).toEqual(expect.any(Function));
+  });
+
+  it('should add the ide MCP server if ideMode=true', async () => {
+    const serverConfig: MCPServerConfig = {
+      httpUrl: 'http://localhost:3000/mcp',
+    };
+    mockConfig.getMcpServers.mockReturnValue({});
+
+    const mockTool = {
+      name: 'ide-tool',
+      description: 'ide-tool-description',
+      inputSchema: { type: 'object' as const, properties: {} },
+    };
+    vi.mocked(Client.prototype.listTools).mockResolvedValue({
+      tools: [mockTool],
+    });
+
+    mockToolRegistry.getToolsByServer.mockReturnValueOnce([
+      expect.any(DiscoveredMCPTool),
+    ]);
+
+    await discoverMcpTools(
+      mockConfig.getMcpServers() ?? {},
+      mockConfig.getMcpServerCommand(),
+      true,
+      mockToolRegistry as any,
+    );
+
+    expect(SSEClientTransport).toHaveBeenCalledWith(
+      new URL(serverConfig.httpUrl!),
+    );
+    expect(mockToolRegistry.registerTool).toHaveBeenCalledWith(
+      expect.any(DiscoveredMCPTool),
+    );
+    const registeredTool = mockToolRegistry.registerTool.mock
+      .calls[0][0] as DiscoveredMCPTool;
+    expect(registeredTool.name).toBe('ide-tool');
   });
 });

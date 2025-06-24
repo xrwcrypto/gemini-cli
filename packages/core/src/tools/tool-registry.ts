@@ -187,6 +187,7 @@ export class ToolRegistry {
     await discoverMcpTools(
       this.config.getMcpServers() ?? {},
       this.config.getMcpServerCommand(),
+      this.config.getIdeMode(),
       this,
     );
   }

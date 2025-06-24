@@ -120,6 +120,7 @@ export function getMCPDiscoveryState(): MCPDiscoveryState {
 export async function discoverMcpTools(
   mcpServers: Record<string, MCPServerConfig>,
   mcpServerCommand: string | undefined,
+  ideMode: boolean,
   toolRegistry: ToolRegistry,
 ): Promise<void> {
   // Set discovery state to in progress
@@ -136,6 +137,13 @@ export async function discoverMcpTools(
       mcpServers['mcp'] = {
         command: args[0],
         args: args.slice(1),
+      };
+    }
+
+    if (ideMode) {
+      mcpServers['ide'] = {
+        httpUrl: 'http://localhost:3000/mcp',
+        trust: true,
       };
     }
 

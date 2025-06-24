@@ -123,6 +123,7 @@ export interface ConfigParameters {
   fileDiscoveryService?: FileDiscoveryService;
   bugCommand?: BugCommandSettings;
   model: string;
+  ideMode?: boolean;
 }
 
 export class Config {
@@ -159,6 +160,7 @@ export class Config {
   private readonly cwd: string;
   private readonly bugCommand: BugCommandSettings | undefined;
   private readonly model: string;
+  private readonly ideMode: boolean;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -198,6 +200,7 @@ export class Config {
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
     this.model = params.model;
+    this.ideMode = params.ideMode ?? false;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -385,6 +388,10 @@ export class Config {
       await this.gitService.initialize();
     }
     return this.gitService;
+  }
+
+  getIdeMode(): boolean {
+    return this.ideMode;
   }
 }
 
