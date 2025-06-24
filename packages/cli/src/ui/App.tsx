@@ -481,6 +481,8 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     };
   }, [terminalWidth, terminalHeight, refreshStatic]);
 
+  const previousPendingHistoryItemsHeight = useRef(0);
+
   useEffect(() => {
     if (!pendingHistoryItems.length) {
       return;
@@ -490,13 +492,15 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
       pendingHistoryItemRef.current!,
     );
 
-    // If our pending history item happens to exceed the terminal height we will most likely need to refresh
-    // our static collection to ensure no duplication or tearing. This is currently working around a core bug
-    // in Ink which we have a PR out to fix: https://github.com/vadimdemedes/ink/pull/717
-    if (pendingItemDimensions.height > availableTerminalHeight) {
-      setStaticNeedsRefresh(true);
+    if (
+      previousPendingHistoryItemsHeight.current - pendingItemDimensions.height >
+      terminalHeight / 2
+    ) {
+      refreshStatic();
+      setStaticNeedsRefresh(false);
     }
-  }, [pendingHistoryItems.length, availableTerminalHeight, streamingState]);
+    previousPendingHistoryItemsHeight.current = pendingItemDimensions.height;
+  }, [pendingHistoryItems, terminalHeight, refreshStatic]);
 
   useEffect(() => {
     if (streamingState === StreamingState.Idle && staticNeedsRefresh) {
