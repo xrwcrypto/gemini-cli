@@ -192,7 +192,7 @@ describe('EditTool', () => {
   describe('validateToolParams', () => {
     it('should return null for valid params', () => {
       const params: EditToolParams = {
-        file_path: path.join(rootDir, 'test.txt'),
+        absolute_path: path.join(rootDir, 'test.txt'),
         old_string: 'old',
         new_string: 'new',
       };
@@ -201,7 +201,7 @@ describe('EditTool', () => {
 
     it('should return error for relative path', () => {
       const params: EditToolParams = {
-        file_path: 'test.txt',
+        absolute_path: 'test.txt',
         old_string: 'old',
         new_string: 'new',
       };
@@ -212,7 +212,7 @@ describe('EditTool', () => {
 
     it('should return error for path outside root', () => {
       const params: EditToolParams = {
-        file_path: path.join(tempDir, 'outside-root.txt'),
+        absolute_path: path.join(tempDir, 'outside-root.txt'),
         old_string: 'old',
         new_string: 'new',
       };
@@ -232,7 +232,7 @@ describe('EditTool', () => {
 
     it('should return false if params are invalid', async () => {
       const params: EditToolParams = {
-        file_path: 'relative.txt',
+        absolute_path: 'relative.txt',
         old_string: 'old',
         new_string: 'new',
       };
@@ -244,7 +244,7 @@ describe('EditTool', () => {
     it('should request confirmation for valid edit', async () => {
       fs.writeFileSync(filePath, 'some old content here');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'old',
         new_string: 'new',
       };
@@ -266,7 +266,7 @@ describe('EditTool', () => {
     it('should return false if old_string is not found (ensureCorrectEdit returns 0)', async () => {
       fs.writeFileSync(filePath, 'some content here');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'not_found',
         new_string: 'new',
       };
@@ -279,7 +279,7 @@ describe('EditTool', () => {
     it('should return false if multiple occurrences of old_string are found (ensureCorrectEdit returns > 1)', async () => {
       fs.writeFileSync(filePath, 'old old content here');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'old',
         new_string: 'new',
       };
@@ -293,7 +293,7 @@ describe('EditTool', () => {
       const newFileName = 'new_file.txt';
       const newFilePath = path.join(rootDir, newFileName);
       const params: EditToolParams = {
-        file_path: newFilePath,
+        absolute_path: newFilePath,
         old_string: '',
         new_string: 'new file content',
       };
@@ -325,7 +325,7 @@ describe('EditTool', () => {
 
       fs.writeFileSync(filePath, originalContent);
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: originalOldString,
         new_string: originalNewString,
       };
@@ -342,7 +342,7 @@ describe('EditTool', () => {
           expect(client).toBe((tool as any).client);
           return {
             params: {
-              file_path: filePath,
+              absolute_path: filePath,
               old_string: correctedOldString,
               new_string: correctedNewString,
             },
@@ -402,7 +402,7 @@ describe('EditTool', () => {
 
     it('should return error if params are invalid', async () => {
       const params: EditToolParams = {
-        file_path: 'relative.txt',
+        absolute_path: 'relative.txt',
         old_string: 'old',
         new_string: 'new',
       };
@@ -416,7 +416,7 @@ describe('EditTool', () => {
       const newContent = 'This is some new text.'; // old -> new
       fs.writeFileSync(filePath, initialContent, 'utf8');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'old',
         new_string: 'new',
       };
@@ -445,7 +445,7 @@ describe('EditTool', () => {
       const newFilePath = path.join(rootDir, newFileName);
       const fileContent = 'Content for the new file.';
       const params: EditToolParams = {
-        file_path: newFilePath,
+        absolute_path: newFilePath,
         old_string: '',
         new_string: fileContent,
       };
@@ -464,7 +464,7 @@ describe('EditTool', () => {
     it('should return error if old_string is not found in file', async () => {
       fs.writeFileSync(filePath, 'Some content.', 'utf8');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'nonexistent',
         new_string: 'replacement',
       };
@@ -481,7 +481,7 @@ describe('EditTool', () => {
     it('should return error if multiple occurrences of old_string are found', async () => {
       fs.writeFileSync(filePath, 'multiple old old strings', 'utf8');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'old',
         new_string: 'new',
       };
@@ -498,7 +498,7 @@ describe('EditTool', () => {
     it('should successfully replace multiple occurrences when expected_replacements specified', async () => {
       fs.writeFileSync(filePath, 'old text old text old text', 'utf8');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'old',
         new_string: 'new',
         expected_replacements: 3,
@@ -524,7 +524,7 @@ describe('EditTool', () => {
     it('should return error if expected_replacements does not match actual occurrences', async () => {
       fs.writeFileSync(filePath, 'old text old text', 'utf8');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'old',
         new_string: 'new',
         expected_replacements: 3, // Expecting 3 but only 2 exist
@@ -541,7 +541,7 @@ describe('EditTool', () => {
     it('should return error if trying to create a file that already exists (empty old_string)', async () => {
       fs.writeFileSync(filePath, 'Existing content', 'utf8');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: '',
         new_string: 'new content',
       };
@@ -555,7 +555,7 @@ describe('EditTool', () => {
     it('should return error if old_string and new_string are identical', async () => {
       fs.writeFileSync(filePath, 'Some content.', 'utf8');
       const params: EditToolParams = {
-        file_path: filePath,
+        absolute_path: filePath,
         old_string: 'Some content.',
         new_string: 'Some content.',
       };
@@ -573,7 +573,7 @@ describe('EditTool', () => {
     it('should return "No file changes to..." if old_string and new_string are the same', () => {
       const testFileName = 'test.txt';
       const params: EditToolParams = {
-        file_path: path.join(rootDir, testFileName),
+        absolute_path: path.join(rootDir, testFileName),
         old_string: 'identical_string',
         new_string: 'identical_string',
       };
@@ -586,7 +586,7 @@ describe('EditTool', () => {
     it('should return a snippet of old and new strings if they are different', () => {
       const testFileName = 'test.txt';
       const params: EditToolParams = {
-        file_path: path.join(rootDir, testFileName),
+        absolute_path: path.join(rootDir, testFileName),
         old_string: 'this is the old string value',
         new_string: 'this is the new string value',
       };
@@ -600,7 +600,7 @@ describe('EditTool', () => {
     it('should handle very short strings correctly in the description', () => {
       const testFileName = 'short.txt';
       const params: EditToolParams = {
-        file_path: path.join(rootDir, testFileName),
+        absolute_path: path.join(rootDir, testFileName),
         old_string: 'old',
         new_string: 'new',
       };
@@ -610,7 +610,7 @@ describe('EditTool', () => {
     it('should truncate long strings in the description', () => {
       const testFileName = 'long.txt';
       const params: EditToolParams = {
-        file_path: path.join(rootDir, testFileName),
+        absolute_path: path.join(rootDir, testFileName),
         old_string:
           'this is a very long old string that will definitely be truncated',
         new_string:

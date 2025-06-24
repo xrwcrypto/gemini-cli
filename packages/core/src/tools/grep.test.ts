@@ -65,21 +65,21 @@ describe('GrepTool', () => {
     });
 
     it('should return null for valid params (pattern and path)', () => {
-      const params: GrepToolParams = { pattern: 'hello', path: '.' };
+      const params: GrepToolParams = { pattern: 'hello', absolute_path: '.' };
       expect(grepTool.validateToolParams(params)).toBeNull();
     });
 
     it('should return null for valid params (pattern, path, and include)', () => {
       const params: GrepToolParams = {
         pattern: 'hello',
-        path: '.',
+        absolute_path: '.',
         include: '*.txt',
       };
       expect(grepTool.validateToolParams(params)).toBeNull();
     });
 
     it('should return error if pattern is missing', () => {
-      const params = { path: '.' } as unknown as GrepToolParams;
+      const params = { absolute_path: '.' } as unknown as GrepToolParams;
       expect(grepTool.validateToolParams(params)).toContain(
         'Parameters failed schema validation',
       );
@@ -93,7 +93,7 @@ describe('GrepTool', () => {
     });
 
     it('should return error if path does not exist', () => {
-      const params: GrepToolParams = { pattern: 'hello', path: 'nonexistent' };
+      const params: GrepToolParams = { pattern: 'hello', absolute_path: 'nonexistent' };
       // Check for the core error message, as the full path might vary
       expect(grepTool.validateToolParams(params)).toContain(
         'Failed to access path stats for',
@@ -103,7 +103,7 @@ describe('GrepTool', () => {
 
     it('should return error if path is a file, not a directory', async () => {
       const filePath = path.join(tempRootDir, 'fileA.txt');
-      const params: GrepToolParams = { pattern: 'hello', path: filePath };
+      const params: GrepToolParams = { pattern: 'hello', absolute_path: filePath };
       expect(grepTool.validateToolParams(params)).toContain(
         `Path is not a directory: ${filePath}`,
       );
@@ -126,7 +126,7 @@ describe('GrepTool', () => {
     });
 
     it('should find matches in a specific path', async () => {
-      const params: GrepToolParams = { pattern: 'world', path: 'sub' };
+      const params: GrepToolParams = { pattern: 'world', absolute_path: 'sub' };
       const result = await grepTool.execute(params, abortSignal);
       expect(result.llmContent).toContain(
         'Found 1 match(es) for pattern "world" in path "sub"',
@@ -156,7 +156,7 @@ describe('GrepTool', () => {
       );
       const params: GrepToolParams = {
         pattern: 'hello',
-        path: 'sub',
+        absolute_path: 'sub',
         include: '*.js',
       };
       const result = await grepTool.execute(params, abortSignal);
@@ -202,7 +202,7 @@ describe('GrepTool', () => {
     });
 
     it('should return an error if params are invalid', async () => {
-      const params = { path: '.' } as unknown as GrepToolParams; // Invalid: pattern missing
+      const params = { absolute_path: '.' } as unknown as GrepToolParams; // Invalid: pattern missing
       const result = await grepTool.execute(params, abortSignal);
       expect(result.llmContent).toContain(
         'Error: Invalid parameters provided. Reason: Parameters failed schema validation',
@@ -230,7 +230,7 @@ describe('GrepTool', () => {
     it('should generate correct description with pattern and path', () => {
       const params: GrepToolParams = {
         pattern: 'testPattern',
-        path: 'src/app',
+        absolute_path: 'src/app',
       };
       // The path will be relative to the tempRootDir, so we check for containment.
       expect(grepTool.getDescription(params)).toContain("'testPattern' within");
@@ -241,7 +241,7 @@ describe('GrepTool', () => {
       const params: GrepToolParams = {
         pattern: 'testPattern',
         include: '*.ts',
-        path: 'src/app',
+        absolute_path: 'src/app',
       };
       expect(grepTool.getDescription(params)).toContain(
         "'testPattern' in *.ts within",
@@ -250,7 +250,7 @@ describe('GrepTool', () => {
     });
 
     it('should use ./ for root path in description', () => {
-      const params: GrepToolParams = { pattern: 'testPattern', path: '.' };
+      const params: GrepToolParams = { pattern: 'testPattern', absolute_path: '.' };
       expect(grepTool.getDescription(params)).toBe("'testPattern' within ./");
     });
   });

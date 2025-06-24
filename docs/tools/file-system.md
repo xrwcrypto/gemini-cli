@@ -11,7 +11,7 @@ All file system tools operate within a `rootDirectory` (usually the current work
 - **File:** `ls.ts`
 - **Description:** Lists the names of files and subdirectories directly within a specified directory path. It can optionally ignore entries matching provided glob patterns.
 - **Parameters:**
-  - `path` (string, required): The absolute path to the directory to list.
+  - `absolute_path` (string, required): The absolute path to the directory to list.
   - `ignore` (array of strings, optional): A list of glob patterns to exclude from the listing (e.g., `["*.log", ".git"]`).
   - `respect_git_ignore` (boolean, optional): Whether to respect .gitignore patterns when listing files. Defaults to true.
 - **Behavior:**
@@ -28,7 +28,7 @@ All file system tools operate within a `rootDirectory` (usually the current work
 - **File:** `read-file.ts`
 - **Description:** Reads and returns the content of a specified file. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), and PDF files. For text files, it can read specific line ranges. Other binary file types are generally skipped.
 - **Parameters:**
-  - `path` (string, required): The absolute path to the file to read.
+  - `absolute_path` (string, required): The absolute path to the file to read.
   - `offset` (number, optional): For text files, the 0-based line number to start reading from. Requires `limit` to be set.
   - `limit` (number, optional): For text files, the maximum number of lines to read. If omitted, reads a default maximum (e.g., 2000 lines) or the entire file if feasible.
 - **Behavior:**
@@ -48,7 +48,7 @@ All file system tools operate within a `rootDirectory` (usually the current work
 - **File:** `write-file.ts`
 - **Description:** Writes content to a specified file. If the file exists, it will be overwritten. If it doesn't exist, it (and any necessary parent directories) will be created.
 - **Parameters:**
-  - `file_path` (string, required): The absolute path to the file to write to.
+  - `absolute_path` (string, required): The absolute path to the file to write to.
   - `content` (string, required): The content to write into the file.
 - **Behavior:**
   - Writes the provided `content` to the `file_path`.
@@ -64,7 +64,7 @@ All file system tools operate within a `rootDirectory` (usually the current work
 - **Description:** Efficiently finds files matching specific glob patterns (e.g., `src/**/*.ts`, `*.md`), returning absolute paths sorted by modification time (newest first).
 - **Parameters:**
   - `pattern` (string, required): The glob pattern to match against (e.g., `"*.py"`, `"src/**/*.js"`).
-  - `path` (string, optional): The absolute path to the directory to search within. If omitted, searches the tool's root directory.
+  - `absolute_path` (string, optional): The absolute path to the directory to search within. If omitted, searches the tool's root directory.
   - `case_sensitive` (boolean, optional): Whether the search should be case-sensitive. Defaults to false.
   - `respect_git_ignore` (boolean, optional): Whether to respect .gitignore patterns when finding files. Defaults to true.
 - **Behavior:**
@@ -82,7 +82,7 @@ All file system tools operate within a `rootDirectory` (usually the current work
 - **Description:** Searches for a regular expression pattern within the content of files in a specified directory. Can filter files by a glob pattern. Returns the lines containing matches, along with their file paths and line numbers.
 - **Parameters:**
   - `pattern` (string, required): The regular expression (regex) to search for (e.g., `"function\s+myFunction"`).
-  - `path` (string, optional): The absolute path to the directory to search within. Defaults to the current working directory.
+  - `absolute_path` (string, optional): The absolute path to the directory to search within. Defaults to the current working directory.
   - `include` (string, optional): A glob pattern to filter which files are searched (e.g., `"*.js"`, `"src/**/*.{ts,tsx}"`). If omitted, searches most files (respecting common ignores).
 - **Behavior:**
   - Uses `git grep` if available in a Git repository for speed, otherwise falls back to system `grep` or a JavaScript-based search.
@@ -108,8 +108,8 @@ All file system tools operate within a `rootDirectory` (usually the current work
 - **File:** `edit.ts`
 - **Description:** Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when `expected_replacements` is specified. This tool is designed for precise, targeted changes and requires significant context around the `old_string` to ensure it modifies the correct location.
 - **Parameters:**
-  - `file_path` (string, required): The absolute path to the file to modify.
-  - `old_string` (string, required): The exact literal text to replace. **CRITICAL:** This string must uniquely identify the single instance to change. It should include at least 3 lines of context _before_ and _after_ the target text, matching whitespace and indentation precisely. If `old_string` is empty, the tool attempts to create a new file at `file_path` with `new_string` as content.
+  - `absolute_path` (string, required): The absolute path to the file to modify.
+  - `old_string` (string, required): The exact literal text to replace. **CRITICAL:** This string must uniquely identify the single instance to change. It should include at least 3 lines of context _before_ and _after_ the target text, matching whitespace and indentation precisely. If `old_string` is empty, the tool attempts to create a new file at `absolute_path` with `new_string` as content.
   - `new_string` (string, required): The exact literal text to replace `old_string` with.
   - `expected_replacements` (number, optional): The number of occurrences to replace. Defaults to 1.
 - **Behavior:**

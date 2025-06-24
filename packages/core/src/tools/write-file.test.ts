@@ -157,14 +157,14 @@ describe('WriteFileTool', () => {
   describe('validateToolParams', () => {
     it('should return null for valid absolute path within root', () => {
       const params = {
-        file_path: path.join(rootDir, 'test.txt'),
+        absolute_path: path.join(rootDir, 'test.txt'),
         content: 'hello',
       };
       expect(tool.validateToolParams(params)).toBeNull();
     });
 
     it('should return error for relative path', () => {
-      const params = { file_path: 'test.txt', content: 'hello' };
+      const params = { absolute_path: 'test.txt', content: 'hello' };
       expect(tool.validateToolParams(params)).toMatch(
         /File path must be absolute/,
       );
@@ -173,7 +173,7 @@ describe('WriteFileTool', () => {
     it('should return error for path outside root', () => {
       const outsidePath = path.resolve(tempDir, 'outside-root.txt');
       const params = {
-        file_path: outsidePath,
+        absolute_path: outsidePath,
         content: 'hello',
       };
       expect(tool.validateToolParams(params)).toMatch(
@@ -185,7 +185,7 @@ describe('WriteFileTool', () => {
       const dirAsFilePath = path.join(rootDir, 'a_directory');
       fs.mkdirSync(dirAsFilePath);
       const params = {
-        file_path: dirAsFilePath,
+        absolute_path: dirAsFilePath,
         content: 'hello',
       };
       expect(tool.validateToolParams(params)).toMatch(
@@ -233,7 +233,7 @@ describe('WriteFileTool', () => {
       // Ensure this mock is active and returns the correct structure
       mockEnsureCorrectEdit.mockResolvedValue({
         params: {
-          file_path: filePath,
+          absolute_path: filePath,
           old_string: originalContent,
           new_string: correctedProposedContent,
         },
@@ -252,7 +252,7 @@ describe('WriteFileTool', () => {
         {
           old_string: originalContent,
           new_string: proposedContent,
-          file_path: filePath,
+          absolute_path: filePath,
         },
         mockGeminiClientInstance,
         abortSignal,
@@ -302,21 +302,21 @@ describe('WriteFileTool', () => {
   describe('shouldConfirmExecute', () => {
     const abortSignal = new AbortController().signal;
     it('should return false if params are invalid (relative path)', async () => {
-      const params = { file_path: 'relative.txt', content: 'test' };
+      const params = { absolute_path: 'relative.txt', content: 'test' };
       const confirmation = await tool.shouldConfirmExecute(params, abortSignal);
       expect(confirmation).toBe(false);
     });
 
     it('should return false if params are invalid (outside root)', async () => {
       const outsidePath = path.resolve(tempDir, 'outside-root.txt');
-      const params = { file_path: outsidePath, content: 'test' };
+      const params = { absolute_path: outsidePath, content: 'test' };
       const confirmation = await tool.shouldConfirmExecute(params, abortSignal);
       expect(confirmation).toBe(false);
     });
 
     it('should return false if _getCorrectedFileContent returns an error', async () => {
       const filePath = path.join(rootDir, 'confirm_error_file.txt');
-      const params = { file_path: filePath, content: 'test content' };
+      const params = { absolute_path: filePath, content: 'test content' };
       fs.writeFileSync(filePath, 'original', { mode: 0o000 });
 
       const readError = new Error('Simulated read error for confirmation');
@@ -338,7 +338,7 @@ describe('WriteFileTool', () => {
       const correctedContent = 'Corrected new content for confirmation.';
       mockEnsureCorrectFileContent.mockResolvedValue(correctedContent); // Ensure this mock is active
 
-      const params = { file_path: filePath, content: proposedContent };
+      const params = { absolute_path: filePath, content: proposedContent };
       const confirmation = (await tool.shouldConfirmExecute(
         params,
         abortSignal,
@@ -374,14 +374,14 @@ describe('WriteFileTool', () => {
 
       mockEnsureCorrectEdit.mockResolvedValue({
         params: {
-          file_path: filePath,
+          absolute_path: filePath,
           old_string: originalContent,
           new_string: correctedProposedContent,
         },
         occurrences: 1,
       });
 
-      const params = { file_path: filePath, content: proposedContent };
+      const params = { absolute_path: filePath, content: proposedContent };
       const confirmation = (await tool.shouldConfirmExecute(
         params,
         abortSignal,
@@ -392,7 +392,7 @@ describe('WriteFileTool', () => {
         {
           old_string: originalContent,
           new_string: proposedContent,
-          file_path: filePath,
+          absolute_path: filePath,
         },
         mockGeminiClientInstance,
         abortSignal,
@@ -413,7 +413,7 @@ describe('WriteFileTool', () => {
   describe('execute', () => {
     const abortSignal = new AbortController().signal;
     it('should return error if params are invalid (relative path)', async () => {
-      const params = { file_path: 'relative.txt', content: 'test' };
+      const params = { absolute_path: 'relative.txt', content: 'test' };
       const result = await tool.execute(params, abortSignal);
       expect(result.llmContent).toMatch(/Error: Invalid parameters provided/);
       expect(result.returnDisplay).toMatch(/Error: File path must be absolute/);
@@ -421,7 +421,7 @@ describe('WriteFileTool', () => {
 
     it('should return error if params are invalid (path outside root)', async () => {
       const outsidePath = path.resolve(tempDir, 'outside-root.txt');
-      const params = { file_path: outsidePath, content: 'test' };
+      const params = { absolute_path: outsidePath, content: 'test' };
       const result = await tool.execute(params, abortSignal);
       expect(result.llmContent).toMatch(/Error: Invalid parameters provided/);
       expect(result.returnDisplay).toMatch(
@@ -431,7 +431,7 @@ describe('WriteFileTool', () => {
 
     it('should return error if _getCorrectedFileContent returns an error during execute', async () => {
       const filePath = path.join(rootDir, 'execute_error_file.txt');
-      const params = { file_path: filePath, content: 'test content' };
+      const params = { absolute_path: filePath, content: 'test content' };
       fs.writeFileSync(filePath, 'original', { mode: 0o000 });
 
       const readError = new Error('Simulated read error for execute');
@@ -456,7 +456,7 @@ describe('WriteFileTool', () => {
       const correctedContent = 'Corrected new content for execute.';
       mockEnsureCorrectFileContent.mockResolvedValue(correctedContent);
 
-      const params = { file_path: filePath, content: proposedContent };
+      const params = { absolute_path: filePath, content: proposedContent };
 
       const confirmDetails = await tool.shouldConfirmExecute(
         params,
@@ -503,14 +503,14 @@ describe('WriteFileTool', () => {
 
       mockEnsureCorrectEdit.mockResolvedValue({
         params: {
-          file_path: filePath,
+          absolute_path: filePath,
           old_string: initialContent,
           new_string: correctedProposedContent,
         },
         occurrences: 1,
       });
 
-      const params = { file_path: filePath, content: proposedContent };
+      const params = { absolute_path: filePath, content: proposedContent };
 
       const confirmDetails = await tool.shouldConfirmExecute(
         params,
@@ -527,7 +527,7 @@ describe('WriteFileTool', () => {
         {
           old_string: initialContent,
           new_string: proposedContent,
-          file_path: filePath,
+          absolute_path: filePath,
         },
         mockGeminiClientInstance,
         abortSignal,
@@ -550,7 +550,7 @@ describe('WriteFileTool', () => {
       const content = 'Content in new directory';
       mockEnsureCorrectFileContent.mockResolvedValue(content); // Ensure this mock is active
 
-      const params = { file_path: filePath, content };
+      const params = { absolute_path: filePath, content };
       // Simulate confirmation if your logic requires it before execute, or remove if not needed for this path
       const confirmDetails = await tool.shouldConfirmExecute(
         params,

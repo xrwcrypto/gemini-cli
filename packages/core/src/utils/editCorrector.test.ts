@@ -229,7 +229,7 @@ describe('editCorrector', () => {
       it('Test 1.1: old_string (no literal \\), new_string (escaped by Gemini) -> new_string unescaped', async () => {
         const currentContent = 'This is a test string to find me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find me',
           new_string: 'replace with \\"this\\"',
         };
@@ -250,7 +250,7 @@ describe('editCorrector', () => {
       it('Test 1.2: old_string (no literal \\), new_string (correctly formatted) -> new_string unchanged', async () => {
         const currentContent = 'This is a test string to find me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find me',
           new_string: 'replace with this',
         };
@@ -268,7 +268,7 @@ describe('editCorrector', () => {
       it('Test 1.3: old_string (with literal \\), new_string (escaped by Gemini) -> new_string unchanged (still escaped)', async () => {
         const currentContent = 'This is a test string to find\\me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find\\me',
           new_string: 'replace with \\"this\\"',
         };
@@ -289,7 +289,7 @@ describe('editCorrector', () => {
       it('Test 1.4: old_string (with literal \\), new_string (correctly formatted) -> new_string unchanged', async () => {
         const currentContent = 'This is a test string to find\\me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find\\me',
           new_string: 'replace with this',
         };
@@ -310,7 +310,7 @@ describe('editCorrector', () => {
       it('Test 2.1: old_string (over-escaped, no intended literal \\), new_string (escaped by Gemini) -> new_string unescaped', async () => {
         const currentContent = 'This is a test string to find "me".';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find \\"me\\"',
           new_string: 'replace with \\"this\\"',
         };
@@ -329,7 +329,7 @@ describe('editCorrector', () => {
       it('Test 2.2: old_string (over-escaped, no intended literal \\), new_string (correctly formatted) -> new_string unescaped (harmlessly)', async () => {
         const currentContent = 'This is a test string to find "me".';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find \\"me\\"',
           new_string: 'replace with this',
         };
@@ -347,7 +347,7 @@ describe('editCorrector', () => {
       it('Test 2.3: old_string (over-escaped, with intended literal \\), new_string (simple) -> new_string corrected', async () => {
         const currentContent = 'This is a test string to find \\me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find \\\\me',
           new_string: 'replace with foobar',
         };
@@ -368,7 +368,7 @@ describe('editCorrector', () => {
       it('Test 3.1: old_string (no literal \\), new_string (escaped by Gemini), LLM re-escapes new_string -> final new_string is double unescaped', async () => {
         const currentContent = 'This is a test string to corrected find me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find me',
           new_string: 'replace with \\\\"this\\\\"',
         };
@@ -388,7 +388,7 @@ describe('editCorrector', () => {
       it('Test 3.2: old_string (with literal \\), new_string (escaped by Gemini), LLM re-escapes new_string -> final new_string is unescaped once', async () => {
         const currentContent = 'This is a test string to corrected find me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find\\me',
           new_string: 'replace with \\\\"this\\\\"',
         };
@@ -410,7 +410,7 @@ describe('editCorrector', () => {
       it('Test 3.3: old_string needs LLM, new_string is fine -> old_string corrected, new_string original', async () => {
         const currentContent = 'This is a test string to be corrected.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'fiiind me',
           new_string: 'replace with "this"',
         };
@@ -430,7 +430,7 @@ describe('editCorrector', () => {
       it('Test 3.4: LLM correction path, correctNewString returns the originalNewString it was passed (which was unescaped) -> final new_string is unescaped', async () => {
         const currentContent = 'This is a test string to corrected find me.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find me',
           new_string: 'replace with \\\\"this\\\\"',
         };
@@ -454,7 +454,7 @@ describe('editCorrector', () => {
       it('Test 4.1: No version of old_string (original, unescaped, LLM-corrected) matches -> returns original params, 0 occurrences', async () => {
         const currentContent = 'This content has nothing to find.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'nonexistent string',
           new_string: 'some new string',
         };
@@ -473,7 +473,7 @@ describe('editCorrector', () => {
         const currentContent =
           'This content has find "me" and also find "me" again.';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'find "me"',
           new_string: 'some new string',
         };
@@ -493,7 +493,7 @@ describe('editCorrector', () => {
       it('Test 5.1: old_string needs LLM to become currentContent, new_string also needs correction', async () => {
         const currentContent = 'const x = "a\\nbc\\\\"def\\\\"';
         const originalParams = {
-          file_path: '/test/file.txt',
+          absolute_path: '/test/file.txt',
           old_string: 'const x = \\\\"a\\\\nbc\\\\\\\\"def\\\\\\\\"',
           new_string: 'const y = \\\\"new\\\\nval\\\\\\\\"content\\\\\\\\"',
         };

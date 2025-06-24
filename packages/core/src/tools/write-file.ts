@@ -350,7 +350,7 @@ export class WriteFileTool
         {
           old_string: originalContent, // Treat entire current content as old_string
           new_string: proposedContent,
-          file_path: filePath,
+          absolute_path: filePath,
         },
         this.client,
         abortSignal,

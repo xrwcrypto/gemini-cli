@@ -110,7 +110,7 @@ describe('GlobTool', () => {
     });
 
     it('should find files in a specified relative path (relative to rootDir)', async () => {
-      const params: GlobToolParams = { pattern: '*.md', path: 'sub' };
+      const params: GlobToolParams = { pattern: '*.md', absolute_path: 'sub' };
       const result = await globTool.execute(params, abortSignal);
       expect(result.llmContent).toContain('Found 2 file(s)');
       expect(result.llmContent).toContain(
@@ -164,14 +164,14 @@ describe('GlobTool', () => {
     });
 
     it('should return null for valid parameters (pattern and path)', () => {
-      const params: GlobToolParams = { pattern: '*.js', path: 'sub' };
+      const params: GlobToolParams = { pattern: '*.js', absolute_path: 'sub' };
       expect(globTool.validateToolParams(params)).toBeNull();
     });
 
     it('should return null for valid parameters (pattern, path, and case_sensitive)', () => {
       const params: GlobToolParams = {
         pattern: '*.js',
-        path: 'sub',
+        absolute_path: 'sub',
         case_sensitive: true,
       };
       expect(globTool.validateToolParams(params)).toBeNull();
@@ -179,7 +179,7 @@ describe('GlobTool', () => {
 
     it('should return error if pattern is missing (schema validation)', () => {
       // Need to correctly define this as an object without pattern
-      const params = { path: '.' };
+      const params = { absolute_path: '.' };
       // @ts-expect-error - We're intentionally creating invalid params for testing
       expect(globTool.validateToolParams(params)).toContain(
         'Parameters failed schema validation',
@@ -203,7 +203,7 @@ describe('GlobTool', () => {
     it('should return error if path is provided but is not a string (schema validation)', () => {
       const params = {
         pattern: '*.ts',
-        path: 123,
+        absolute_path: 123,
       };
       // @ts-expect-error - We're intentionally creating invalid params for testing
       expect(globTool.validateToolParams(params)).toContain(
@@ -226,12 +226,12 @@ describe('GlobTool', () => {
       // Create a globTool instance specifically for this test, with a deeper root
       const deeperRootDir = path.join(tempRootDir, 'sub');
       const specificGlobTool = new GlobTool(deeperRootDir, mockConfig);
-      // const params: GlobToolParams = { pattern: '*.txt', path: '..' }; // This line is unused and will be removed.
+      // const params: GlobToolParams = { pattern: '*.txt', absolute_path: '..' }; // This line is unused and will be removed.
       // This should be fine as tempRootDir is still within the original tempRootDir (the parent of deeperRootDir)
       // Let's try to go further up.
       const paramsOutside: GlobToolParams = {
         pattern: '*.txt',
-        path: '../../../../../../../../../../tmp',
+        absolute_path: '../../../../../../../../../../tmp',
       }; // Definitely outside
       expect(specificGlobTool.validateToolParams(paramsOutside)).toContain(
         "resolves outside the tool's root directory",
@@ -241,7 +241,7 @@ describe('GlobTool', () => {
     it('should return error if specified search path does not exist', async () => {
       const params: GlobToolParams = {
         pattern: '*.txt',
-        path: 'nonexistent_subdir',
+        absolute_path: 'nonexistent_subdir',
       };
       expect(globTool.validateToolParams(params)).toContain(
         'Search path does not exist',
@@ -249,7 +249,7 @@ describe('GlobTool', () => {
     });
 
     it('should return error if specified search path is a file, not a directory', async () => {
-      const params: GlobToolParams = { pattern: '*.txt', path: 'fileA.txt' };
+      const params: GlobToolParams = { pattern: '*.txt', absolute_path: 'fileA.txt' };
       expect(globTool.validateToolParams(params)).toContain(
         'Search path is not a directory',
       );

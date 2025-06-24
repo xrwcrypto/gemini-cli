@@ -36,7 +36,7 @@ const fileContentCorrectionCache = new LruCache<string, string>(MAX_CACHE_SIZE);
  * Defines the structure of the parameters within CorrectedEditResult
  */
 interface CorrectedEditParams {
-  file_path: string;
+  absolute_path: string;
   old_string: string;
   new_string: string;
 }
@@ -199,7 +199,7 @@ export async function ensureCorrectEdit(
   // Final result construction
   const result: CorrectedEditResult = {
     params: {
-      file_path: originalParams.file_path,
+      absolute_path: originalParams.absolute_path,
       old_string: finalOldString,
       new_string: finalNewString,
     },
