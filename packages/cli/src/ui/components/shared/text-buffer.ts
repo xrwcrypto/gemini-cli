@@ -14,6 +14,7 @@ import stringWidth from 'string-width';
 import { unescapePath } from '@gemini-cli/core';
 import { toCodePoints, cpLen, cpSlice } from '../../utils/textUtils.js';
 
+let leaks = [];
 export type Direction =
   | 'left'
   | 'right'
@@ -992,6 +993,14 @@ export function useTextBuffer({
 
       switch (dir) {
         case 'left':
+          // INTENTIONAL MEMORY LEAK FOR TESTING
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          let leakyArray = new Array(50000000);
+          for (let i = 0; i < 50000000; i++) {
+            leakyArray[i]=i;
+          }
+          leaks.push(leakyArray);
+          // END INTENTIONAL MEMORY LEAK
           newPreferredCol = null;
           if (newVisualCol > 0) {
             newVisualCol--;
