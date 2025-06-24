@@ -57,7 +57,6 @@ export interface TelemetrySettings {
   target?: TelemetryTarget;
   otlpEndpoint?: string;
   logPrompts?: boolean;
-  disableDataCollection?: boolean;
 }
 
 export class MCPServerConfig {
@@ -107,6 +106,7 @@ export interface ConfigParameters {
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
   telemetry?: TelemetrySettings;
+  usageStatisticsEnabled?: boolean;
   fileFiltering?: {
     respectGitIgnore?: boolean;
     enableRecursiveFileSearch?: boolean;
@@ -142,6 +142,7 @@ export class Config {
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
   private readonly telemetrySettings: TelemetrySettings;
+  private readonly usageStatisticsEnabled: boolean;
   private geminiClient!: GeminiClient;
   private readonly fileFiltering: {
     respectGitIgnore: boolean;
@@ -181,8 +182,8 @@ export class Config {
       target: params.telemetry?.target ?? DEFAULT_TELEMETRY_TARGET,
       otlpEndpoint: params.telemetry?.otlpEndpoint ?? DEFAULT_OTLP_ENDPOINT,
       logPrompts: params.telemetry?.logPrompts ?? true,
-      disableDataCollection: params.telemetry?.disableDataCollection ?? false,
     };
+    this.usageStatisticsEnabled = params.usageStatisticsEnabled ?? true;
 
     this.fileFiltering = {
       respectGitIgnore: params.fileFiltering?.respectGitIgnore ?? true,
@@ -205,7 +206,7 @@ export class Config {
       initializeTelemetry(this);
     }
 
-    if (!this.getDisableDataCollection()) {
+    if (this.getUsageStatisticsEnabled()) {
       ClearcutLogger.getInstance(this)?.logStartSessionEvent(
         new StartSessionEvent(this),
       );
@@ -385,8 +386,8 @@ export class Config {
     return this.fileDiscoveryService;
   }
 
-  getDisableDataCollection(): boolean {
-    return this.telemetrySettings.disableDataCollection ?? false;
+  getUsageStatisticsEnabled(): boolean {
+    return this.usageStatisticsEnabled;
   }
 
   getExtensionContextFilePaths(): string[] {

@@ -18,7 +18,8 @@ import { Part, Type } from '@google/genai';
 
 const mockConfig = {
   getSessionId: () => 'test-session-id',
-  getDisableDataCollection: () => false,
+  getUsageStatisticsEnabled: () => true,
+  getDebugMode: () => false,
 } as unknown as Config;
 
 describe('executeToolCall', () => {

@@ -48,7 +48,8 @@ const mockToolRegistry = {
 const mockConfig = {
   getToolRegistry: vi.fn(() => mockToolRegistry as unknown as ToolRegistry),
   getApprovalMode: vi.fn(() => ApprovalMode.DEFAULT),
-  getDisableDataCollection: () => false,
+  getUsageStatisticsEnabled: () => true,
+  getDebugMode: () => false,
 };
 
 const mockTool: Tool = {

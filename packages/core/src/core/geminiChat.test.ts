@@ -27,7 +27,8 @@ const mockModelsModule = {
 const mockConfig = {
   getSessionId: () => 'test-session-id',
   getTelemetryLogPromptsEnabled: () => true,
-  getDisableDataCollection: () => false,
+  getUsageStatisticsEnabled: () => true,
+  getDebugMode: () => false,
 } as unknown as Config;
 
 describe('GeminiChat', () => {
