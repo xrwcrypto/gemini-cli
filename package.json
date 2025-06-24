@@ -11,7 +11,7 @@
     "build:sandbox": "node scripts/build_sandbox.js",
     "build:all": "npm run build && npm run build:sandbox",
     "clean": "node scripts/clean.js",
-    "prepare": "npm run bundle",
+    "prepare": "npm run bundle && npm run prepare:root-packagejson",
     "test": "npm run test --workspaces",
     "test:ci": "npm run test:ci --workspaces --if-present",
     "test:e2e": "npm run test:integration:sandbox:none -- --verbose --keep-output",
@@ -35,10 +35,11 @@
     "build:core": "npm run build --workspace packages/core",
     "build:packages": "npm run build:core && npm run build:cli",
     "build:docker": "node scripts/build_sandbox.js -s",
-    "prepare:cli-packagejson": "node scripts/prepare-cli-packagejson.js",
+    "prepare:cli-packagejson": "node scripts/prepare-cli-packagejson.js --target=package",
+    "prepare:repo-packagejson": "node scripts/prepare-cli-packagejson.js --target=repo",
     "publish:sandbox": "node scripts/publish-sandbox.js",
     "publish:npm": "npm publish --workspaces ${NPM_PUBLISH_TAG:+--tag=$NPM_PUBLISH_TAG} ${NPM_DRY_RUN:+--dry-run}",
-    "publish:release": "npm run build:packages && npm run build:docker && npm run publish:sandbox",
+    "publish:release": "npm run build:packages && npm run prepare:cli-packagejson && npm run build:docker && npm run publish:sandbox && npm run publish:npm",
     "telemetry": "node scripts/telemetry.js",
     "start:gcp": "npm run telemetry -- --target=gcp & npm start"
   },
@@ -51,8 +52,7 @@
     "LICENSE"
   ],
   "config": {
-    "sandboxImageUri": "gemini-cli-sandbox",
-    "sandboxRepositoryn": "us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers"
+    "sandboxImageUri": "us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-cli-sandbox"
   },
   "devDependencies": {
     "@types/micromatch": "^4.0.9",

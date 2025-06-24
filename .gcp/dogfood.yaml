@@ -10,8 +10,15 @@ steps:
     args:
       - -c # Use bash -c to allow for command substitution and string manipulation
       - |
-        npm pkg set config.sandboxRepository="${_SANDBOX_IMAGE_REGISTRY}"
-        echo $(npm pkg get config.sandboxRepository)
+        current_version=$(npm pkg get version | sed 's/"//g')
+        new_version="$${current_version}-$SHORT_SHA"
+        npm pkg set "version=$${new_version}"
+        echo "Set root package.json version to: $${new_version}"
+
+  # Step 3: Run prerelease:dev to update workspace versions and dependencies
+  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+    entrypoint: 'npm'
+    args: ['run', 'prerelease:dev'] # This will run prerelease:version and prerelease:deps
 
   # Step 4: Authenticate for Docker and NPM
   - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
@@ -26,30 +33,7 @@ steps:
       - 'GEMINI_SANDBOX=$_CONTAINER_TOOL'
       - 'SANDBOX_IMAGE_REGISTRY=$_SANDBOX_IMAGE_REGISTRY'
       - 'SANDBOX_IMAGE_NAME=$_SANDBOX_IMAGE_NAME'
-
- # Step 6: Update version in root package.json for npm publish
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
-    entrypoint: 'bash'
-    args:
-      - -c # Use bash -c to allow for command substitution and string manipulation
-      - |
-        current_version=$(npm pkg get version | sed 's/"//g')
-        new_version="$${current_version}-$SHORT_SHA"
-        npm pkg set "version=$${new_version}"
-        echo "Set root package.json version to: $${new_version}"
- 
-  # Step 3: Run prerelease:dev to update workspace versions and dependencies
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
-    entrypoint: 'npm'
-    args: ['run', 'prerelease:dev'] # This will run prerelease:version and prerelease:deps
-
- # Step 6: Run the master release script
-  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
-    entrypoint: 'npm'
-    args: ['run', 'publish:npm']
-    env:
       - 'NPM_PUBLISH_TAG=$_NPM_PUBLISH_TAG'
-
 
 options:
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET

@@ -9,7 +9,6 @@ import commandExists from 'command-exists';
 import * as os from 'node:os';
 import { getPackageJson } from '../utils/package.js';
 import { Settings } from './settings.js';
-import { GIT_COMMIT_INFO } from '../generated/git-commit.js';
 
 // This is a stripped-down version of the CliArgs interface from config.ts
 // to avoid circular dependencies.
@@ -98,55 +97,11 @@ export async function loadSandboxConfig(
   const sandboxOption = argv.sandbox ?? settings.sandbox;
   const command = getSandboxCommand(sandboxOption);
 
-  const image = await buildImageName(argv['sandbox-image']);
-  console.log(image);
+  const packageJson = await getPackageJson();
+  const image =
+    argv['sandbox-image'] ??
+    process.env.GEMINI_SANDBOX_IMAGE ??
+    packageJson?.config?.sandboxImageUri;
 
   return command && image ? { command, image } : undefined;
-}
-
-export async function buildImageName(imageNameOverride: string | undefined) {
-  const packageJson = await getPackageJson();
-  const imageName = String(
-    imageNameOverride ??
-      process.env.GEMINI_SANDBOX_IMAGE ??
-      process.env.SANDBOX_IMAGE_NAME ??
-      packageJson?.config?.sandboxImageUri ??
-      'gemini-cli-sandbox',
-  );
-
-  console.log("buildImangeName:imageName ", imageName)
-  console.log("buildImangeName:imageNameOverride ", imageNameOverride)
-  console.log("buildImangeName:GEMINI_SANDBOX_IMAGE ", process.env.GEMINI_SANDBOX_IMAGE)
-
-  let repository = String(
-    process.env.SANDBOX_IMAGE_REGISTRY ??
-      packageJson?.config?.sandboxRepository ??
-      '',
-  );
-
-  console.log("buildImangeName:repository ", repository)
-  console.log("buildImangeName:SANDBOX_IMAGE_REGISTRY ", process.env.SANDBOX_IMAGE_REGISTRY)
-  console.log("buildImangeName:packgeJson.sandboxRepository ", packageJson?.config?.sandboxRepository)
-
-  if (repository && !repository.endsWith('/')) {
-    console.log("buildImangeName:repository Adding /")
-    repository = `${repository}/`;
-    console.log("buildImangeName:repository Added /", repository)
-  }
-
-  const version = getVersion(packageJson?.version ?? '')
-  const image = `${repository}${imageName}:${version}`;
-  
-  console.log("buildbuildImangeName:image ", image)
-  return image;
-}
-
-export function getVersion(packageVersion: string) {
-  const gitSHA = GIT_COMMIT_INFO;
-  const version = packageVersion;
-
-  console.log("buildImangeName:gitSHA ", gitSHA)
-  console.log("buildImangeName:version ", version)
-
-  return `${version}-${gitSHA}`
 }
