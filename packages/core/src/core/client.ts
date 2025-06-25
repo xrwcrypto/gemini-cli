@@ -462,7 +462,14 @@ export class GeminiClient {
         return null;
       }
 
-      if (tokenCount < 0.95 * limit) {
+      const contentGeneratorConfig = this.config.getContentGeneratorConfig();
+      if (
+        !this.shouldCompressChatHistory(
+          tokenCount,
+          limit,
+          contentGeneratorConfig?.authType,
+        )
+      ) {
         return null;
       }
     }
@@ -497,6 +504,17 @@ export class GeminiClient {
           newTokenCount,
         }
       : null;
+  }
+
+  private shouldCompressChatHistory(
+    tokenCount: number,
+    limit: number,
+    authType?: AuthType,
+  ): boolean {
+    // Login with personal will compress at 15% while all other auth types will be 95%.
+    const threshold =
+      authType === AuthType.LOGIN_WITH_GOOGLE_PERSONAL ? 0.15 : 0.95;
+    return tokenCount > threshold * limit;
   }
 
   /**

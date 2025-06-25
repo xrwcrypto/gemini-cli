@@ -18,7 +18,10 @@ import { GeminiChat } from './geminiChat.js';
 import { Config } from '../config/config.js';
 import { Turn } from './turn.js';
 import { getCoreSystemPrompt } from './prompts.js';
-import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import {
+  DEFAULT_GEMINI_MODEL,
+  DEFAULT_GEMINI_FLASH_MODEL,
+} from '../config/models.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { setSimulate429 } from '../utils/testUtils.js';
 
@@ -62,6 +65,12 @@ vi.mock('../telemetry/index.js', () => ({
   logApiRequest: vi.fn(),
   logApiResponse: vi.fn(),
   logApiError: vi.fn(),
+}));
+
+const mockedModelLimit = 1000000;
+
+vi.mock('./tokenLimits.js', () => ({
+  tokenLimit: () => mockedModelLimit,
 }));
 
 describe('Gemini Client (client.ts)', () => {
@@ -401,6 +410,137 @@ describe('Gemini Client (client.ts)', () => {
 
       // Assert
       expect(finalResult).toBeInstanceOf(Turn);
+    });
+  });
+
+  describe('tryCompressChat', () => {
+    let mockGenerator: Partial<ContentGenerator>;
+    let mockChat: Partial<GeminiChat>;
+
+    beforeEach(() => {
+      mockGenerator = {
+        countTokens: vi.fn(),
+        generateContent: vi.fn(),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+      client['model'] = DEFAULT_GEMINI_MODEL;
+
+      mockChat = {
+        getHistory: vi.fn().mockReturnValue([
+          { role: 'user', parts: [{ text: 'foo' }] },
+          { role: 'model', parts: [{ text: 'bar' }] },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({ text: 'summary' }),
+      };
+      client['chat'] = mockChat as GeminiChat;
+
+      // We disable the 'no-explicit-any' rule for this line because we are
+      // intentionally spying on a private method for testing purposes.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.spyOn(client as any, 'startChat').mockImplementation(
+        async () => mockChat as GeminiChat,
+      );
+    });
+
+    it('should not compress if token count is below 95% for Use Gemini auth', async () => {
+      const contentGeneratorConfig =
+        client['config'].getContentGeneratorConfig();
+      if (contentGeneratorConfig) {
+        contentGeneratorConfig.authType = AuthType.USE_GEMINI;
+      }
+      vi.mocked(mockGenerator.countTokens!).mockResolvedValue({
+        totalTokens: mockedModelLimit * 0.94,
+      });
+
+      const result = await client.tryCompressChat();
+      expect(result).toBeNull();
+      expect(mockChat.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should compress if token count is at or above 95% for Use Gemini auth', async () => {
+      const contentGeneratorConfig =
+        client['config'].getContentGeneratorConfig();
+      if (contentGeneratorConfig) {
+        contentGeneratorConfig.authType = AuthType.USE_GEMINI;
+      }
+
+      const originalTokenCount = mockedModelLimit * 0.96;
+      vi.mocked(mockGenerator.countTokens!)
+        .mockResolvedValueOnce({ totalTokens: originalTokenCount }) // original
+        .mockResolvedValueOnce({ totalTokens: 10 }); // new
+
+      const result = await client.tryCompressChat();
+
+      // Assertions
+      expect(result).not.toBeNull();
+      expect(result?.originalTokenCount).toBe(originalTokenCount);
+      expect(result?.newTokenCount).toBe(10);
+      expect(mockChat.sendMessage).toHaveBeenCalled();
+      expect(client['startChat']).toHaveBeenCalled();
+    });
+
+    it('should use 95% threshold when authType is undefined', async () => {
+      const contentGeneratorConfig =
+        client['config'].getContentGeneratorConfig();
+      if (contentGeneratorConfig) {
+        contentGeneratorConfig.authType = undefined;
+      }
+      vi.mocked(mockGenerator.countTokens!).mockResolvedValue({
+        totalTokens: mockedModelLimit * 0.94,
+      });
+
+      const result = await client.tryCompressChat();
+      expect(result).toBeNull();
+      expect(mockChat.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should not compress if token count is below 15% for personal auth', async () => {
+      const contentGeneratorConfig =
+        client['config'].getContentGeneratorConfig();
+      if (contentGeneratorConfig) {
+        contentGeneratorConfig.authType = AuthType.LOGIN_WITH_GOOGLE_PERSONAL;
+      }
+      vi.mocked(mockGenerator.countTokens!).mockResolvedValue({
+        totalTokens: mockedModelLimit * 0.14,
+      });
+
+      const result = await client.tryCompressChat();
+      expect(result).toBeNull();
+      expect(mockChat.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should compress if token count is at or above 15% for personal auth', async () => {
+      const contentGeneratorConfig =
+        client['config'].getContentGeneratorConfig();
+      if (contentGeneratorConfig) {
+        contentGeneratorConfig.authType = AuthType.LOGIN_WITH_GOOGLE_PERSONAL;
+      }
+      const originalTokenCount = mockedModelLimit * 0.16;
+      vi.mocked(mockGenerator.countTokens!)
+        .mockResolvedValueOnce({ totalTokens: originalTokenCount }) // original
+        .mockResolvedValueOnce({ totalTokens: 10 }); // new
+
+      const result = await client.tryCompressChat();
+
+      // Assertions
+      expect(result).not.toBeNull();
+      expect(result?.originalTokenCount).toBe(originalTokenCount);
+      expect(result?.newTokenCount).toBe(10);
+      expect(mockChat.sendMessage).toHaveBeenCalled();
+      expect(client['startChat']).toHaveBeenCalled();
+    });
+
+    it('should force compression even if below threshold', async () => {
+      vi.mocked(mockGenerator.countTokens!)
+        .mockResolvedValueOnce({ totalTokens: 10 }) // original
+        .mockResolvedValueOnce({ totalTokens: 5 }); // new
+
+      const result = await client.tryCompressChat(true); // force = true
+      expect(result).not.toBeNull();
+      expect(result?.originalTokenCount).toBe(10);
+      expect(result?.newTokenCount).toBe(5);
+      expect(mockChat.sendMessage).toHaveBeenCalled();
+      expect(client['startChat']).toHaveBeenCalled();
     });
   });
 });
