@@ -5,6 +5,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "config": {
+    "sandboxImageUri": "gemini-cli-sandbox"
+  },
   "scripts": {
     "generate": "node scripts/generate-git-commit-info.js",
     "build": "node scripts/build.js",
