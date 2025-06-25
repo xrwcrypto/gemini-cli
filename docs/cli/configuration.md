@@ -213,79 +213,66 @@ In addition to a project settings file, a project's `.gemini` directory can cont
 }
 ```
 
-## Shell History
+## Shell history
 
-The CLI keeps a history of shell commands you run. To avoid conflicts between different projects, this history is stored in a project-specific directory within your user's home folder.
+Gemini CLI keeps a history of shell commands you run. To avoid conflicts between different projects, this history is stored in the file `shell_history` in a project-specific directory within your user's home folder.
 
 - **Location:** `~/.gemini/tmp/<project_hash>/shell_history`
   - `<project_hash>` is a unique identifier generated from your project's root path.
-  - The history is stored in a file named `shell_history`.
 
-## Environment Variables & `.env` Files
+## Environment variables & `.env` files
 
 Environment variables are a common way to configure applications, especially for sensitive information like API keys or for settings that might change between environments.
 
-The CLI automatically loads environment variables from an `.env` file. The loading order is:
+Gemini CLI automatically loads environment variables from an `.env` file. The loading order is:
 
 1.  `.env` file in the current working directory.
 2.  If not found, it searches upwards in parent directories until it finds an `.env` file or reaches the project root (identified by a `.git` folder) or the home directory.
 3.  If still not found, it looks for `~/.env` (in the user's home directory).
 
-- **`GEMINI_API_KEY`** (Required):
-  - Your API key for the Gemini API.
-  - **Crucial for operation.** The CLI will not function without it.
-  - Set this in your shell profile (e.g., `~/.bashrc`, `~/.zshrc`) or an `.env` file.
+The following environment variables are available for configuring Gemini CLI:
+
+- **`GEMINI_API_KEY`**:
+  - Your API key for Gemini API. You must use this or an alternative [Authentication](./cli/authentication.md) to use Gemini CLI.
 - **`GEMINI_MODEL`**:
-  - Specifies the default Gemini model to use.
-  - Overrides the hardcoded default
-  - Example: `export GEMINI_MODEL="gemini-2.5-flash"`
+  - The default Gemini model to use.
 - **`GOOGLE_API_KEY`**:
-  - Your Google Cloud API key.
-  - Required for using Vertex AI in express mode.
+  - Your Google Cloud API key, which is required when using Vertex AI in express mode for authentication.
   - Ensure you have the necessary permissions and set the `GOOGLE_GENAI_USE_VERTEXAI=true` environment variable.
-  - Example: `export GOOGLE_API_KEY="YOUR_GOOGLE_API_ KEY"`.
 - **`GOOGLE_CLOUD_PROJECT`**:
-  - Your Google Cloud Project ID.
-  - Required for using Code Assist or Vertex AI.
+  - Your Google Cloud project ID, which is required for using Code Assist or Vertex AI.
   - If using Vertex AI, ensure you have the necessary permissions and set the `GOOGLE_GENAI_USE_VERTEXAI=true` environment variable.
-  - Example: `export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"`.
-- **`GOOGLE_APPLICATION_CREDENTIALS`** (string):
-  - **Description:** The path to your Google Application Credentials JSON file.
-  - **Example:** `export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/credentials.json"`
+- **`GOOGLE_APPLICATION_CREDENTIALS`**:
+  - The path to your Google Application Credentials JSON file.
 - **`OTLP_GOOGLE_CLOUD_PROJECT`**:
-  - Your Google Cloud Project ID for Telemetry in Google Cloud
-  - Example: `export OTLP_GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"`.
+  - A Google Cloud project ID when using Google Cloud as your [telemetry](../telemetry.md) endpoint.
 - **`GOOGLE_CLOUD_LOCATION`**:
-  - Your Google Cloud Project Location (e.g., us-central1).
-  - Required for using Vertex AI in non express mode.
+  - A Google Cloud project location, which must be set when using Vertex AI in non-express mode.
   - If using Vertex AI, ensure you have the necessary permissions and set the `GOOGLE_GENAI_USE_VERTEXAI=true` environment variable.
-  - Example: `export GOOGLE_CLOUD_LOCATION="YOUR_PROJECT_LOCATION"`.
 - **`GEMINI_CODE_ASSIST`**:
   - Enables Code Assist functionality.
   - Accepts `true`, `false`, or a custom command string.
   - If you are using an Enterprise account you should also set the `GOOGLE_CLOUD_PROJECT` environment variable.
-  - Example: `export GEMINI_CODE_ASSIST=true`.
 - **`GEMINI_SANDBOX`**:
   - Alternative to the `sandbox` setting in `settings.json`.
   - Accepts `true`, `false`, `docker`, `podman`, or a custom command string.
 - **`SEATBELT_PROFILE`** (macOS specific):
-  - Switches the Seatbelt (`sandbox-exec`) profile on macOS.
-  - `permissive-open`: (Default) Restricts writes to the project folder (and a few other folders, see `packages/cli/src/utils/sandbox-macos-permissive-open.sb`) but allows other operations.
-  - `strict`: Uses a strict profile that declines operations by default.
-  - `<profile_name>`: Uses a custom profile. To define a custom profile, create a file named `sandbox-macos-<profile_name>.sb` in your project's `.gemini/` directory (e.g., `my-project/.gemini/sandbox-macos-custom.sb`).
-- **`DEBUG` or `DEBUG_MODE`** (often used by underlying libraries or the CLI itself):
+  - Switches the Seatbelt (`sandbox-exec`) profile on macOS. The following values are accepted:
+    - `permissive-open`: (Default) Restricts writes to the project folder (and a few other folders, see `packages/cli/src/utils/sandbox-macos-permissive-open.sb`) but allows other operations.
+    - `strict`: Uses a strict profile that declines operations by default.
+    - `<profile_name>`: Uses a custom profile. To define a custom profile, create a file named `sandbox-macos-<profile_name>.sb` in your project's `.gemini/` directory (e.g., `my-project/.gemini/sandbox-macos-custom.sb`).
+- **`DEBUG` or `DEBUG_MODE`**:
   - Set to `true` or `1` to enable verbose debug logging, which can be helpful for troubleshooting.
 - **`NO_COLOR`**:
-  - Set to any value to disable all color output in the CLI.
+  - Set to any value to disable all color output in Gemini CLI.
 - **`CLI_TITLE`**:
-  - Set to a string to customize the title of the CLI.
+  - Set to a string to customize the title of Gemini CLI.
 - **`CODE_ASSIST_ENDPOINT`**:
-  - Specifies the endpoint for the code assist server.
-  - This is useful for development and testing.
+  - Specifies the endpoint for a Code Assist server.
 
 ## Command-Line Arguments
 
-Arguments passed directly when running the CLI can override other configurations for that specific session.
+Arguments passed directly when running the CLI override other configurations for that specific session.
 
 - **`--model <model_name>`** (**`-m <model_name>`**):
   - Specifies the Gemini model to use for this session.
@@ -319,11 +306,9 @@ Arguments passed directly when running the CLI can override other configurations
 - **`--version`**:
   - Displays the version of the CLI.
 
-## Context Files (Hierarchical Instructional Context)
+## Context files (hierarchical instructional context)
 
-While not strictly configuration for the CLI's _behavior_, context files (defaulting to `GEMINI.md` but configurable via the `contextFileName` setting) are crucial for configuring the _instructional context_ (also referred to as "memory") provided to the Gemini model. This powerful feature allows you to give project-specific instructions, coding style guides, or any relevant background information to the AI, making its responses more tailored and accurate to your needs. The CLI includes UI elements, such as an indicator in the footer showing the number of loaded context files, to keep you informed about the active context.
-
-- **Purpose:** These Markdown files contain instructions, guidelines, or context that you want the Gemini model to be aware of during your interactions. The system is designed to manage this instructional context hierarchically.
+While not strictly configuration for the CLI's _behavior_, context files (defaulting to `GEMINI.md` but configurable via the `contextFileName` setting) are useful for configuring the _instructional context_ (also referred to as "memory") provided to the Gemini model. Context files let you give project-specific instructions, coding style guides, or any relevant background information to the Gemimi API, making its responses more tailored and accurate to your needs. Gemini CLI includes UI elements, such as an indicator in the footer showing the number of loaded context files, to keep you informed about the active context.
 
 ### Example Context File Content (e.g., `GEMINI.md`)
 
