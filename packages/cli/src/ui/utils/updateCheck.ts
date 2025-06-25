@@ -6,6 +6,12 @@
 
 import updateNotifier from 'update-notifier';
 import { readPackageUp } from 'read-package-up';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export async function checkForUpdates(): Promise<string | null> {
   try {
