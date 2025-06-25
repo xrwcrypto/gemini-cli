@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { Fragment, useEffect, useId } from 'react';
+import React, { Fragment, useEffect, useId, FragmentProps } from 'react';
 import { Box, Text } from 'ink';
 import stringWidth from 'string-width';
 import { Colors } from '../../colors.js';
@@ -120,7 +120,10 @@ export const MaxSizedBox: React.FC<MaxSizedBoxProps> = ({
       return;
     }
     if (element.type === Fragment) {
-      React.Children.forEach(element.props.children, visitRows);
+      React.Children.forEach(
+        (element.props as FragmentProps).children,
+        visitRows,
+      );
       return;
     }
     if (element.type === Box) {
@@ -258,7 +261,10 @@ function visitBoxRow(element: React.ReactNode): Row {
   }
 
   if (enableDebugLog) {
-    const boxProps = element.props;
+    const boxProps = element.props as {
+      children?: React.ReactNode | undefined;
+      readonly flexDirection?: "row" | "column" | "row-reverse" | "column-reverse" | undefined;
+    };
     // Ensure the Box has no props other than the default ones and key.
     let maxExpectedProps = 4;
     if (boxProps.children !== undefined) {
@@ -329,7 +335,7 @@ function visitBoxRow(element: React.ReactNode): Row {
     }
 
     if (element.type === Fragment) {
-      const fragmentChildren = element.props.children;
+      const fragmentChildren = (element.props as FragmentProps).children;
       React.Children.forEach(fragmentChildren, (child) =>
         visitRowChild(child, parentProps),
       );
@@ -345,7 +351,7 @@ function visitBoxRow(element: React.ReactNode): Row {
     }
 
     // Merge props from parent <Text> elements. Child props take precedence.
-    const { children, ...currentProps } = element.props;
+    const { children, ...currentProps } = element.props as FragmentProps;
     const mergedProps =
       parentProps === undefined
         ? currentProps
@@ -355,7 +361,7 @@ function visitBoxRow(element: React.ReactNode): Row {
     );
   }
 
-  React.Children.forEach(element.props.children, (child) =>
+  React.Children.forEach((element.props as FragmentProps).children, (child) =>
     visitRowChild(child, undefined),
   );
 
