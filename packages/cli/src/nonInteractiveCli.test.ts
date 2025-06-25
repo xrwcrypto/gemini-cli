@@ -12,10 +12,9 @@ import { GenerateContentResponse, Part, FunctionCall } from '@google/genai';
 
 // Mock dependencies
 vi.mock('@google/gemini-cli-core', async () => {
-  const actualCore =
-    await vi.importActual<typeof import('@google/gemini-cli-core')>(
-      '@google/gemini-cli-core',
-    );
+  const actualCore = await vi.importActual<
+    typeof import('@google/gemini-cli-core')
+  >('@google/gemini-cli-core');
   return {
     ...actualCore,
     GeminiClient: vi.fn(),

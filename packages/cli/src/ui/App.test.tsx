@@ -70,7 +70,8 @@ interface MockServerConfig {
 
 // Mock @google/gemini-cli-core and its Config class
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
-  const actualCore = await importOriginal<typeof import('@google/gemini-cli-core')>();
+  const actualCore =
+    await importOriginal<typeof import('@google/gemini-cli-core')>();
   const ConfigClassMock = vi
     .fn()
     .mockImplementation((optionsPassedToConstructor) => {
