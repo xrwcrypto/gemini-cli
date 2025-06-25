@@ -157,7 +157,24 @@ describe('retryWithBackoff', () => {
     expect(mockFn).toHaveBeenCalledTimes(1);
   });
 
-  it('should respect maxDelayMs', async () => {
+  it('should not retry on 500 error if only checking message', async () => {
+      const mockFn = vi.fn(async () => {
+        const error = new Error('Internal Server Error') as any;
+        error.status = 500;
+        throw error;
+      });
+
+      const promise = retryWithBackoff(mockFn, {
+        maxAttempts: 2,
+        initialDelayMs: 10,
+        shouldRetry: (err: Error) => err.message.includes('429'),
+      });
+
+      await expect(promise).rejects.toThrow('Internal Server Error');
+      expect(mockFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should respect maxDelayMs', async () => {
     const mockFn = createFailingFunction(3);
     const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
 

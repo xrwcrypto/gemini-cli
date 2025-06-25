@@ -36,10 +36,6 @@ function defaultShouldRetry(error: Error | unknown): boolean {
       return true;
     }
   }
-  if (error instanceof Error && error.message) {
-    if (error.message.includes('429')) return true;
-    if (error.message.match(/5\d{2}/)) return true;
-  }
   return false;
 }
 

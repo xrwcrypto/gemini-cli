@@ -347,10 +347,12 @@ export class GeminiChat {
       // If errors occur mid-stream, this setup won't resume the stream; it will restart it.
       const streamResponse = await retryWithBackoff(apiCall, {
         shouldRetry: (error: Error) => {
-          // Check error messages for status codes, or specific error names if known
-          if (error && error.message) {
-            if (error.message.includes('429')) return true;
-            if (error.message.match(/5\d{2}/)) return true;
+          // Check for common transient error status codes either in message or a status property
+          if (error && typeof (error as { status?: number }).status === 'number') {
+            const status = (error as { status: number }).status;
+            if (status === 429 || (status >= 500 && status < 600)) {
+              return true;
+            }
           }
           return false; // Don't retry other errors by default
         },
