@@ -22,7 +22,10 @@ import {
   ChatCompressionInfo,
 } from './turn.js';
 import { Config } from '../config/config.js';
-import { getCoreSystemPrompt } from './prompts.js';
+import {
+  getCompressionPrompt,
+  getCoreSystemPrompt,
+} from './prompts.js';
 import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 import { checkNextSpeaker } from '../utils/nextSpeakerChecker.js';
@@ -187,11 +190,11 @@ export class GeminiClient {
       const systemInstruction = getCoreSystemPrompt(userMemory);
       const generateContentConfigWithThinking = isThinkingSupported(this.model)
         ? {
-            ...this.generateContentConfig,
-            thinkingConfig: {
-              includeThoughts: true,
-            },
-          }
+          ...this.generateContentConfig,
+          thinkingConfig: {
+            includeThoughts: true,
+          },
+        }
         : this.generateContentConfig;
       return new GeminiChat(
         this.config,
@@ -461,17 +464,31 @@ export class GeminiClient {
         return null;
       }
 
-      if (tokenCount < 0.95 * limit) {
+      if (tokenCount < (0.95 * limit)) {
         return null;
       }
     }
 
-    const summarizationRequestMessage = {
-      text: 'Summarize our conversation up to this point. The summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.',
+    // Create an ISOLATED chat session for compression.
+    const summarizationSystemPrompt = {
+      text: getCompressionPrompt(),
     };
-    const response = await this.getChat().sendMessage({
-      message: summarizationRequestMessage,
+
+    // Override the system prompt for this specific session to focus on the compression.
+    const summarizationChat = new GeminiChat(this.config, this.getContentGenerator(), this.model, { systemInstruction: summarizationSystemPrompt, ...this.generateContentConfig, }, history,);
+    
+    const summarizationResponse = await summarizationChat.sendMessage({
+      message: { text: "Please generate the <state_snapshot> now."},
     });
+
+    const responseText = getResponseText(summarizationResponse);
+    const snapshotStart = responseText.indexOf('<state_snapshot>');
+    const snapshotEnd = responseText.lastIndexOf('</state_snapshot>');
+    const snapshotXml =
+      snapshotStart !== -1 && snapshotEnd !== -1
+        ? responseText.substring(snapshotStart, snapshotEnd + '</state_snapshot>'.length)
+        : `<state_snapshot><overall_goal>Error: Summary generation failed or produced invalid format.</overall_goal></state_snapshot>`;
+
     const newHistory = [
       {
         role: 'user',
@@ -492,9 +509,9 @@ export class GeminiClient {
 
     return originalTokenCount && newTokenCount
       ? {
-          originalTokenCount,
-          newTokenCount,
-        }
+        originalTokenCount,
+        newTokenCount,
+      }
       : null;
   }
 
