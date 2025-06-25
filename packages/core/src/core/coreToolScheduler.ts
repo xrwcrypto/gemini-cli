@@ -17,6 +17,7 @@ import {
   Config,
   logToolCall,
   ToolCallEvent,
+  GeminiClient,
 } from '../index.js';
 import { Part, PartListUnion } from '@google/genai';
 import { getResponseTextFromParts } from '../utils/generateContentResponseUtilities.js';
@@ -25,6 +26,7 @@ import {
   ModifyContext,
   modifyWithEditor,
 } from '../tools/modifiable-tool.js';
+import { summarizeText, summarizeText } from '../utils/promptSummarizer.js';
 
 export type ValidatingToolCall = {
   status: 'validating';
@@ -138,11 +140,19 @@ export function convertToFunctionResponse(
   toolName: string,
   callId: string,
   llmContent: PartListUnion,
+  geminiClient: GeminiClient,
+  abortSignal: AbortSignal,
 ): PartListUnion {
   const contentToProcess =
     Array.isArray(llmContent) && llmContent.length === 1
       ? llmContent[0]
       : llmContent;
+
+  // Testing summarization
+  const contentToSummarize = getResponseTextFromParts(contentToProcess as Part[]);
+  if (contentToSummarize) {
+    summarizeText(contentToSummarize, 100, geminiClient, abortSignal);
+  }
 
   if (typeof contentToProcess === 'string') {
     return createFunctionResponsePart(callId, toolName, contentToProcess);
@@ -609,11 +619,15 @@ export class CoreToolScheduler {
               );
               return;
             }
+            const geminiClient = this.config.getGeminiClient();
+            const abortSignal = signal;
 
             const response = convertToFunctionResponse(
               toolName,
               callId,
               toolResult.llmContent,
+              geminiClient,
+              abortSignal,
             );
 
             const successResponse: ToolCallResponseInfo = {

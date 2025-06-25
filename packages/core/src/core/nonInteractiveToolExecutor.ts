@@ -14,6 +14,7 @@ import {
 import { Config } from '../config/config.js';
 import { convertToFunctionResponse } from './coreToolScheduler.js';
 
+
 /**
  * Executes a single tool call non-interactively.
  * It does not handle confirmations, multiple calls, or live updates.
@@ -81,6 +82,8 @@ export async function executeToolCall(
       toolCallRequest.name,
       toolCallRequest.callId,
       toolResult.llmContent,
+      config.getGeminiClient(),
+      effectiveAbortSignal,
     );
 
     return {
