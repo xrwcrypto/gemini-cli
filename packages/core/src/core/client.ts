@@ -45,6 +45,59 @@ function isThinkingSupported(model: string) {
   return false;
 }
 
+/**
+ * Determines if chat history compression should be performed.
+ *
+ * @param force - Whether to force compression regardless of token count.
+ * @param originalTokenCount - The current token count of the chat history.
+ * @param limit - The token limit for the model.
+ * @param model - The name of the model, used for logging.
+ * @returns `true` if compression should proceed, `false` otherwise.
+ */
+function shouldCompress(
+  force: boolean,
+  originalTokenCount: number | undefined,
+  limit: number | undefined,
+  model: string,
+): boolean {
+  if (force) {
+    return true;
+  }
+
+  if (originalTokenCount === undefined) {
+    console.warn(
+      `Could not determine token count for model ${model}. Skipping compression check.`,
+    );
+    return false;
+  }
+
+  if (!limit) {
+    console.warn(
+      `No token limit defined for model ${model}. Skipping compression check.`,
+    );
+    return false;
+  }
+
+  return originalTokenCount >= 0.95 * limit;
+}
+
+/**
+ * Generates the text for the summarization prompt based on whether a token
+ * limit is available.
+ *
+ * @param limit - The optional token limit for the model.
+ * @returns The summarization prompt string.
+ */
+function getSummarizationPromptText(limit?: number): string {
+  if (limit) {
+    const targetTokenCount = Math.floor(limit * 0.6);
+    return `Our conversation history is approaching its token limit of ${limit} tokens. Please summarize our conversation up to this point.\n\nThe summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed.\n\n**CRITICAL**: The new history, which will consist of this request and your summary, MUST have a total token count of around ${targetTokenCount} tokens. Please generate a summary of appropriate length to meet this target.\n\nThis summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.`;
+  }
+
+  // Generic prompt for when limit is not available (only in force=true case).
+  return `Summarize our conversation up to this point. The summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.`;
+}
+
 export class GeminiClient {
   private chat?: GeminiChat;
   private contentGenerator?: ContentGenerator;
@@ -428,9 +481,7 @@ export class GeminiClient {
   async tryCompressChat(
     force: boolean = false,
   ): Promise<ChatCompressionInfo | null> {
-    const history = this.getChat().getHistory(true); // Get curated history
-
-    // Regardless of `force`, don't do anything if the history is empty.
+    const history = this.getChat().getHistory(true);
     if (history.length === 0) {
       return null;
     }
@@ -441,37 +492,21 @@ export class GeminiClient {
         contents: history,
       });
 
-    // If not forced, check if we should compress based on context size.
-    if (!force) {
-      if (originalTokenCount === undefined) {
-        // If token count is undefined, we can't determine if we need to compress.
-        console.warn(
-          `Could not determine token count for model ${this.model}. Skipping compression check.`,
-        );
-        return null;
-      }
-      const tokenCount = originalTokenCount; // Now guaranteed to be a number
+    const limit = tokenLimit(this.model);
 
-      const limit = tokenLimit(this.model);
-      if (!limit) {
-        // If no limit is defined for the model, we can't compress.
-        console.warn(
-          `No token limit defined for model ${this.model}. Skipping compression check.`,
-        );
-        return null;
-      }
-
-      if (tokenCount < 0.95 * limit) {
-        return null;
-      }
+    if (!shouldCompress(force, originalTokenCount, limit, this.model)) {
+      return null;
     }
 
+    const summarizationRequestMessageText = getSummarizationPromptText(limit);
     const summarizationRequestMessage = {
-      text: 'Summarize our conversation up to this point. The summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.',
+      text: summarizationRequestMessageText,
     };
+
     const response = await this.getChat().sendMessage({
       message: summarizationRequestMessage,
     });
+
     const newHistory = [
       {
         role: 'user',
@@ -482,13 +517,14 @@ export class GeminiClient {
         parts: [{ text: response.text }],
       },
     ];
+
     this.chat = await this.startChat(newHistory);
-    const newTokenCount = (
+
+    const { totalTokens: newTokenCount } =
       await this.getContentGenerator().countTokens({
         model: this.model,
         contents: newHistory,
-      })
-    ).totalTokens;
+      });
 
     return originalTokenCount && newTokenCount
       ? {
