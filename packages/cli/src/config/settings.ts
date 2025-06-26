@@ -211,94 +211,59 @@ function validateSettings(
   return invalidKeys;
 }
 
+function loadSettingsFromFile(
+  settingsPath: string,
+  errors: SettingsError[],
+): Settings {
+  let settings: Settings = {};
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const content = fs.readFileSync(settingsPath, 'utf-8');
+      const parsedSettings = JSON.parse(stripJsonComments(content)) as Settings;
+
+      const invalidKeys = validateSettings(parsedSettings, validSettingKeys);
+      if (invalidKeys.length > 0) {
+        errors.push({
+          message: `Invalid settings found: ${invalidKeys.join(', ')}`,
+          path: settingsPath,
+        });
+      }
+
+      settings = resolveEnvVarsInObject(parsedSettings);
+      // Support legacy theme names
+      if (settings.theme && settings.theme === 'VS') {
+        settings.theme = DefaultLight.name;
+      } else if (settings.theme && settings.theme === 'VS2015') {
+        settings.theme = DefaultDark.name;
+      }
+    }
+  } catch (error: unknown) {
+    errors.push({
+      message: getErrorMessage(error),
+      path: settingsPath,
+    });
+  }
+  return settings;
+}
+
 /**
  * Loads settings from user and workspace directories.
  * Project settings override user settings.
  */
 export function loadSettings(workspaceDir: string): LoadedSettings {
-  let userSettings: Settings = {};
-  let workspaceSettings: Settings = {};
   const settingsErrors: SettingsError[] = [];
 
-  // Load user settings
-  try {
-    if (fs.existsSync(USER_SETTINGS_PATH)) {
-      const userContent = fs.readFileSync(USER_SETTINGS_PATH, 'utf-8');
-      const parsedUserSettings = JSON.parse(
-        stripJsonComments(userContent),
-      ) as Settings;
-
-      const invalidUserSettingsKeys = validateSettings(
-        parsedUserSettings,
-        validSettingKeys,
-      );
-      if (invalidUserSettingsKeys.length > 0) {
-        settingsErrors.push({
-          message: `Invalid settings found: ${invalidUserSettingsKeys.join(
-            ', ',
-          )}`,
-          path: USER_SETTINGS_PATH,
-        });
-      }
-
-      userSettings = resolveEnvVarsInObject(parsedUserSettings);
-      // Support legacy theme names
-      if (userSettings.theme && userSettings.theme === 'VS') {
-        userSettings.theme = DefaultLight.name;
-      } else if (userSettings.theme && userSettings.theme === 'VS2015') {
-        userSettings.theme = DefaultDark.name;
-      }
-    }
-  } catch (error: unknown) {
-    settingsErrors.push({
-      message: getErrorMessage(error),
-      path: USER_SETTINGS_PATH,
-    });
-  }
+  const userSettings = loadSettingsFromFile(USER_SETTINGS_PATH, settingsErrors);
 
   const workspaceSettingsPath = path.join(
     workspaceDir,
     SETTINGS_DIRECTORY_NAME,
     'settings.json',
   );
-
-  // Load workspace settings
-  try {
-    if (fs.existsSync(workspaceSettingsPath)) {
-      const projectContent = fs.readFileSync(workspaceSettingsPath, 'utf-8');
-      const parsedWorkspaceSettings = JSON.parse(
-        stripJsonComments(projectContent),
-      ) as Settings;
-
-      const invalidWorkspaceSettingsKeys = validateSettings(
-        parsedWorkspaceSettings,
-        validSettingKeys,
-      );
-      if (invalidWorkspaceSettingsKeys.length > 0) {
-        settingsErrors.push({
-          message: `Invalid settings found: ${invalidWorkspaceSettingsKeys.join(
-            ', ',
-          )}`,
-          path: workspaceSettingsPath,
-        });
-      }
-
-      workspaceSettings = resolveEnvVarsInObject(parsedWorkspaceSettings);
-      if (workspaceSettings.theme && workspaceSettings.theme === 'VS') {
-        workspaceSettings.theme = DefaultLight.name;
-      } else if (
-        workspaceSettings.theme &&
-        workspaceSettings.theme === 'VS2015'
-      ) {
-        workspaceSettings.theme = DefaultDark.name;
-      }
-    }
-  } catch (error: unknown) {
-    settingsErrors.push({
-      message: getErrorMessage(error),
-      path: workspaceSettingsPath,
-    });
-  }
+  const workspaceSettings = loadSettingsFromFile(
+    workspaceSettingsPath,
+    settingsErrors,
+  );
 
   return new LoadedSettings(
     {
