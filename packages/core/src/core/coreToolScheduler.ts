@@ -26,7 +26,7 @@ import {
   ModifyContext,
   modifyWithEditor,
 } from '../tools/modifiable-tool.js';
-import { summarizeText, summarizeText } from '../utils/promptSummarizer.js';
+import { summarizeText } from '../utils/promptSummarizer.js';
 
 export type ValidatingToolCall = {
   status: 'validating';
@@ -136,26 +136,25 @@ function createFunctionResponsePart(
   };
 }
 
-export function convertToFunctionResponse(
+export async function convertToFunctionResponse(
   toolName: string,
   callId: string,
   llmContent: PartListUnion,
   geminiClient: GeminiClient,
   abortSignal: AbortSignal,
-): PartListUnion {
+): Promise<PartListUnion> {
+  console.log("Converting to function response");
   const contentToProcess =
     Array.isArray(llmContent) && llmContent.length === 1
       ? llmContent[0]
       : llmContent;
 
   // Testing summarization
-  const contentToSummarize = getResponseTextFromParts(contentToProcess as Part[]);
-  if (contentToSummarize) {
-    summarizeText(contentToSummarize, 100, geminiClient, abortSignal);
-  }
-
-  if (typeof contentToProcess === 'string') {
-    return createFunctionResponsePart(callId, toolName, contentToProcess);
+  // const contentToSummarize = getResponseTextFromParts(contentToProcess as Part[]);
+  console.log(typeof contentToProcess);
+  if (typeof contentToProcess === 'string' ) {
+    const summarizedContent = await summarizeText(contentToProcess, geminiClient, abortSignal)
+    return createFunctionResponsePart(callId, toolName, summarizedContent?.summary || '');
   }
 
   if (Array.isArray(contentToProcess)) {

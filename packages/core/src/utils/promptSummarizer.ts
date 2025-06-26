@@ -9,6 +9,13 @@ import { GeminiClient } from '../core/client.js';
 
 const SUMMARIZE_PROMPT_TEMPLATE = `Summarize the following text to be a maximum of {maxLength} characters. The summary should be concise and capture the main points of the text.
 
+The summarization should be done based on the content that is provided. Here are the basic rules to follow:
+1. If the text is a directory listing or any output that is structural, truncate the tool output.
+2. If the text is file content, summarize the file content.
+3. If the text is a list of files, truncate the list of files.
+4. For any other text, summarize the text.
+
+
 Text to summarize:
 "{textToSummarize}"
 
@@ -44,14 +51,17 @@ export interface SummarizationResponse {
 
 export async function summarizeText(
   textToSummarize: string,
-  maxLength: number,
   geminiClient: GeminiClient,
   abortSignal: AbortSignal,
+  maxLength: number = 10000,
 ): Promise<SummarizationResponse | null> {
   if (!textToSummarize) {
     return null;
   }
-
+  if (textToSummarize.length < maxLength) {
+    return { summary: textToSummarize };
+  }
+  console.log(textToSummarize);
   const prompt = SUMMARIZE_PROMPT_TEMPLATE.replace(
     '{maxLength}',
     String(maxLength),
