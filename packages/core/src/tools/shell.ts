@@ -53,9 +53,20 @@ Process Group PGID: Process group started or \`(none)\``,
       {
         type: 'object',
         properties: {
-          command: { type: 'string', description: 'Exact bash command to execute as `bash -c <command>`' },
-          description: { type: 'string', description: 'Brief description of the command for the user. Be specific and concise. Ideally a single sentence. Can be up to 3 sentences for clarity. No line breaks.' },
-          directory: { type: 'string', description: '(OPTIONAL) Directory to run the command in, if not the project root directory. Must be relative to the project root directory and must already exist.' },
+          command: {
+            type: 'string',
+            description: 'Exact bash command to execute as `bash -c <command>`',
+          },
+          description: {
+            type: 'string',
+            description:
+              'Brief description of the command for the user. Be specific and concise. Ideally a single sentence. Can be up to 3 sentences for clarity. No line breaks.',
+          },
+          directory: {
+            type: 'string',
+            description:
+              '(OPTIONAL) Directory to run the command in, if not the project root directory. Must be relative to the project root directory and must already exist.',
+          },
         },
         required: ['command'],
       },
