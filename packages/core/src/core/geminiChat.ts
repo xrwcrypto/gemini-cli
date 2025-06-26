@@ -34,7 +34,10 @@ import {
   ApiRequestEvent,
   ApiResponseEvent,
 } from '../telemetry/types.js';
-import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import {
+  DEFAULT_GEMINI_FLASH_MODEL,
+  DEFAULT_GEMINI_MODEL,
+} from '../config/models.js';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -87,9 +90,9 @@ function validateHistory(history: Content[]) {
  * Extracts the curated (valid) history from a comprehensive history.
  *
  * @remarks
- * The model may sometimes generate invalid or empty contents(e.g., due to safty
+ * The model may sometimes generate invalid or empty contents(e.g., due to safety
  * filters or recitation). Extracting valid turns from the history
- * ensures that subsequent requests could be accpeted by the model.
+ * ensures that subsequent requests could be accepted by the model.
  */
 function extractCuratedHistory(comprehensiveHistory: Content[]): Content[] {
   if (comprehensiveHistory === undefined || comprehensiveHistory.length === 0) {
@@ -138,7 +141,6 @@ export class GeminiChat {
   constructor(
     private readonly config: Config,
     private readonly contentGenerator: ContentGenerator,
-    private readonly model: string,
     private readonly generationConfig: GenerateContentConfig = {},
     private history: Content[] = [],
   ) {
@@ -168,7 +170,12 @@ export class GeminiChat {
   ): Promise<void> {
     logApiResponse(
       this.config,
-      new ApiResponseEvent(this.model, durationMs, usageMetadata, responseText),
+      new ApiResponseEvent(
+        this.config.getModel(),
+        durationMs,
+        usageMetadata,
+        responseText,
+      ),
     );
   }
 
@@ -178,7 +185,12 @@ export class GeminiChat {
 
     logApiError(
       this.config,
-      new ApiErrorEvent(this.model, errorMessage, durationMs, errorType),
+      new ApiErrorEvent(
+        this.config.getModel(),
+        errorMessage,
+        durationMs,
+        errorType,
+      ),
     );
   }
 
@@ -188,14 +200,11 @@ export class GeminiChat {
    */
   private async handleFlashFallback(authType?: string): Promise<string | null> {
     // Only handle fallback for OAuth users
-    if (
-      authType !== AuthType.LOGIN_WITH_GOOGLE_PERSONAL &&
-      authType !== AuthType.LOGIN_WITH_GOOGLE_ENTERPRISE
-    ) {
+    if (authType !== AuthType.LOGIN_WITH_GOOGLE_PERSONAL) {
       return null;
     }
 
-    const currentModel = this.model;
+    const currentModel = this.config.getModel();
     const fallbackModel = DEFAULT_GEMINI_FLASH_MODEL;
 
     // Don't fallback if already using Flash model
@@ -247,7 +256,7 @@ export class GeminiChat {
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
 
-    this._logApiRequest(requestContents, this.model);
+    this._logApiRequest(requestContents, this.config.getModel());
 
     const startTime = Date.now();
     let response: GenerateContentResponse;
@@ -255,12 +264,23 @@ export class GeminiChat {
     try {
       const apiCall = () =>
         this.contentGenerator.generateContent({
-          model: this.model,
+          model: this.config.getModel() || DEFAULT_GEMINI_FLASH_MODEL,
           contents: requestContents,
           config: { ...this.generationConfig, ...params.config },
         });
 
-      response = await retryWithBackoff(apiCall);
+      response = await retryWithBackoff(apiCall, {
+        shouldRetry: (error: Error) => {
+          if (error && error.message) {
+            if (error.message.includes('429')) return true;
+            if (error.message.match(/5\d{2}/)) return true;
+          }
+          return false;
+        },
+        onPersistent429: async (authType?: string) =>
+          await this.handleFlashFallback(authType),
+        authType: this.config.getContentGeneratorConfig()?.authType,
+      });
       const durationMs = Date.now() - startTime;
       await this._logApiResponse(
         durationMs,
@@ -329,14 +349,20 @@ export class GeminiChat {
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
-    this._logApiRequest(requestContents, this.model);
+
+    const model = await this._selectModel(
+      requestContents,
+      params.config?.abortSignal ?? new AbortController().signal,
+    );
+
+    this._logApiRequest(requestContents, model);
 
     const startTime = Date.now();
 
     try {
       const apiCall = () =>
         this.contentGenerator.generateContentStream({
-          model: this.model,
+          model,
           contents: requestContents,
           config: { ...this.generationConfig, ...params.config },
         });
@@ -377,6 +403,82 @@ export class GeminiChat {
       this._logApiError(durationMs, error);
       this.sendPromise = Promise.resolve();
       throw error;
+    }
+  }
+
+  /**
+   * Selects the model to use for the request.
+   *
+   * This is a placeholder for now.
+   */
+  private async _selectModel(
+    history: Content[],
+    signal: AbortSignal,
+  ): Promise<string> {
+    const currentModel = this.config.getModel();
+    if (currentModel === DEFAULT_GEMINI_FLASH_MODEL) {
+      return DEFAULT_GEMINI_FLASH_MODEL;
+    }
+
+    if (
+      history.length < 5 &&
+      this.config.getContentGeneratorConfig().authType === AuthType.USE_GEMINI
+    ) {
+      // There's currently a bug where for Gemini API key usage if we try and use flash as one of the first
+      // requests in our sequence that it will return an empty token.
+      return DEFAULT_GEMINI_MODEL;
+    }
+
+    const flashIndicator = 'flash';
+    const proIndicator = 'pro';
+    const modelChoicePrompt = `You are a super-intelligent router that decides which model to use for a given request. You have two models to choose from: "${flashIndicator}" and "${proIndicator}". "${flashIndicator}" is a smaller and faster model that is good for simple or well defined requests. "${proIndicator}" is a larger and slower model that is good for complex or undefined requests.
+
+Based on the user request, which model should be used? Respond with a JSON object that contains a single field, \`model\`, whose value is the name of the model to be used.
+
+For example, if you think "${flashIndicator}" should be used, respond with: { "model": "${flashIndicator}" }`;
+    const modelChoiceContent: Content[] = [
+      {
+        role: 'user',
+        parts: [{ text: modelChoicePrompt }],
+      },
+    ];
+
+    const client = this.config.getGeminiClient();
+    try {
+      const choice = await client.generateJson(
+        [...history, ...modelChoiceContent],
+        {
+          type: 'object',
+          properties: {
+            model: {
+              type: 'string',
+              enum: [flashIndicator, proIndicator],
+            },
+          },
+          required: ['model'],
+        },
+        signal,
+        DEFAULT_GEMINI_FLASH_MODEL,
+        {
+          temperature: 0,
+          maxOutputTokens: 25,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+        },
+      );
+
+      switch (choice.model) {
+        case flashIndicator:
+          return DEFAULT_GEMINI_FLASH_MODEL;
+        case proIndicator:
+          return DEFAULT_GEMINI_MODEL;
+        default:
+          return currentModel;
+      }
+    } catch (_e) {
+      // If the model selection fails, just use the default flash model.
+      return DEFAULT_GEMINI_FLASH_MODEL;
     }
   }
 
