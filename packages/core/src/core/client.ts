@@ -466,29 +466,86 @@ export class GeminiClient {
       }
     }
 
-    const summarizationRequestMessage = {
-      text: 'Summarize our conversation up to this point. The summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.',
+    const chatSummarySchema = {
+      type: 'OBJECT',
+      properties: {
+        user_goal: {
+          type: 'STRING',
+          description:
+            "A concise summary of the user's main objective in the conversation.",
+        },
+        files_modified: {
+          type: 'ARRAY',
+          items: {
+            type: 'STRING',
+          },
+          description:
+            'A list of file paths that have been modified during the conversation.',
+        },
+        key_decisions: {
+          type: 'ARRAY',
+          items: {
+            type: 'STRING',
+          },
+          description: 'A list of key decisions made during the conversation.',
+        },
+        open_questions: {
+          type: 'ARRAY',
+          items: {
+            type: 'STRING',
+          },
+          description: 'A list of any open questions that remain unresolved.',
+        },
+      },
+      required: [
+        'user_goal',
+        'files_modified',
+        'key_decisions',
+        'open_questions',
+      ],
     };
-    const response = await this.getChat().sendMessage({
-      message: summarizationRequestMessage,
-    });
-    const newHistory = [
+
+    const summarizationRequest: Content[] = [
+      ...history,
       {
         role: 'user',
-        parts: [summarizationRequestMessage],
+        parts: [
+          {
+            text: 'Summarize our conversation up to this point into a structured JSON object. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.',
+          },
+        ],
+      },
+    ];
+
+    const summaryJson = await this.generateJson(
+      summarizationRequest,
+      chatSummarySchema,
+      new AbortController().signal,
+    );
+
+    const summaryText = JSON.stringify(summaryJson);
+
+    const newHistory: Content[] = [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: 'The previous conversation history has been summarized to conserve tokens. Here is the summary in JSON format.',
+          },
+        ],
       },
       {
         role: 'model',
-        parts: [{ text: response.text }],
+        parts: [{ text: summaryText }],
       },
     ];
+
     this.chat = await this.startChat(newHistory);
-    const newTokenCount = (
+    const { totalTokens: newTokenCount } =
       await this.getContentGenerator().countTokens({
         model: this.model,
         contents: newHistory,
-      })
-    ).totalTokens;
+      });
 
     return originalTokenCount && newTokenCount
       ? {
