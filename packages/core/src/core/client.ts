@@ -55,6 +55,7 @@ export class GeminiClient {
     topP: 1,
   };
   private readonly MAX_TURNS = 100;
+  private readonly TOKEN_SUMMARIZATION_THRESHOLD = 0.7;
 
   constructor(private config: Config) {
     if (config.getProxy()) {
@@ -461,7 +462,7 @@ export class GeminiClient {
         return null;
       }
 
-      if (tokenCount < 0.95 * limit) {
+      if (tokenCount < this.TOKEN_SUMMARIZATION_THRESHOLD * limit) {
         return null;
       }
     }
