@@ -78,7 +78,7 @@ export async function executeToolCall(
       success: true,
     });
 
-    const response = convertToFunctionResponse(
+    const response = await convertToFunctionResponse(
       toolCallRequest.name,
       toolCallRequest.callId,
       toolResult.llmContent,

@@ -149,8 +149,6 @@ export async function convertToFunctionResponse(
       ? llmContent[0]
       : llmContent;
 
-  // Testing summarization
-  // const contentToSummarize = getResponseTextFromParts(contentToProcess as Part[]);
   console.log(typeof contentToProcess);
   if (typeof contentToProcess === 'string' ) {
     const summarizedContent = await summarizeText(contentToProcess, geminiClient, abortSignal)
@@ -204,21 +202,30 @@ export async function convertToFunctionResponse(
   );
 }
 
-const createErrorResponse = (
+const createErrorResponse = async (
   request: ToolCallRequestInfo,
   error: Error,
-): ToolCallResponseInfo => ({
-  callId: request.callId,
-  error,
-  responseParts: {
-    functionResponse: {
-      id: request.callId,
-      name: request.name,
-      response: { error: error.message },
+  geminiClient?: GeminiClient,
+  abortSignal?: AbortSignal,
+): Promise<ToolCallResponseInfo> => {
+  const summarizedContent =
+    geminiClient && abortSignal
+      ? await summarizeText(error.message, geminiClient, abortSignal, length=1000)
+      : null;
+
+  return {
+    callId: request.callId,
+    error,
+    responseParts: {
+      functionResponse: {
+        id: request.callId,
+        name: request.name,
+        response: { error: summarizedContent?.summary || error.message },
+      },
     },
-  },
-  resultDisplay: error.message,
-});
+    resultDisplay: summarizedContent?.summary || error.message,
+  };
+};
 
 interface CoreToolSchedulerOptions {
   toolRegistry: Promise<ToolRegistry>;
@@ -431,16 +438,18 @@ export class CoreToolScheduler {
     const requestsToProcess = Array.isArray(request) ? request : [request];
     const toolRegistry = await this.toolRegistry;
 
-    const newToolCalls: ToolCall[] = requestsToProcess.map(
-      (reqInfo): ToolCall => {
+    const newToolCallsPromises: Promise<ToolCall>[] = requestsToProcess.map(
+      async (reqInfo): Promise<ToolCall> => {
         const toolInstance = toolRegistry.getTool(reqInfo.name);
         if (!toolInstance) {
           return {
             status: 'error',
             request: reqInfo,
-            response: createErrorResponse(
+            response: await createErrorResponse(
               reqInfo,
               new Error(`Tool "${reqInfo.name}" not found in registry.`),
+              this.config.getGeminiClient(),
+              signal,
             ),
             durationMs: 0,
           };
@@ -453,6 +462,7 @@ export class CoreToolScheduler {
         };
       },
     );
+    const newToolCalls = await Promise.all(newToolCallsPromises);
 
     this.toolCalls = this.toolCalls.concat(newToolCalls);
     this.notifyToolCallsUpdate();
@@ -462,7 +472,8 @@ export class CoreToolScheduler {
         continue;
       }
 
-      const { request: reqInfo, tool: toolInstance } = toolCall;
+      const { request: reqInfo, tool: toolInstance } =
+        toolCall as ValidatingToolCall;
       try {
         if (this.approvalMode === ApprovalMode.YOLO) {
           this.setStatusInternal(reqInfo.callId, 'scheduled');
@@ -497,13 +508,16 @@ export class CoreToolScheduler {
         this.setStatusInternal(
           reqInfo.callId,
           'error',
-          createErrorResponse(
+          await createErrorResponse(
             reqInfo,
             error instanceof Error ? error : new Error(String(error)),
+            this.config.getGeminiClient(),
+            signal,
           ),
         );
       }
     }
+
     this.attemptExecutionOfScheduledCalls(signal);
     this.checkAndNotifyCompletion();
   }
@@ -609,7 +623,7 @@ export class CoreToolScheduler {
 
         scheduledCall.tool
           .execute(scheduledCall.request.args, signal, liveOutputCallback)
-          .then((toolResult: ToolResult) => {
+          .then(async (toolResult: ToolResult) => {
             if (signal.aborted) {
               this.setStatusInternal(
                 callId,
@@ -618,15 +632,13 @@ export class CoreToolScheduler {
               );
               return;
             }
-            const geminiClient = this.config.getGeminiClient();
-            const abortSignal = signal;
 
-            const response = convertToFunctionResponse(
+            const response = await convertToFunctionResponse(
               toolName,
               callId,
               toolResult.llmContent,
-              geminiClient,
-              abortSignal,
+              this.config.getGeminiClient(),
+              signal,
             );
 
             const successResponse: ToolCallResponseInfo = {
@@ -637,15 +649,17 @@ export class CoreToolScheduler {
             };
             this.setStatusInternal(callId, 'success', successResponse);
           })
-          .catch((executionError: Error) => {
+          .catch(async (executionError: Error) => {
             this.setStatusInternal(
               callId,
               'error',
-              createErrorResponse(
+              await createErrorResponse(
                 scheduledCall.request,
                 executionError instanceof Error
                   ? executionError
                   : new Error(String(executionError)),
+                this.config.getGeminiClient(),
+                signal,
               ),
             );
           });

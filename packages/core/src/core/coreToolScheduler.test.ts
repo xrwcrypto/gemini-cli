@@ -75,9 +75,6 @@ describe('CoreToolScheduler', () => {
     const onAllToolCallsComplete = vi.fn();
     const onToolCallsUpdate = vi.fn();
 
-    const onAllToolCallsComplete = vi.fn();
-    const onToolCallsUpdate = vi.fn();
-
     const mockConfig = await (Config as any).create({} as any);
 
     const scheduler = new CoreToolScheduler({
@@ -121,13 +118,29 @@ describe('CoreToolScheduler', () => {
   });
 });
 
+import { GeminiClient } from '../index.js';
+
 describe('convertToFunctionResponse', () => {
   const toolName = 'testTool';
   const callId = 'call1';
+  const mockGeminiClient = {
+    generateContent: vi.fn(),
+  } as unknown as GeminiClient;
+  const abortController = new AbortController();
+  const signal = abortController.signal;
 
-  it('should handle simple string llmContent', () => {
+  it('should handle simple string llmContent', async () => {
     const llmContent = 'Simple text output';
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    (mockGeminiClient.generateContent as any).mockResolvedValue({
+      text: () => llmContent,
+    });
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
@@ -137,9 +150,15 @@ describe('convertToFunctionResponse', () => {
     });
   });
 
-  it('should handle llmContent as a single Part with text', () => {
+  it('should handle llmContent as a single Part with text', async () => {
     const llmContent: Part = { text: 'Text from Part object' };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
@@ -149,9 +168,15 @@ describe('convertToFunctionResponse', () => {
     });
   });
 
-  it('should handle llmContent as a PartListUnion array with a single text Part', () => {
+  it('should handle llmContent as a PartListUnion array with a single text Part', async () => {
     const llmContent: PartListUnion = [{ text: 'Text from array' }];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
@@ -161,11 +186,17 @@ describe('convertToFunctionResponse', () => {
     });
   });
 
-  it('should handle llmContent with inlineData', () => {
+  it('should handle llmContent with inlineData', async () => {
     const llmContent: Part = {
       inlineData: { mimeType: 'image/png', data: 'base64...' },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual([
       {
         functionResponse: {
@@ -180,11 +211,17 @@ describe('convertToFunctionResponse', () => {
     ]);
   });
 
-  it('should handle llmContent with fileData', () => {
+  it('should handle llmContent with fileData', async () => {
     const llmContent: Part = {
       fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual([
       {
         functionResponse: {
@@ -199,13 +236,19 @@ describe('convertToFunctionResponse', () => {
     ]);
   });
 
-  it('should handle llmContent as an array of multiple Parts (text and inlineData)', () => {
+  it('should handle llmContent as an array of multiple Parts (text and inlineData)', async () => {
     const llmContent: PartListUnion = [
       { text: 'Some textual description' },
       { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
       { text: 'Another text part' },
     ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual([
       {
         functionResponse: {
@@ -218,11 +261,17 @@ describe('convertToFunctionResponse', () => {
     ]);
   });
 
-  it('should handle llmContent as an array with a single inlineData Part', () => {
+  it('should handle llmContent as an array with a single inlineData Part', async () => {
     const llmContent: PartListUnion = [
       { inlineData: { mimeType: 'image/gif', data: 'gifdata...' } },
     ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual([
       {
         functionResponse: {
@@ -237,9 +286,15 @@ describe('convertToFunctionResponse', () => {
     ]);
   });
 
-  it('should handle llmContent as a generic Part (not text, inlineData, or fileData)', () => {
+  it('should handle llmContent as a generic Part (not text, inlineData, or fileData)', async () => {
     const llmContent: Part = { functionCall: { name: 'test', args: {} } };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
@@ -249,9 +304,15 @@ describe('convertToFunctionResponse', () => {
     });
   });
 
-  it('should handle empty string llmContent', () => {
+  it('should handle empty string llmContent', async () => {
     const llmContent = '';
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
@@ -261,9 +322,15 @@ describe('convertToFunctionResponse', () => {
     });
   });
 
-  it('should handle llmContent as an empty array', () => {
+  it('should handle llmContent as an empty array', async () => {
     const llmContent: PartListUnion = [];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual([
       {
         functionResponse: {
@@ -275,9 +342,15 @@ describe('convertToFunctionResponse', () => {
     ]);
   });
 
-  it('should handle llmContent as a Part with undefined inlineData/fileData/text', () => {
+  it('should handle llmContent as a Part with undefined inlineData/fileData/text', async () => {
     const llmContent: Part = {}; // An empty part object
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = await convertToFunctionResponse(
+      toolName,
+      callId,
+      llmContent,
+      mockGeminiClient,
+      signal,
+    );
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
