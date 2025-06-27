@@ -961,8 +961,6 @@ describe('useGeminiStream', () => {
           description: 'Saves memory',
           getDescription: vi.fn(),
         } as any,
-        startTime: Date.now(),
-        endTime: Date.now(),
       };
 
       // Capture the onComplete callback
@@ -1038,8 +1036,6 @@ describe('useGeminiStream', () => {
           description: 'Saves memory',
           getDescription: vi.fn(),
         } as any,
-        startTime: Date.now(),
-        endTime: Date.now(),
       };
 
       // Capture the onComplete callback
