@@ -43,7 +43,7 @@ describe('summarizeToolOutput', () => {
   beforeEach(async () => {
     const mockConfig = await Config.create({} as any);
     mockGeminiClient = new (vi.mocked(GeminiClient))(mockConfig);
-    mockChat = new (vi.mocked(GeminiChat))({} as any, {} as any, 'gemini-pro');
+    mockChat = new (vi.mocked(GeminiChat))({} as any, {} as any, {} as any);
 
     vi.spyOn(mockGeminiClient, 'getChat').mockReturnValue(mockChat);
     vi.spyOn(mockChat, 'getHistory').mockReturnValue([]);
