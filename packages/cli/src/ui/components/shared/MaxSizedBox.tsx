@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { Fragment, useEffect, useId, FragmentProps } from 'react';
+import React, { Fragment, useEffect, useId } from 'react';
 import { Box, Text } from 'ink';
 import stringWidth from 'string-width';
 import { Colors } from '../../colors.js';
@@ -116,16 +116,15 @@ export const MaxSizedBox: React.FC<MaxSizedBoxProps> = ({
     throw new Error('maxWidth must be defined when maxHeight is set.');
   }
   function visitRows(element: React.ReactNode) {
-    if (!React.isValidElement(element)) {
+    if (!React.isValidElement<{ children?: React.ReactNode }>(element)) {
       return;
     }
+
     if (element.type === Fragment) {
-      React.Children.forEach(
-        (element.props as FragmentProps).children,
-        visitRows,
-      );
+      React.Children.forEach(element.props.children, visitRows);
       return;
     }
+
     if (element.type === Box) {
       layoutInkElementAsStyledText(element, maxWidth!, laidOutStyledText);
       return;
@@ -249,7 +248,10 @@ interface Row {
  * @returns An array of `Row` objects.
  */
 function visitBoxRow(element: React.ReactNode): Row {
-  if (!React.isValidElement(element) || element.type !== Box) {
+  if (
+    !React.isValidElement<{ children?: React.ReactNode }>(element) ||
+    element.type !== Box
+  ) {
     debugReportError(
       `All children of MaxSizedBox must be <Box> elements`,
       element,
@@ -334,15 +336,14 @@ function visitBoxRow(element: React.ReactNode): Row {
       return;
     }
 
-    if (!React.isValidElement(element)) {
+    if (!React.isValidElement<{ children?: React.ReactNode }>(element)) {
       debugReportError('Invalid element.', element);
       return;
     }
 
     if (element.type === Fragment) {
-      const fragmentChildren = (element.props as FragmentProps).children;
-      React.Children.forEach(fragmentChildren, (child) =>
-        visitRowChild(child, parentProps),
+      React.Children.forEach(element.props.children, (child) =>
+        visitRowChild(child, mergedProps),
       );
       return;
     }
@@ -356,7 +357,7 @@ function visitBoxRow(element: React.ReactNode): Row {
     }
 
     // Merge props from parent <Text> elements. Child props take precedence.
-    const { children, ...currentProps } = element.props as FragmentProps;
+    const { children, ...currentProps } = element.props;
     const mergedProps =
       parentProps === undefined
         ? currentProps
@@ -366,7 +367,7 @@ function visitBoxRow(element: React.ReactNode): Row {
     );
   }
 
-  React.Children.forEach((element.props as FragmentProps).children, (child) =>
+  React.Children.forEach(element.props.children, (child) =>
     visitRowChild(child, undefined),
   );
 
