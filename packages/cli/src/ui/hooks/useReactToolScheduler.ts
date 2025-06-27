@@ -64,7 +64,7 @@ export type TrackedToolCall =
   | TrackedCancelledToolCall;
 
 export function useReactToolScheduler(
-  onComplete: (tools: CompletedToolCall[]) => void | Promise<void>,
+  onComplete: (tools: CompletedToolCall[]) => void,
   config: Config,
   setPendingHistoryItem: React.Dispatch<
     React.SetStateAction<HistoryItemWithoutId | null>
@@ -107,7 +107,7 @@ export function useReactToolScheduler(
 
   const allToolCallsCompleteHandler: AllToolCallsCompleteHandler = useCallback(
     (completedToolCalls) => {
-      void onComplete(completedToolCalls);
+      onComplete(completedToolCalls);
     },
     [onComplete],
   );
