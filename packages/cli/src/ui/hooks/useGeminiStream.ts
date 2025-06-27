@@ -123,7 +123,9 @@ export const useGeminiStream = (
           );
 
           // Handle tool response submission immediately when tools complete
-          await handleCompletedTools(completedToolCallsFromScheduler as TrackedToolCall[]);
+          await handleCompletedTools(
+            completedToolCallsFromScheduler as TrackedToolCall[],
+          );
         }
       },
       config,
@@ -578,26 +580,27 @@ export const useGeminiStream = (
         return;
       }
 
-      const completedAndReadyToSubmitTools = completedToolCallsFromScheduler.filter(
-        (
-          tc: TrackedToolCall,
-        ): tc is TrackedCompletedToolCall | TrackedCancelledToolCall => {
-          const isTerminalState =
-            tc.status === 'success' ||
-            tc.status === 'error' ||
-            tc.status === 'cancelled';
+      const completedAndReadyToSubmitTools =
+        completedToolCallsFromScheduler.filter(
+          (
+            tc: TrackedToolCall,
+          ): tc is TrackedCompletedToolCall | TrackedCancelledToolCall => {
+            const isTerminalState =
+              tc.status === 'success' ||
+              tc.status === 'error' ||
+              tc.status === 'cancelled';
 
-          if (isTerminalState) {
-            const completedOrCancelledCall = tc as
-              | TrackedCompletedToolCall
-              | TrackedCancelledToolCall;
-            return (
-              completedOrCancelledCall.response?.responseParts !== undefined
-            );
-          }
-          return false;
-        },
-      );
+            if (isTerminalState) {
+              const completedOrCancelledCall = tc as
+                | TrackedCompletedToolCall
+                | TrackedCancelledToolCall;
+              return (
+                completedOrCancelledCall.response?.responseParts !== undefined
+              );
+            }
+            return false;
+          },
+        );
 
       // Finalize any client-initiated tools as soon as they are done.
       const clientTools = completedAndReadyToSubmitTools.filter(
