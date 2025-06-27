@@ -448,6 +448,7 @@ export class CoreToolScheduler {
         'Cannot schedule new tool calls while other tool calls are actively running (executing or awaiting approval).',
       );
     }
+    console.log("CALLING SCHEDULE")
     const requestsToProcess = Array.isArray(request) ? request : [request];
     const toolRegistry = await this.toolRegistry;
 
