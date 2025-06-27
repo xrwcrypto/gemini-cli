@@ -258,53 +258,45 @@ describe('Hierarchical Memory Loading (config.ts) - Placeholder Suite', () => {
   });
 
   it('should pass extension context file paths to loadServerHierarchicalMemory', async () => {
-    const originalGeminiDebug = process.env.GEMINI_DEBUG;
-    try {
-      // Unset the env var to ensure the test is not flaky
-      delete process.env.GEMINI_DEBUG;
-
-      process.argv = ['node', 'script.js'];
-      const settings: Settings = {};
-      const extensions: Extension[] = [
-        {
-          config: {
-            name: 'ext1',
-            version: '1.0.0',
-          },
-          contextFiles: ['/path/to/ext1/GEMINI.md'],
+    process.argv = ['node', 'script.js'];
+    const settings: Settings = {};
+    const extensions: Extension[] = [
+      {
+        config: {
+          name: 'ext1',
+          version: '1.0.0',
         },
-        {
-          config: {
-            name: 'ext2',
-            version: '1.0.0',
-          },
-          contextFiles: [],
+        contextFiles: ['/path/to/ext1/GEMINI.md'],
+      },
+      {
+        config: {
+          name: 'ext2',
+          version: '1.0.0',
         },
-        {
-          config: {
-            name: 'ext3',
-            version: '1.0.0',
-          },
-          contextFiles: [
-            '/path/to/ext3/context1.md',
-            '/path/to/ext3/context2.md',
-          ],
+        contextFiles: [],
+      },
+      {
+        config: {
+          name: 'ext3',
+          version: '1.0.0',
         },
-      ];
-      await loadCliConfig(settings, extensions, 'session-id');
-      expect(ServerConfig.loadServerHierarchicalMemory).toHaveBeenCalledWith(
-        expect.any(String),
-        false,
-        expect.any(Object),
-        [
-          '/path/to/ext1/GEMINI.md',
+        contextFiles: [
           '/path/to/ext3/context1.md',
           '/path/to/ext3/context2.md',
         ],
-      );
-    } finally {
-      process.env.GEMINI_DEBUG = originalGeminiDebug;
-    }
+      },
+    ];
+    await loadCliConfig(settings, extensions, 'session-id');
+    expect(ServerConfig.loadServerHierarchicalMemory).toHaveBeenCalledWith(
+      expect.any(String),
+      false,
+      expect.any(Object),
+      [
+        '/path/to/ext1/GEMINI.md',
+        '/path/to/ext3/context1.md',
+        '/path/to/ext3/context2.md',
+      ],
+    );
   });
 
   // NOTE TO FUTURE DEVELOPERS:
