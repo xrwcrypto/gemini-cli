@@ -58,6 +58,7 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
+    "@babel/runtime": "^7.27.6",
     "@types/command-exists": "^1.2.3",
     "@types/diff": "^7.0.2",
     "@types/dotenv": "^6.1.1",
@@ -68,6 +69,8 @@
     "@types/yargs": "^17.0.32",
     "ink-testing-library": "^4.0.0",
     "jsdom": "^26.1.0",
+    "react-dom": "^19.1.0",
+    "pretty-format": "^30.0.2",
     "typescript": "^5.3.3",
     "vitest": "^3.1.1"
   },
