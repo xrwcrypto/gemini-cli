@@ -467,12 +467,19 @@ export class CoreToolScheduler {
             const originalOnConfirm = confirmationDetails.onConfirm;
             const wrappedConfirmationDetails: ToolCallConfirmationDetails = {
               ...confirmationDetails,
-              onConfirm: (outcome: ToolConfirmationOutcome) =>
+              onConfirm: (
+                outcome: ToolConfirmationOutcome,
+                payload?: {
+                  updatedParams: Record<string, unknown>;
+                  updatedDiff: string;
+                },
+              ) =>
                 this.handleConfirmationResponse(
                   reqInfo.callId,
                   originalOnConfirm,
                   outcome,
                   signal,
+                  payload,
                 ),
             };
             this.setStatusInternal(
@@ -501,16 +508,26 @@ export class CoreToolScheduler {
 
   async handleConfirmationResponse(
     callId: string,
-    originalOnConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>,
+    originalOnConfirm: (
+      outcome: ToolConfirmationOutcome,
+      payload?: {
+        updatedParams: Record<string, unknown>;
+        updatedDiff: string;
+      },
+    ) => Promise<void>,
     outcome: ToolConfirmationOutcome,
     signal: AbortSignal,
+    payload?: {
+      updatedParams: Record<string, unknown>;
+      updatedDiff: string;
+    },
   ): Promise<void> {
     const toolCall = this.toolCalls.find(
       (c) => c.request.callId === callId && c.status === 'awaiting_approval',
     );
 
     if (toolCall && toolCall.status === 'awaiting_approval') {
-      await originalOnConfirm(outcome);
+      await originalOnConfirm(outcome, payload);
     }
 
     this.toolCalls = this.toolCalls.map((call) => {
@@ -557,6 +574,18 @@ export class CoreToolScheduler {
         } as ToolCallConfirmationDetails);
       }
     } else {
+      const waitingToolCall = toolCall as WaitingToolCall;
+      if (
+        payload &&
+        waitingToolCall.confirmationDetails.type === 'edit' &&
+        isModifiableTool(waitingToolCall.tool)
+      ) {
+        this.setArgsInternal(callId, payload.updatedParams);
+        this.setStatusInternal(callId, 'awaiting_approval', {
+          ...waitingToolCall.confirmationDetails,
+          fileDiff: payload.updatedDiff,
+        });
+      }
       this.setStatusInternal(callId, 'scheduled');
     }
     this.attemptExecutionOfScheduledCalls(signal);

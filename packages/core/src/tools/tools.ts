@@ -199,7 +199,13 @@ export interface FileDiff {
 export interface ToolEditConfirmationDetails {
   type: 'edit';
   title: string;
-  onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
+  onConfirm: (
+    outcome: ToolConfirmationOutcome,
+    payload?: {
+      updatedParams: Record<string, unknown>;
+      updatedDiff: string;
+    },
+  ) => Promise<void>;
   fileName: string;
   fileDiff: string;
   isModifying?: boolean;
