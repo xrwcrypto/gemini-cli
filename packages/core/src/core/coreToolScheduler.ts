@@ -26,7 +26,7 @@ import {
   ModifyContext,
   modifyWithEditor,
 } from '../tools/modifiable-tool.js';
-import { summarizeText } from '../utils/promptSummarizer.js';
+import { summarizeToolOutput } from '../utils/promptSummarizer.js';
 
 export type ValidatingToolCall = {
   status: 'validating';
@@ -140,19 +140,27 @@ export async function convertToFunctionResponse(
   toolName: string,
   callId: string,
   llmContent: PartListUnion,
-  geminiClient: GeminiClient,
+  config: Config,
   abortSignal: AbortSignal,
 ): Promise<PartListUnion> {
-  console.log("Converting to function response");
   const contentToProcess =
     Array.isArray(llmContent) && llmContent.length === 1
       ? llmContent[0]
       : llmContent;
 
-  console.log(typeof contentToProcess);
-  if (typeof contentToProcess === 'string' ) {
-    const summarizedContent = await summarizeText(contentToProcess, geminiClient, abortSignal)
-    return createFunctionResponsePart(callId, toolName, summarizedContent?.summary || '');
+  const geminiClient = config.getGeminiClient();
+  const coreTools =
+    (await config.getToolRegistry()).getAllTools().map((t) => t.name) || [];
+  if (typeof contentToProcess === 'string') {
+    if (toolName === 'run_shell_command' || !coreTools.includes(toolName)) {
+      const summarizedContent = await summarizeToolOutput(
+        contentToProcess,
+        geminiClient,
+        abortSignal,
+      );
+      return createFunctionResponsePart(callId, toolName, summarizedContent);
+    }
+    return createFunctionResponsePart(callId, toolName, contentToProcess);
   }
 
   if (Array.isArray(contentToProcess)) {
@@ -210,7 +218,12 @@ const createErrorResponse = async (
 ): Promise<ToolCallResponseInfo> => {
   const summarizedContent =
     geminiClient && abortSignal
-      ? await summarizeText(error.message, geminiClient, abortSignal, length=1000)
+      ? await summarizeToolOutput(
+          error.message,
+          geminiClient,
+          abortSignal,
+          (length = 1000),
+        )
       : null;
 
   return {
@@ -220,10 +233,10 @@ const createErrorResponse = async (
       functionResponse: {
         id: request.callId,
         name: request.name,
-        response: { error: summarizedContent?.summary || error.message },
+        response: { error: summarizedContent || error.message },
       },
     },
-    resultDisplay: summarizedContent?.summary || error.message,
+    resultDisplay: summarizedContent || error.message,
   };
 };
 
@@ -438,8 +451,8 @@ export class CoreToolScheduler {
     const requestsToProcess = Array.isArray(request) ? request : [request];
     const toolRegistry = await this.toolRegistry;
 
-    const newToolCallsPromises: Promise<ToolCall>[] = requestsToProcess.map(
-      async (reqInfo): Promise<ToolCall> => {
+    const newToolCallsPromises: Array<Promise<ToolCall>> =
+      requestsToProcess.map(async (reqInfo): Promise<ToolCall> => {
         const toolInstance = toolRegistry.getTool(reqInfo.name);
         if (!toolInstance) {
           return {
@@ -460,8 +473,7 @@ export class CoreToolScheduler {
           tool: toolInstance,
           startTime: Date.now(),
         };
-      },
-    );
+      });
     const newToolCalls = await Promise.all(newToolCallsPromises);
 
     this.toolCalls = this.toolCalls.concat(newToolCalls);
@@ -637,7 +649,7 @@ export class CoreToolScheduler {
               toolName,
               callId,
               toolResult.llmContent,
-              this.config.getGeminiClient(),
+              this.config,
               signal,
             );
 

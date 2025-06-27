@@ -4,20 +4,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Content, PartListUnion, SchemaUnion, Type } from '@google/genai';
+import { Content, SchemaUnion, Type } from '@google/genai';
 import { GeminiClient } from '../core/client.js';
 
-const SUMMARIZE_PROMPT_TEMPLATE = `Summarize the following text to be a maximum of {maxLength} characters. The summary should be concise and capture the main points of the text.
+const SUMMARIZE_TOOL_OUTPUT_TEMPLATE = `Summarize the following tool output to be a maximum of {maxLength} characters. The summary should be concise and capture the main points of the tool output.
 
 The summarization should be done based on the content that is provided. Here are the basic rules to follow:
-1. If the text is a directory listing or any output that is structural, truncate the tool output.
-2. If the text is file content, summarize the file content.
-3. If the text is a list of files, truncate the list of files.
-4. For any other text, summarize the text.
+1. If the text is a directory listing or any output that is structural, use the history of the conversation to understand the context. Using this context try to understand what information we need from the tool output and return that as a response.
+2. If the text is text content and there is nothing structural that we need, summarize the text.
+3. If the text is the output of a shell command, use the history of the conversation to understand the context. Using this context try to understand what information we need from the tool output and return a summarization along with the stack trace of any error within the <error></error> tags. The stack trace should be complete and not truncated. If there are warnings, you should include them in the summary within <warning></warning> tags.
 
+Here is the history of the conversation:
+{history}
 
 Text to summarize:
 "{textToSummarize}"
+
+The summary string should be in the following format:
+<summary></summary>
+<error></error>
+<warning></warning>
 
 Respond *only* in JSON format according to the following schema. Do not include any text outside the JSON structure.
 \`\`\`json
@@ -45,27 +51,23 @@ const RESPONSE_SCHEMA: SchemaUnion = {
   required: ['summary'],
 };
 
-export interface SummarizationResponse {
-  summary: string;
-}
-
-export async function summarizeText(
+export async function summarizeToolOutput(
   textToSummarize: string,
   geminiClient: GeminiClient,
   abortSignal: AbortSignal,
-  maxLength: number = 10000,
-): Promise<SummarizationResponse | null> {
-  if (!textToSummarize) {
-    return null;
+  maxLength: number = 2000,
+): Promise<string> {
+  if (!textToSummarize || textToSummarize.length < maxLength) {
+    return textToSummarize;
   }
-  if (textToSummarize.length < maxLength) {
-    return { summary: textToSummarize };
-  }
-  console.log(textToSummarize);
-  const prompt = SUMMARIZE_PROMPT_TEMPLATE.replace(
+  const history = geminiClient.getChat().getHistory(true);
+  const historyJsonString = JSON.stringify(history, null, 2);
+  const prompt = SUMMARIZE_TOOL_OUTPUT_TEMPLATE.replace(
     '{maxLength}',
     String(maxLength),
-  ).replace('{textToSummarize}', textToSummarize);
+  )
+    .replace('{textToSummarize}', textToSummarize)
+    .replace('{history}', historyJsonString);
 
   const contents: Content[] = [{ role: 'user', parts: [{ text: prompt }] }];
 
@@ -74,17 +76,13 @@ export async function summarizeText(
       contents,
       RESPONSE_SCHEMA,
       abortSignal,
-    )) as unknown as SummarizationResponse;
-    console.log(parsedResponse);
+    )) as unknown as { summary: string };
     if (parsedResponse && parsedResponse.summary) {
-      return parsedResponse;
+      return parsedResponse.summary;
     }
-    return null;
+    return textToSummarize;
   } catch (error) {
-    console.warn(
-      'Failed to talk to Gemini endpoint for summarization.',
-      error,
-    );
-    return null;
+    console.error('Failed to summarize tool output.', error);
+    return textToSummarize;
   }
 }

@@ -75,10 +75,17 @@ describe('CoreToolScheduler', () => {
     const onAllToolCallsComplete = vi.fn();
     const onToolCallsUpdate = vi.fn();
 
-    const mockConfig = await (Config as any).create({} as any);
+    const mockConfig = {
+      getGeminiClient: () =>
+        ({
+          generateContent: vi.fn(),
+        }) as unknown as GeminiClient,
+      getToolRegistry: () => toolRegistry,
+      getUsageStatisticsEnabled: () => false,
+    };
 
     const scheduler = new CoreToolScheduler({
-      config: mockConfig,
+      config: mockConfig as any,
       toolRegistry: Promise.resolve(toolRegistry as any),
       onAllToolCallsComplete,
       onToolCallsUpdate,
@@ -126,6 +133,25 @@ describe('convertToFunctionResponse', () => {
   const mockGeminiClient = {
     generateContent: vi.fn(),
   } as unknown as GeminiClient;
+  const mockConfig = {
+    getGeminiClient: () =>
+      ({
+        generateContent: vi.fn(),
+      }) as unknown as GeminiClient,
+    getToolRegistry: async () => ({
+      getTool: () => undefined,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {} as any,
+      registerTool: () => {},
+      getToolByName: () => undefined,
+      getToolByDisplayName: () => undefined,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [],
+      getToolsByServer: () => [],
+    }),
+  } as unknown as Config;
   const abortController = new AbortController();
   const signal = abortController.signal;
 
@@ -138,7 +164,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual({
@@ -156,7 +182,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual({
@@ -174,7 +200,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual({
@@ -194,7 +220,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual([
@@ -219,7 +245,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual([
@@ -246,7 +272,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual([
@@ -269,7 +295,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual([
@@ -292,7 +318,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual({
@@ -310,7 +336,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual({
@@ -328,7 +354,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual([
@@ -348,7 +374,7 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      mockGeminiClient,
+      mockConfig,
       signal,
     );
     expect(result).toEqual({
