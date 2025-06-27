@@ -343,7 +343,7 @@ function visitBoxRow(element: React.ReactNode): Row {
 
     if (element.type === Fragment) {
       React.Children.forEach(element.props.children, (child) =>
-        visitRowChild(child, mergedProps),
+        visitRowChild(child, parentProps),
       );
       return;
     }
