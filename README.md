@@ -2,9 +2,20 @@
 
 [![Gemini CLI CI](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml)
 
-This repository contains the Gemini CLI tool.
-
 ![Gemini CLI Screenshot](./docs/assets/gemini-screenshot.png)
+
+This repository contains the Gemini CLI, a command-line AI workflow tool that connects to your
+tools, understands your code and accelerates your workflows.
+
+With the Gemini CLI you can:
+
+- Query and edit large codebases in and beyond Gemini's 1M token context window.
+- Generate new apps from PDFs or sketches, using Gemini's multimodal capabilities.
+- Automate operational tasks, like querying pull requests or handling complex rebases.
+- Use tools and MCP servers to connect new capabilities, including [media generation with Imagen,
+  Veo or Lyria](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia)
+- Ground your queries with the [Google Search](https://ai.google.dev/gemini-api/docs/grounding)
+  tool, built in to Gemini.
 
 ## Quickstart
 
@@ -15,7 +26,15 @@ This repository contains the Gemini CLI tool.
    npx https://github.com/google-gemini/gemini-cli
    ```
 
-3. **Authenticate:** When prompted, sign in with your Google account. This will grant you up to 60 model requests per minute and 1,000 model requests per day using Gemini 2.5 Pro.
+   Or install it with:
+
+   ```bash
+   npm install -g @google/gemini-cli
+   gemini
+   ```
+
+3. **Pick a color theme**
+4. **Authenticate:** When prompted, sign in with your personal Google account. This will grant you up to 60 model requests per minute and 1,000 model requests per day using Gemini.
 
 You are now ready to use the Gemini CLI!
 
@@ -30,20 +49,27 @@ If you need to use a specific model or require a higher request capacity, you ca
    export GEMINI_API_KEY="YOUR_API_KEY"
    ```
 
-For other authentication methods, see the [authentication](./docs/cli/authentication.md) guide.
+For other authentication methods, including Google Workspace accounts, see the [authentication](./docs/cli/authentication.md) guide.
 
 ## Examples
 
-Once the CLI is running, you can start interacting with Gemini from your shell. Try a simple query:
+Once the CLI is running, you can start interacting with Gemini from your shell.
 
-```
-> How can I build a web app?
+You can start a project from a new directory:
+
+```sh
+cd new-project/
+gemini
+> Write me a Gemini Discord bot that answers questions using a FAQ.md file I will provide
 ```
 
-Or ask it to perform a task using its tools:
+Or work with an existing project:
 
-```
-> List files in the current directory.
+```sh
+git clone https://github.com/google-gemini/gemini-cli
+cd gemini-cli
+gemini
+> Give me a summary of all of the changes that went in yesterday
 ```
 
 ### Next steps
@@ -53,6 +79,11 @@ Or ask it to perform a task using its tools:
 - If you encounter any issues, review the **[Troubleshooting guide](./docs/troubleshooting.md)**.
 - For more comprehensive documentation, see the [full documentation](./docs/index.md).
 - Take a look at some [popular tasks](#popular-tasks) for more inspiration.
+
+### Troubleshooting
+
+Head over to the [troubleshooting](docs/troubleshooting.md) guide if you're
+having issues.
 
 ## Popular tasks
 
@@ -100,10 +131,6 @@ Use MCP servers to integrate your local system tools with your enterprise collab
 > Organise my PDF invoices by month of expenditure.
 ```
 
-## Gemini APIs
+## Terms of Service and Privacy Notice
 
-This project leverages the Gemini APIs to provide AI capabilities. For details on the terms of service governing the Gemini API, please refer to the terms for the access mechanism you are using:
-
-- [Gemini API key](https://ai.google.dev/gemini-api/terms)
-- [Gemini Code Assist](https://developers.google.com/gemini-code-assist/resources/privacy-notices)
-- [Vertex AI](https://cloud.google.com/terms/service-terms)
+For details on the terms of service and privacy notice applicable to your use of Gemini CLI, see the [Terms of Service and Privacy Notice](./docs/tos-privacy.md).

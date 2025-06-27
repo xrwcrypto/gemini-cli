@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SandboxConfig } from '@gemini-cli/core';
+import { SandboxConfig } from '@google/gemini-cli-core';
 import commandExists from 'command-exists';
 import * as os from 'node:os';
 import { getPackageJson } from '../utils/package.js';
@@ -58,7 +58,7 @@ function getSandboxCommand(
       );
       process.exit(1);
     }
-    // confirm that specfied command exists
+    // confirm that specified command exists
     if (commandExists.sync(sandbox)) {
       return sandbox;
     }

@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseAndFormatApiError } from './errorParsing.js';
-import { AuthType, StructuredError } from '@gemini-cli/core';
+import { AuthType, StructuredError } from '@google/gemini-cli-core';
 
 describe('parseAndFormatApiError', () => {
   const enterpriseMessage = 'upgrade to a plan with higher limits';
@@ -29,12 +29,12 @@ describe('parseAndFormatApiError', () => {
     expect(result).toContain('Your request has been rate limited');
   });
 
-  it('should format a 429 API error with the enterprise message', () => {
+  it('should format a 429 API error with the personal message', () => {
     const errorMessage =
       'got status: 429 Too Many Requests. {"error":{"code":429,"message":"Rate limit exceeded","status":"RESOURCE_EXHAUSTED"}}';
     const result = parseAndFormatApiError(
       errorMessage,
-      AuthType.LOGIN_WITH_GOOGLE_ENTERPRISE,
+      AuthType.LOGIN_WITH_GOOGLE_PERSONAL,
     );
     expect(result).toContain('[API Error: Rate limit exceeded');
     expect(result).toContain(enterpriseMessage);

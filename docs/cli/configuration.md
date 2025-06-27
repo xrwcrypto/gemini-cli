@@ -42,13 +42,13 @@ In addition to a project settings file, a project's `.gemini` directory can cont
 - **`bugCommand`** (object):
 
   - **Description:** Overrides the default URL for the `/bug` command.
-  - **Default:** `"urlTemplate": "https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.md&title={title}&body={body}"`
+  - **Default:** `"urlTemplate": "https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.yml&title={title}&info={info}"`
   - **Properties:**
-    - **`urlTemplate`** (string): A URL that can contain `{title}` and `{body}` placeholders.
+    - **`urlTemplate`** (string): A URL that can contain `{title}` and `{info}` placeholders.
   - **Example:**
     ```json
     "bugCommand": {
-      "urlTemplate": "https://bug.example.com/new?title={title}&body={body}"
+      "urlTemplate": "https://bug.example.com/new?title={title}&info={info}"
     }
     ```
 
@@ -165,7 +165,7 @@ In addition to a project settings file, a project's `.gemini` directory can cont
   - **Description:** Configures logging and metrics collection for Gemini CLI. For more information, see [Telemetry](../telemetry.md).
   - **Default:** `{"enabled": false, "target": "local", "otlpEndpoint": "http://localhost:4317", "logPrompts": true}`
   - **Properties:**
-    - **`enabled`** (boolean): Whether or not telemtery is enabled.
+    - **`enabled`** (boolean): Whether or not telemetry is enabled.
     - **`target`** (string): The destination for collected telemetry. Supported values are `local` and `gcp`.
     - **`otlpEndpoint`** (string): The endpoint for the OTLP Exporter.
     - **`logPrompts`** (boolean): Whether or not to include the content of user prompts in the logs.
@@ -259,11 +259,6 @@ The CLI automatically loads environment variables from an `.env` file. The loadi
   - Your Google Cloud Project Location (e.g., us-central1).
   - Required for using Vertex AI in non express mode.
   - Example: `export GOOGLE_CLOUD_LOCATION="YOUR_PROJECT_LOCATION"`.
-- **`GEMINI_CODE_ASSIST`**:
-  - Enables Code Assist functionality.
-  - Accepts `true`, `false`, or a custom command string.
-  - If you are using an Enterprise account you should also set the `GOOGLE_CLOUD_PROJECT` environment variable.
-  - Example: `export GEMINI_CODE_ASSIST=true`.
 - **`GEMINI_SANDBOX`**:
   - Alternative to the `sandbox` setting in `settings.json`.
   - Accepts `true`, `false`, `docker`, `podman`, or a custom command string.
@@ -431,6 +426,3 @@ You can opt out of usage statistics collection at any time by setting the `usage
   "usageStatisticsEnabled": false
 }
 ```
-
-**Privacy Policy:**
-Data collected is subject to the [Google Privacy Policy](https://policies.google.com/privacy).

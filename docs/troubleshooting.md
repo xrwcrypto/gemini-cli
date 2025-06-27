@@ -2,11 +2,24 @@
 
 This guide provides solutions to common issues and debugging tips.
 
+## Authentication
+
+- **Error: `Failed to login. Message: Request contains an invalid argument`**
+
+  - Users with Google Workspace accounts, or users with Google Cloud accounts
+    associated with their Gmail accounts may not be able to activate the free
+    tier of the Google Code Assist plan.
+  - For Google Cloud accounts, you can work around this by setting
+    `GOOGLE_CLOUD_PROJECT` to your project ID.
+  - You can also grab an API key from [AI
+    Studio](http://aistudio.google.com/app/apikey), which also includes a
+    separate free tier.
+
 ## Frequently asked questions (FAQs)
 
 - **Q: How do I update Gemini CLI to the latest version?**
 
-  - A: If installed globally via npm, update Gemini CLI using the command `npm install -g @gemini-cli/cli@latest`. If run from source, pull the latest changes from the repository and rebuild using `npm run build`.
+  - A: If installed globally via npm, update Gemini CLI using the command `npm install -g @google/gemini-cli@latest`. If run from source, pull the latest changes from the repository and rebuild using `npm run build`.
 
 - **Q: Where are Gemini CLI configuration files stored?**
 
@@ -24,7 +37,7 @@ This guide provides solutions to common issues and debugging tips.
   - **Solution:**
     Either stop the other process that is using the port or configure the MCP server to use a different port.
 
-- **Error: Command not found (when attempting the run Gemini CLI).**
+- **Error: Command not found (when attempting to run Gemini CLI).**
 
   - **Cause:** Gemini CLI is not correctly installed or not in your system's PATH.
   - **Solution:**

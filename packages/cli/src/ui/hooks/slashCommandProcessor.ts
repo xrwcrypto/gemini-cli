@@ -18,7 +18,7 @@ import {
   MCPServerStatus,
   getMCPDiscoveryState,
   getMCPServerStatus,
-} from '@gemini-cli/core';
+} from '@google/gemini-cli-core';
 import { useSessionStats } from '../contexts/SessionContext.js';
 import {
   Message,
@@ -76,6 +76,7 @@ export const useSlashCommandProcessor = (
   toggleCorgiMode: () => void,
   showToolDescriptions: boolean = false,
   setQuittingMessages: (message: HistoryItem[]) => void,
+  openPrivacyNotice: () => void,
 ) => {
   const session = useSessionStats();
   const gitService = useMemo(() => {
@@ -103,6 +104,8 @@ export const useSlashCommandProcessor = (
           osVersion: message.osVersion,
           sandboxEnv: message.sandboxEnv,
           modelVersion: message.modelVersion,
+          selectedAuthType: message.selectedAuthType,
+          gcpProject: message.gcpProject,
         };
       } else if (message.type === MessageType.STATS) {
         historyItemContent = {
@@ -250,6 +253,13 @@ export const useSlashCommandProcessor = (
         description: 'set external editor preference',
         action: (_mainCommand, _subCommand, _args) => {
           openEditorDialog();
+        },
+      },
+      {
+        name: 'privacy',
+        description: 'display the privacy notice',
+        action: (_mainCommand, _subCommand, _args) => {
+          openPrivacyNotice();
         },
       },
       {
@@ -477,19 +487,27 @@ export const useSlashCommandProcessor = (
           switch (subCommand) {
             case 'show':
               showMemoryAction();
-              return; // Explicitly return void
+              return;
             case 'refresh':
               performMemoryRefresh();
-              return; // Explicitly return void
+              return;
             case 'add':
               return addMemoryAction(mainCommand, subCommand, args); // Return the object
+            case undefined:
+              addMessage({
+                type: MessageType.ERROR,
+                content:
+                  'Missing command\nUsage: /memory <show|refresh|add> [text for add]',
+                timestamp: new Date(),
+              });
+              return;
             default:
               addMessage({
                 type: MessageType.ERROR,
                 content: `Unknown /memory command: ${subCommand}. Available: show, refresh, add`,
                 timestamp: new Date(),
               });
-              return; // Explicitly return void
+              return;
           }
         },
       },
@@ -588,6 +606,8 @@ export const useSlashCommandProcessor = (
           }
           const modelVersion = config?.getModel() || 'Unknown';
           const cliVersion = await getCliVersion();
+          const selectedAuthType = settings.merged.selectedAuthType || '';
+          const gcpProject = process.env.GOOGLE_CLOUD_PROJECT || '';
           addMessage({
             type: MessageType.ABOUT,
             timestamp: new Date(),
@@ -595,6 +615,8 @@ export const useSlashCommandProcessor = (
             osVersion,
             sandboxEnv,
             modelVersion,
+            selectedAuthType,
+            gcpProject,
           });
         },
       },
@@ -621,14 +643,7 @@ export const useSlashCommandProcessor = (
           const cliVersion = await getCliVersion();
           const memoryUsage = formatMemoryUsage(process.memoryUsage().rss);
 
-          const diagnosticInfo = `
-## Describe the bug
-A clear and concise description of what the bug is.
-
-## Additional context
-Add any other context about the problem here.
-
-## Diagnostic Information
+          const info = `
 *   **CLI Version:** ${cliVersion}
 *   **Git Commit:** ${GIT_COMMIT_INFO}
 *   **Operating System:** ${osVersion}
@@ -638,14 +653,14 @@ Add any other context about the problem here.
 `;
 
           let bugReportUrl =
-            'https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.md&title={title}&body={body}';
+            'https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.yml&title={title}&info={info}';
           const bugCommand = config?.getBugCommand();
           if (bugCommand?.urlTemplate) {
             bugReportUrl = bugCommand.urlTemplate;
           }
           bugReportUrl = bugReportUrl
             .replace('{title}', encodeURIComponent(bugDescription))
-            .replace('{body}', encodeURIComponent(diagnosticInfo));
+            .replace('{info}', encodeURIComponent(info));
 
           addMessage({
             type: MessageType.INFO,
@@ -680,6 +695,14 @@ Add any other context about the problem here.
             addMessage({
               type: MessageType.ERROR,
               content: 'No chat client available for conversation status.',
+              timestamp: new Date(),
+            });
+            return;
+          }
+          if (!subCommand) {
+            addMessage({
+              type: MessageType.ERROR,
+              content: 'Missing command\nUsage: /chat <list|save|resume> [tag]',
               timestamp: new Date(),
             });
             return;
@@ -726,6 +749,11 @@ Add any other context about the problem here.
               let i = 0;
               for (const item of conversation) {
                 i += 1;
+
+                // Add each item to history regardless of whether we display
+                // it.
+                chat.addHistory(item);
+
                 const text =
                   item.parts
                     ?.filter((m) => !!m.text)
@@ -735,7 +763,6 @@ Add any other context about the problem here.
                   // Parsing Part[] back to various non-text output not yet implemented.
                   continue;
                 }
-                chat.addHistory(item);
                 if (i === 1 && text.match(/context for our chat/)) {
                   hasSystemPrompt = true;
                 }
@@ -994,6 +1021,7 @@ Add any other context about the problem here.
     toggleCorgiMode,
     savedChatTags,
     config,
+    settings,
     showToolDescriptions,
     session,
     gitService,
@@ -1002,7 +1030,7 @@ Add any other context about the problem here.
     setQuittingMessages,
     pendingCompressionItemRef,
     setPendingCompressionItem,
-    savedChatTags,
+    openPrivacyNotice,
   ]);
 
   const handleSlashCommand = useCallback(
