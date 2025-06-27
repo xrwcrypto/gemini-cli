@@ -7,6 +7,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useInput } from 'ink';
 import {
+  ChatCompressionReason,
   Config,
   GeminiClient,
   GeminiEventType as ServerGeminiEventType,
@@ -410,18 +411,35 @@ export const useGeminiStream = (
   );
 
   const handleChatCompressionEvent = useCallback(
-    (eventValue: ServerGeminiChatCompressedEvent['value']) =>
+    (eventValue: ServerGeminiChatCompressedEvent['value']) => {
+      let reasonMessage = '';
+      if (!eventValue) {
+        reasonMessage = `The conversation history was compressed.`;
+      } else {
+        switch (eventValue.reason) {
+          case ChatCompressionReason.TokenLimit:
+            reasonMessage = `This conversation approached the input token limit for ${config.getModel()}.`;
+            break;
+          case ChatCompressionReason.RecencyThreshold:
+            // This could be noisy, just return.
+            return;
+          default:
+            reasonMessage = `The conversation history was compressed.`;
+            break;
+        }
+      }
+
       addItem(
         {
           type: 'info',
           text:
-            `IMPORTANT: This conversation approached the input token limit for ${config.getModel()}. ` +
-            `A compressed context will be sent for future messages (compressed from: ` +
+            `IMPORTANT: ${reasonMessage} A compressed context will be sent for future messages (compressed from: ` +
             `${eventValue?.originalTokenCount ?? 'unknown'} to ` +
             `${eventValue?.newTokenCount ?? 'unknown'} tokens).`,
         },
         Date.now(),
-      ),
+      );
+    },
     [addItem, config],
   );
 

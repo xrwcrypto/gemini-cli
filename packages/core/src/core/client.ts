@@ -20,6 +20,7 @@ import {
   ServerGeminiStreamEvent,
   GeminiEventType,
   ChatCompressionInfo,
+  ChatCompressionReason,
 } from './turn.js';
 import { Config } from '../config/config.js';
 import { getCoreSystemPrompt } from './prompts.js';
@@ -55,6 +56,8 @@ export class GeminiClient {
     topP: 1,
   };
   private readonly MAX_TURNS = 100;
+  private readonly RECENCY_THRESHOLD = 30;
+  private readonly TURNS_TO_SUMMARIZE = 15;
 
   constructor(private config: Config) {
     if (config.getProxy()) {
@@ -425,6 +428,13 @@ export class GeminiClient {
     });
   }
 
+  /**
+   * Attempts to compress the chat history to reduce token usage.
+   * If the history exceeds a certain threshold, it performs a rolling summary
+   * of older turns. Otherwise, it summarizes the entire history.
+   * @param force - If true, compression is attempted regardless of current token count.
+   * @returns A ChatCompressionInfo object if compression occurred, otherwise null.
+   */
   async tryCompressChat(
     force: boolean = false,
   ): Promise<ChatCompressionInfo | null> {
@@ -441,48 +451,61 @@ export class GeminiClient {
         contents: history,
       });
 
-    // If not forced, check if we should compress based on context size.
+    // Determine if compression is needed.
+    let needsCompression = force;
+    let compressionReason: ChatCompressionReason | null = null;
+
     if (!force) {
-      if (originalTokenCount === undefined) {
-        // If token count is undefined, we can't determine if we need to compress.
-        console.warn(
-          `Could not determine token count for model ${this.model}. Skipping compression check.`,
-        );
-        return null;
-      }
-      const tokenCount = originalTokenCount; // Now guaranteed to be a number
+      const isHistoryTooLong = history.length > this.RECENCY_THRESHOLD;
 
-      const limit = tokenLimit(this.model);
-      if (!limit) {
-        // If no limit is defined for the model, we can't compress.
+      let isTokenCountTooHigh = false;
+      if (originalTokenCount !== undefined) {
+        const limit = tokenLimit(this.model);
+        if (limit) {
+          isTokenCountTooHigh = originalTokenCount >= 0.95 * limit;
+        } else {
+          console.warn(
+            `No token limit defined for model ${this.model}. Skipping token-based compression check.`,
+          );
+        }
+      } else {
         console.warn(
-          `No token limit defined for model ${this.model}. Skipping compression check.`,
+          `Could not determine token count for model ${this.model}. Skipping token-based compression check.`,
         );
-        return null;
       }
 
-      if (tokenCount < 0.95 * limit) {
-        return null;
+      if (isHistoryTooLong) {
+        needsCompression = true;
+        compressionReason = ChatCompressionReason.RecencyThreshold;
+      } else if (isTokenCountTooHigh) {
+        needsCompression = true;
+        compressionReason = ChatCompressionReason.TokenLimit;
       }
     }
 
-    const summarizationRequestMessage = {
-      text: 'Summarize our conversation up to this point. The summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.',
-    };
-    const response = await this.getChat().sendMessage({
-      message: summarizationRequestMessage,
-    });
-    const newHistory = [
-      {
-        role: 'user',
-        parts: [summarizationRequestMessage],
-      },
-      {
-        role: 'model',
-        parts: [{ text: response.text }],
-      },
-    ];
-    this.chat = await this.startChat(newHistory);
+    if (!needsCompression) {
+      return null;
+    }
+
+    let newHistory: Content[];
+    // If history length exceeds the recency threshold, perform a rolling summary.
+    if (history.length > this.RECENCY_THRESHOLD) {
+      newHistory = await this.performRecencyBasedSummarization(history);
+      if (!compressionReason) {
+        compressionReason = ChatCompressionReason.RecencyThreshold;
+      }
+    } else {
+      // Otherwise, summarize the entire history.
+      newHistory = await this.performFullHistorySummarization(history);
+      if (!compressionReason) {
+        compressionReason = ChatCompressionReason.TokenLimit;
+      }
+    }
+
+    // Update the chat history with the new, compressed history.
+    this.getChat().setHistory(newHistory);
+
+    // Calculate the new token count after compression.
     const newTokenCount = (
       await this.getContentGenerator().countTokens({
         model: this.model,
@@ -490,12 +513,73 @@ export class GeminiClient {
       })
     ).totalTokens;
 
-    return originalTokenCount && newTokenCount
+    return originalTokenCount && newTokenCount && compressionReason
       ? {
           originalTokenCount,
           newTokenCount,
+          reason: compressionReason,
         }
       : null;
+  }
+
+  /**
+   * Performs a rolling summary of the chat history.
+   * This is used when the history is long, to summarize the oldest turns
+   * and keep the most recent ones.
+   * @param history - The full chat history.
+   * @returns The new, compressed history.
+   */
+  private async performRecencyBasedSummarization(
+    history: Content[],
+  ): Promise<Content[]> {
+    const turnsToSummarize = history.slice(0, this.TURNS_TO_SUMMARIZE);
+    const remainingHistory = history.slice(this.TURNS_TO_SUMMARIZE);
+    const summaryContent = await this.summarizeHistory(turnsToSummarize);
+    return [summaryContent, ...remainingHistory];
+  }
+
+  /**
+   * Summarizes the entire chat history.
+   * This is used when compression is needed for shorter histories.
+   * @param history - The full chat history.
+   * @returns The new, compressed history.
+   */
+  private async performFullHistorySummarization(
+    history: Content[],
+  ): Promise<Content[]> {
+    const summaryContent = await this.summarizeHistory(history);
+    return [summaryContent];
+  }
+
+  /**
+   * Summarizes a given portion of the chat history.
+   * It creates a temporary chat session with the history to be summarized,
+   * sends a summarization request, and returns the summary as a new Content part.
+   * @param historyToSummarize - The array of Content objects to be summarized.
+   * @returns A Promise that resolves to a Content object containing the summary.
+   */
+  private async summarizeHistory(
+    historyToSummarize: Content[],
+  ): Promise<Content> {
+    const summarizationRequestMessage = {
+      text: 'Summarize our conversation up to this point. The summary should be a concise yet comprehensive overview of all key topics, questions, answers, and important details discussed. This summary will replace the current chat history to conserve tokens, so it must capture everything essential to understand the context and continue our conversation effectively as if no information was lost.',
+    };
+
+    // Create a temporary chat instance to summarize the old turns.
+    // This ensures the summarization itself doesn't affect the main chat history.
+    const tempChat = await this.startChat(historyToSummarize);
+    const response = await tempChat.sendMessage({
+      message: summarizationRequestMessage,
+    });
+
+    return {
+      role: 'user',
+      parts: [
+        {
+          text: `Summary of previous conversation: ${response.text}`,
+        },
+      ],
+    };
   }
 
   /**

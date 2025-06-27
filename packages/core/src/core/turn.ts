@@ -116,9 +116,15 @@ export type ServerGeminiErrorEvent = {
   value: GeminiErrorEventValue;
 };
 
+export enum ChatCompressionReason {
+  TokenLimit = 'token_limit',
+  RecencyThreshold = 'recency_threshold',
+}
+
 export interface ChatCompressionInfo {
   originalTokenCount: number;
   newTokenCount: number;
+  reason: ChatCompressionReason;
 }
 
 export type ServerGeminiChatCompressedEvent = {
